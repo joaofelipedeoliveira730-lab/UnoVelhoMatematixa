@@ -238,12 +238,12 @@ function connectSocket(){
   try{state.socket=io({withCredentials:true,auth:{token:state.token},transports:['websocket','polling']});}catch(e){toast('Não foi possível iniciar o multiplayer.','error');return;}
   state.socket.on('connect',()=>{});state.socket.on('connect_error',e=>toast('Multiplayer indisponível: '+(e.message||'erro'),'error',3500));
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
-  state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');if(room.started&&room.options?.gameMode==='draw')navigate('draw');});
-  state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);if(room.started&&room.options?.gameMode==='draw')navigate('draw');}});
+  state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');if(room.started&&room.options?.gameMode==='draw')navigate('draw');else if(room.started&&['truco','checkers','chess'].includes(room.options?.gameMode))navigate('modeGameView');});
+  state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);if(room.started&&room.options?.gameMode==='draw')navigate('draw');else if(room.started&&['truco','checkers','chess'].includes(room.options?.gameMode))navigate('modeGameView');}});
   state.socket.on('room:system',m=>toast(m.message));state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
   state.socket.on('toast',m=>toast(m.message,m.type||'info'));state.socket.on('chat:message',renderChatMessage);state.socket.on('chat:typing',renderTypingIndicator);state.socket.on('game:chatAction',handleChatAction);
   state.socket.on('game:action',handleGameAction);state.socket.on('game:emote',handleGameEmote);
-  state.socket.on('game:state',renderOnlineGame);
+  state.socket.on('game:state',renderOnlineGame);state.socket.on('mode:state',renderModeGameState);
   state.socket.on('drawing:state',renderDrawingState);
   state.socket.on('drawing:stroke',receiveDrawingStroke);
   state.socket.on('drawing:clear',clearDrawingCanvas);
@@ -355,6 +355,22 @@ function renderDrawingGuess(g){
 
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
+
+function renderModeGameState(g){
+  if(!g)return; state._modeGame=g; state.solo=null; if(state.currentView!=='modeGameView')navigate('modeGameView');
+  const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};
+  const meta=labels[g.mode]||['🎮 JOGO','Mesa'];
+  $('#modeGameBadge')&&($('#modeGameBadge').textContent=meta[0]);$('#modeGameTitle')&&($('#modeGameTitle').textContent=meta[1]);
+  const mine=String(g.currentPlayerId)===String(state.user?.id);$('#modeGameTurn')&&($('#modeGameTurn').textContent=mine?'SUA VEZ':'VEZ DO OPONENTE');$('#modeGameMessage')&&($('#modeGameMessage').textContent=g.message||'');
+  const body=$('#modeGameBody');if(!body)return;
+  if(g.mode==='truco'){
+    const hand=g.hand||[];body.innerHTML=`<div class="online-mode-board truco-online-board"><div class="mode-scorebar">${(g.players||[]).map((p,i)=>`<div class="mode-player-chip"><div class="mode-player-char">${characterMarkup(p.avatar||DEFAULT_AVATAR,p.username)}</div><div><b>${escapeHtml(p.username)}</b><small>${p.points||0} mãos</small></div></div>`).join('')}<div class="truco-bet">VALENDO <b>${g.bet||1}</b></div></div><div class="mode-center-table"><div class="trick-cards">${(g.trick||[]).map(x=>`<div class="playing-card-mini"><b>${escapeHtml(x.card.value)}</b><span>${escapeHtml(x.card.suit)}</span><small>${escapeHtml(x.username)}</small></div>`).join('')||'<div class="mode-empty">🃏 Jogue uma carta</div>'}</div></div><div class="mode-hand-row">${hand.map(c=>`<button class="playing-card-big" data-mode-card="${escapeHtml(c.id)}" type="button"><b>${escapeHtml(c.value)}</b><span>${escapeHtml(c.suit)}</span></button>`).join('')}</div><div class="mode-actions"><button class="btn btn-primary" id="modeTruco" type="button">🔥 TRUCO!</button></div></div>`;
+    body.querySelectorAll('[data-mode-card]').forEach(b=>b.onclick=()=>state.socket?.emit('mode:action',{action:'play',cardId:b.dataset.modeCard}));$('#modeTruco')?.addEventListener('click',()=>state.socket?.emit('mode:action',{action:'truco'}));return;
+  }
+  const isChess=g.mode==='chess';const board=g.board||[];const pieces=isChess?{'r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','p':'♟','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔','P':'♙'}:{'w':'⚪','W':'👑','b':'⚫','B':'👑'};
+  body.innerHTML=`<div class="online-mode-board strategy-online-board"><div class="strategy-head"><div>${(g.players||[]).map((p,i)=>`<div class="mode-player-chip"><div class="mode-player-char">${characterMarkup(p.avatar||DEFAULT_AVATAR,p.username)}</div><b>${escapeHtml(p.username)}</b></div>`).join('')}</div><span>${isChess?(g.turn==='w'?'BRANCAS':'PRETAS'):'VEZ: '+escapeHtml((g.players||[]).find(p=>String(p.userId)===String(g.currentPlayerId))?.username||'')}</span></div><div class="strategy-board ${isChess?'chess-board':'checkers-board'}" id="onlineStrategyBoard">${board.map((piece,i)=>`<button type="button" class="strategy-cell ${((Math.floor(i/8)+i)%2)?'dark':'light'} ${piece?'occupied':''}" data-cell="${i}">${piece?pieces[piece]:''}</button>`).join('')}</div><div class="strategy-help">Toque em uma peça e depois na casa de destino.</div></div>`;
+  let selected=null;body.querySelectorAll('[data-cell]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.cell),piece=board[i];if(selected===null){if(!piece)return;selected=i;body.querySelectorAll('[data-cell]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');return;}if(selected===i){selected=null;b.classList.remove('selected');return;}state.socket?.emit('mode:action',{action:'move',from:selected,to:i});selected=null;body.querySelectorAll('[data-cell]').forEach(x=>x.classList.remove('selected'));});
+}
 function renderOnlineGame(game){
   state._onlineGame=game;state.solo=null;if(state.currentView!=='game')navigate('game');
   $('#roundText')&&($('#roundText').textContent='AO VIVO');
