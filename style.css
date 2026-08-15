@@ -1,138 +1,28 @@
-/* style.css */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-body {
-  background: #121214;
-  color: #e1e1e6;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-
-.container {
-  width: 100%;
-  max-width: 650px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 20px;
+/* CARTAS ESPECIAIS E CORINGAS */
+.card-black {
+  background: linear-gradient(135deg, #111 0%, #444 100%);
+  border-color: #ffcc00;
   color: #ffcc00;
 }
 
-.card {
-  background: #202024;
-  border-radius: 10px;
-  padding: 24px;
-  border: 1px solid #323238;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  margin-bottom: 20px;
+/* TEMAS DOS MAPAS */
+.map-classroom {
+  background: #1c2620;
+  border: 3px solid #00cc66;
 }
 
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+.map-geometry {
+  background: #151a30;
+  border: 3px solid #0088ff;
 }
 
-input, select {
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid #323238;
-  background: #121214;
-  color: #fff;
-  font-size: 14px;
+.map-ceo {
+  background: linear-gradient(135deg, #2a1b00 0%, #553b00 100%);
+  border: 3px solid #ffcc00;
+  box-shadow: 0 0 25px rgba(255, 204, 0, 0.4);
 }
 
-button {
-  padding: 12px;
-  border-radius: 6px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.btn-primary {
-  background: #ffcc00;
-  color: #121214;
-}
-
-.btn-primary:hover {
-  background: #e6b800;
-}
-
-.btn-secondary {
-  background: #00875f;
-  color: #fff;
-}
-
-.btn-large {
-  width: 100%;
-  margin-top: 20px;
-  font-size: 16px;
-}
-
-.message {
-  margin-bottom: 10px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.badge-ceo {
-  background: #ffcc00;
-  color: #000;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  margin-left: 10px;
-}
-
-/* Modal de Termos */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #202024;
-  padding: 30px;
-  border-radius: 12px;
-  max-width: 480px;
-  text-align: center;
-  border: 2px solid #ffcc00;
-}
-
-.modal-content p {
-  margin: 16px 0;
-  color: #c4c4cc;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.selectors-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.selectors-grid div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* DESTAQUE PARA CARTA DO MONTE */
+#discardPile {
+  transform: scale(1.1);
 }
