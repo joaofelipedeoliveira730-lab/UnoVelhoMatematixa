@@ -360,3 +360,69 @@ body.in-game{overflow:hidden}.game-view{position:fixed!important;inset:0;z-index
   .first-person-player-zone .player-self{bottom:88px!important;transform:scale(.82)!important;transform-origin:bottom right}
   .first-person-player-zone .self-profile{bottom:118px!important}
 }
+
+/* ===== AJUSTE FINAL DA MÃO: CENTRO DA MESA SEMPRE VISÍVEL ===== */
+.first-person-center{
+  top:40%!important;
+  z-index:35!important;
+}
+.first-person-player-zone{
+  min-height:116px!important;
+  height:116px!important;
+  padding:0 14px!important;
+  background:linear-gradient(0deg,rgba(0,0,0,.38),transparent 82%)!important;
+}
+.first-person-player-zone .hand-fan-3d{
+  left:50%!important;
+  bottom:-22px!important;
+  width:min(78vw,820px)!important;
+  height:96px!important;
+  min-height:96px!important;
+  transform:translateX(-50%)!important;
+  align-items:flex-start!important;
+  overflow:visible!important;
+  z-index:66!important;
+}
+.first-person-player-zone .hand-fan-3d .hand-card{
+  flex:0 0 61px!important;
+  width:61px!important;
+  height:89px!important;
+  margin:0 -15px!important;
+  transform:translateY(8px) rotate(var(--rot))!important;
+  transform-origin:50% 100%!important;
+  box-shadow:0 12px 22px rgba(0,0,0,.55)!important;
+}
+.first-person-player-zone .hand-fan-3d .hand-card:first-child{margin-left:-5px!important}
+.first-person-player-zone .hand-fan-3d .hand-card:hover,
+.first-person-player-zone .hand-fan-3d .hand-card:focus-visible{
+  transform:translateY(-10px) rotate(0deg) scale(1.06)!important;
+  z-index:200!important;
+}
+.first-person-player-zone .player-self{
+  bottom:74px!important;
+  transform:scale(.86)!important;
+  transform-origin:bottom right!important;
+}
+.first-person-player-zone .self-profile{bottom:118px!important}
+.first-person-player-zone .uno-call{top:-28px!important}
+
+@media(max-width:900px){
+  .first-person-center{top:38%!important}
+  .first-person-player-zone{min-height:96px!important;height:96px!important}
+  .first-person-player-zone .hand-fan-3d{
+    bottom:-20px!important;
+    width:92vw!important;
+    height:78px!important;
+    min-height:78px!important;
+  }
+  .first-person-player-zone .hand-fan-3d .hand-card{
+    flex-basis:49px!important;
+    width:49px!important;
+    height:72px!important;
+    margin:0 -12px!important;
+    transform:translateY(5px) rotate(var(--rot))!important;
+  }
+  .first-person-player-zone .hand-fan-3d .hand-card:first-child{margin-left:-4px!important}
+  .first-person-player-zone .player-self{bottom:62px!important}
+  .first-person-player-zone .self-profile{bottom:104px!important}
+}
