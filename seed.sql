@@ -16,16 +16,16 @@ ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.descript
 
 -- 120 itens: catálogo leve, sem imagens pesadas; o frontend gera os visuais com CSS.
 INSERT INTO items(id,name,category,description,price,xp_required,rarity,asset) VALUES
-('map_saloon','Saloon Clássico','map','Arena inspirada na mesa da referência enviada.',0,0,'rare','{"theme":"saloon","image":"assets/reference-arena.jpg"}'),
-('map_classroom','Sala de Aula','map','Mapa matemático clássico.',0,0,'common','{"theme":"classroom"}'),
-('map_geometry','Laboratório Geométrico','map','Formas, neon e matemática.',900,250,'rare','{"theme":"geometry"}'),
-('map_neon_city','Cidade Neon','map','Arena azul neon futurista.',1800,800,'epic','{"theme":"neon"}'),
-('map_forest','Floresta Matemática','map','Mesa em meio à floresta.',1500,600,'rare','{"theme":"forest"}'),
-('map_desert','Deserto Dourado','map','Arena quente e dourada.',2200,1200,'epic','{"theme":"desert"}'),
-('map_ice','Montanha Congelada','map','Mesa de gelo com brilho azul.',2600,1600,'epic','{"theme":"ice"}'),
-('map_space','Estação Espacial','map','Arena fora da Terra.',3200,2200,'legendary','{"theme":"space"}'),
-('map_math_dimension','Dimensão Matemática','map','Portal matemático animado.',4000,3000,'legendary','{"theme":"math"}'),
-('map_ceo','Dimensão CEO','map','Arena exclusiva do CEO.',0,0,'legendary','{"theme":"ceo","ceoOnly":true}'),
+('map_saloon','Saloon Clássico','map','Arena inspirada na mesa da referência enviada.',0,0,'rare','{"theme":"saloon","image":"assets/maps/saloon.svg"}'),
+('map_classroom','Sala de Aula','map','Mapa matemático clássico.',0,0,'common','{"theme":"classroom","image":"assets/maps/classroom.svg"}'),
+('map_geometry','Laboratório Geométrico','map','Formas, neon e matemática.',900,250,'rare','{"theme":"geometry","image":"assets/maps/geometry.svg"}'),
+('map_neon_city','Cidade Neon','map','Arena azul neon futurista.',1800,800,'epic','{"theme":"neon","image":"assets/maps/neon.svg"}'),
+('map_forest','Floresta Matemática','map','Mesa em meio à floresta.',1500,600,'rare','{"theme":"forest","image":"assets/maps/forest.svg"}'),
+('map_desert','Deserto Dourado','map','Arena quente e dourada.',2200,1200,'epic','{"theme":"desert","image":"assets/maps/desert.svg"}'),
+('map_ice','Montanha Congelada','map','Mesa de gelo com brilho azul.',2600,1600,'epic','{"theme":"ice","image":"assets/maps/ice.svg"}'),
+('map_space','Estação Espacial','map','Arena fora da Terra.',3200,2200,'legendary','{"theme":"space","image":"assets/maps/space.svg"}'),
+('map_math_dimension','Dimensão Matemática','map','Portal matemático animado.',4000,3000,'legendary','{"theme":"math","image":"assets/maps/math.svg"}'),
+('map_ceo','Dimensão CEO','map','Arena exclusiva do CEO.',0,0,'legendary','{"theme":"ceo","image":"assets/maps/ceo.svg","ceoOnly":true}'),
 ('deck_classic','Baralho Clássico','deck','Visual tradicional.',0,0,'common','{"theme":"classic"}'),
 ('deck_white','Baralho White Glass','deck','Cartas brancas com contorno luminoso.',700,200,'rare','{"theme":"white"}'),
 ('deck_cyber','Baralho Cyber Neon','deck','Cartas neon futuristas.',1600,700,'epic','{"theme":"cyber"}'),
@@ -71,7 +71,7 @@ INSERT INTO items(id,name,category,description,price,xp_required,rarity,asset) V
 ('table_blue','Mesa Blue Blur','table','Mesa azul glass.',800,300,'rare','{"theme":"blue"}'),
 ('table_red','Mesa Rubi','table','Mesa rubi.',1200,600,'rare','{"theme":"ruby"}'),
 ('table_gold','Mesa Ouro','table','Mesa dourada.',2500,1500,'epic','{"theme":"gold"}'),
-('table_ceo','Mesa CEO','table','Mesa exclusiva.',0,0,'legendary','{"theme":"ceo","ceoOnly":true}')
+('table_ceo','Mesa CEO','table','Mesa exclusiva.',0,0,'legendary','{"theme":"ceo","image":"assets/maps/ceo.svg","ceoOnly":true}')
 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category, description=EXCLUDED.description, price=EXCLUDED.price, xp_required=EXCLUDED.xp_required, rarity=EXCLUDED.rarity, asset=EXCLUDED.asset;
 
 -- Gera mais itens cosméticos até ultrapassar 100 itens sem imagens pesadas.
@@ -88,7 +88,7 @@ BEGIN
       200 + i*90,
       CASE WHEN i < 10 THEN 0 ELSE i*75 END,
       CASE WHEN i % 10 = 0 THEN 'legendary' WHEN i % 5 = 0 THEN 'epic' WHEN i % 2 = 0 THEN 'rare' ELSE 'common' END,
-      jsonb_build_object('style','generated','variant',i)
+      jsonb_build_object('style','generated','variant',i,'image','assets/cosmetics/cosmetic_'||LPAD(i::text,3,'0')||'.svg')
     ) ON CONFLICT (id) DO NOTHING;
   END LOOP;
 END $$;

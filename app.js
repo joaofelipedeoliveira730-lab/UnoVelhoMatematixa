@@ -2,19 +2,21 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
+const RESOURCE_VERSION = 'unovelho-matx-v6';
+const LOCAL_RESOURCE_STATE = 'unovelho.resources.v6';
 
 const refs = {
   maps: [
-    {id:'map_saloon',name:'Saloon Clássico',thumb:'assets/reference-arena.jpg',theme:'saloon'},
-    {id:'map_classroom',name:'Sala de Aula',thumb:'assets/reference-lobby.jpg',theme:'classroom'},
-    {id:'map_geometry',name:'Laboratório Geométrico',theme:'geometry'},
-    {id:'map_neon_city',name:'Cidade Neon',theme:'neon'},
-    {id:'map_forest',name:'Floresta Matemática',theme:'forest'},
-    {id:'map_desert',name:'Deserto Dourado',theme:'desert'},
-    {id:'map_ice',name:'Montanha Congelada',theme:'ice'},
-    {id:'map_space',name:'Estação Espacial',theme:'space'},
-    {id:'map_math_dimension',name:'Dimensão Matemática',theme:'math'},
-    {id:'map_ceo',name:'Dimensão CEO',theme:'ceo'}
+    {id:'map_saloon',name:'Saloon Clássico',thumb:'assets/maps/saloon.svg',theme:'saloon',resource:'assets/maps/saloon.svg'},
+    {id:'map_classroom',name:'Sala de Aula',thumb:'assets/maps/classroom.svg',theme:'classroom',resource:'assets/maps/classroom.svg'},
+    {id:'map_geometry',name:'Laboratório Geométrico',thumb:'assets/maps/geometry.svg',theme:'geometry',resource:'assets/maps/geometry.svg'},
+    {id:'map_neon_city',name:'Cidade Neon',thumb:'assets/maps/neon.svg',theme:'neon',resource:'assets/maps/neon.svg'},
+    {id:'map_forest',name:'Floresta Matemática',thumb:'assets/maps/forest.svg',theme:'forest',resource:'assets/maps/forest.svg'},
+    {id:'map_desert',name:'Deserto Dourado',thumb:'assets/maps/desert.svg',theme:'desert',resource:'assets/maps/desert.svg'},
+    {id:'map_ice',name:'Montanha Congelada',thumb:'assets/maps/ice.svg',theme:'ice',resource:'assets/maps/ice.svg'},
+    {id:'map_space',name:'Estação Espacial',thumb:'assets/maps/space.svg',theme:'space',resource:'assets/maps/space.svg'},
+    {id:'map_math_dimension',name:'Dimensão Matemática',thumb:'assets/maps/math.svg',theme:'math',resource:'assets/maps/math.svg'},
+    {id:'map_ceo',name:'Dimensão CEO',thumb:'assets/maps/ceo.svg',theme:'ceo',resource:'assets/maps/ceo.svg'}
   ],
   hair: ['hair_basic','hair_curl','hair_long','hair_mohawk','hair_afro','hair_braids','hair_ice','hair_ceo'],
   top: ['shirt_basic','shirt_red','shirt_neon','shirt_gold','shirt_space'],
@@ -69,7 +71,7 @@ const SoundFX = {
   lose(){[260,200,140].forEach((f,i)=>setTimeout(()=>this.tone(f,.22,'triangle'),i*120))}
 };
 
-const BackgroundMusic={ctx:null,master:null,timer:null,step:0,enabled:true,volume:.45,started:false,init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.volume*.08;this.master.connect(this.ctx.destination);}}catch{}},start(){if(this.started)return;this.init();if(!this.ctx||!this.master)return;this.started=true;this.schedule();},schedule(){if(!this.started||!this.ctx)return;const notes=[261.63,329.63,392,523.25,392,329.63,293.66,349.23,440,587.33,440,349.23];const n=notes[this.step%notes.length];const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='triangle';o.frequency.value=n;g.gain.setValueAtTime(.0001,this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.055,this.ctx.currentTime+.025);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+.30);o.connect(g);g.connect(this.master);o.start();o.stop(this.ctx.currentTime+.32);this.step++;this.timer=setTimeout(()=>this.schedule(),330);},stop(){this.started=false;if(this.timer)clearTimeout(this.timer);this.timer=null;},setEnabled(v){this.enabled=v;if(v)this.start();else this.stop();},setVolume(v){this.volume=Number(v)||0;if(this.master)this.master.gain.value=this.volume*.08;}};
+const BackgroundMusic={audio:null,ctx:null,master:null,timer:null,step:0,enabled:true,volume:.45,started:false,init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.volume*.08;this.master.connect(this.ctx.destination);}}catch{}},start(){if(this.started)return; try{if(!this.audio){this.audio=new Audio('/assets/audio/matematixa-theme.wav');this.audio.loop=true;this.audio.preload='auto';this.audio.volume=Math.max(0,Math.min(1,this.volume));} this.audio.currentTime=0; const p=this.audio.play(); if(p?.catch)p.catch(()=>{});}catch{} if(this.started)return;this.init();if(!this.ctx||!this.master)return;this.started=true;this.schedule();},schedule(){if(!this.started||!this.ctx)return;const notes=[261.63,329.63,392,523.25,392,329.63,293.66,349.23,440,587.33,440,349.23];const n=notes[this.step%notes.length];const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='triangle';o.frequency.value=n;g.gain.setValueAtTime(.0001,this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.055,this.ctx.currentTime+.025);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+.30);o.connect(g);g.connect(this.master);o.start();o.stop(this.ctx.currentTime+.32);this.step++;this.timer=setTimeout(()=>this.schedule(),330);},stop(){this.started=false;if(this.audio){try{this.audio.pause();}catch{}}if(this.timer)clearTimeout(this.timer);this.timer=null;},setEnabled(v){this.enabled=v;if(v)this.start();else this.stop();},setVolume(v){this.volume=Number(v)||0;if(this.master)this.master.gain.value=this.volume*.08;if(this.audio)this.audio.volume=Math.max(0,Math.min(1,this.volume));}};
 function startBackgroundMusic(){if(state.profile?.settings?.music!==false){BackgroundMusic.setVolume(state.profile?.settings?.musicVolume??.45);BackgroundMusic.start();}}
 
 function toast(message,type='info',duration=2800){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='error'?'⚠️':type==='success'?'✓':'ℹ️'}</span><div>${escapeHtml(message).replace(/\n/g,'<br>')}</div>`;$('#toastContainer').appendChild(el);setTimeout(()=>el.classList.add('out'),duration-350);setTimeout(()=>el.remove(),duration);}
@@ -80,25 +82,43 @@ function setMessage(id,msg,type='info'){const el=$(id);if(!el)return;el.textCont
 function authHeaders(extra={}){const h={...(extra||{})};if(state.token)h.Authorization=`Bearer ${state.token}`;return h;}
 function postJSON(url,body,opts={}){return fetch(API+url,{method:opts.method||'POST',headers:authHeaders({'Content-Type':'application/json',...(opts.headers||{})}),body:body===undefined?undefined:JSON.stringify(body),credentials:'include'}).then(async r=>{let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} de comunicação com o servidor.`),{data:d,status:r.status});return d;});}
 async function getJSON(url){const r=await fetch(API+url,{credentials:'include',headers:authHeaders()});let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} ao carregar o jogo.`),{data:d,status:r.status});return d;}
+async function resourceList(){
+  try { const d=await fetch('/assets/manifest.json',{cache:'no-store'}); if(d.ok){const j=await d.json(); if(Array.isArray(j.resources)) return j.resources;} } catch {}
+  return ['/','/index.html','/style.css','/app.js','/service-worker.js','/socket.io/socket.io.js','/assets/reference-arena.jpg','/assets/reference-cards.jpg','/assets/reference-lobby.jpg','/assets/audio/matematixa-theme.wav',...refs.maps.map(m=>'/'+m.resource),...Array.from({length:100},(_,i)=>`/assets/cosmetics/cosmetic_${String(i+1).padStart(3,'0')}.svg`)];
+}
+async function registerOfflineWorker(){try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js',{scope:'/'});}catch(e){console.warn('Service Worker:',e);}}
+async function isResourceCached(url){
+  try{if(!('caches' in window))return false; const c=await caches.open(RESOURCE_VERSION); return !!(await c.match(url));}catch{return false;}
+}
+async function ensureResource(url){
+  if(await isResourceCached(url)) return true;
+  try{const c=await caches.open(RESOURCE_VERSION); await c.add(url); return true;}catch{return false;}
+}
 async function cacheGameResources(){
   const progress=$('#downloadProgress');
-  const urls=['/','/index.html','/style.css','/app.js','/assets/reference-arena.jpg','/assets/reference-cards.jpg','/assets/reference-lobby.jpg'];
+  const urls=await resourceList();
+  if(!('caches' in window)){if(progress)progress.textContent='NAVEGADOR SEM CACHE';return false;}
   try{
-    if(!('caches' in window)){if(progress)progress.textContent='NAVEGADOR OK';return;}
-    const cache=await caches.open('unovelho-matx-v4');
-    let done=0;
-    for(const url of urls){try{await cache.add(url);}catch{}done++;if(progress)progress.textContent=`${Math.round(done/urls.length*100)}%`; }
-    if(progress)progress.textContent='BAIXADO';
-  }catch{if(progress)progress.textContent='PRONTO';}
+    const cache=await caches.open(RESOURCE_VERSION); let done=0; let failed=[];
+    for(const url of urls){try{const req=new Request(url,{cache:'reload'}); const res=await fetch(req); if(!res.ok)throw new Error(String(res.status)); await cache.put(req,res.clone());}catch(e){failed.push(url);} done++; if(progress)progress.textContent=`${Math.round(done/urls.length*100)}%`;}
+    const ok=failed.length===0; if(progress)progress.textContent=ok?'TODOS OS RECURSOS BAIXADOS':'FALTARAM '+failed.length; localStorage.setItem(LOCAL_RESOURCE_STATE,JSON.stringify({version:RESOURCE_VERSION,downloadedAt:Date.now(),total:urls.length,failed})); return ok;
+  }catch{if(progress)progress.textContent='ERRO NO DOWNLOAD';return false;}
 }
+async function verifyAllResources(){const urls=await resourceList(); if(!('caches' in window))return false; for(const u of urls){if(!(await isResourceCached(u)))return false;} return true;}
+async function requireMapResource(mapId){const m=refs.maps.find(x=>x.id===mapId); if(!m)return false; const ok=await isResourceCached('/'+m.resource); if(!ok){toast('Mapa Não encontrado. Abaixe todos os cookies/recursos antes de jogar.','error',6000);return false;}return true;}
+function showResourceMessage(){toast('Mapa Não encontrado. Abaixe todos os cookies/recursos antes de abrir este mapa.','error',6000);}
 
 
 function init(){
+  registerOfflineWorker();
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
   bindStaticEvents();
   setTimeout(async()=>{
     hide('#bootScreen');
-    if(!localStorage.getItem('uno_terms_accepted'))show('#termsModal');else await bootAuth();
+    const accepted=localStorage.getItem('uno_terms_accepted')==='1';
+    const saved=(()=>{try{return JSON.parse(localStorage.getItem(LOCAL_RESOURCE_STATE)||'{}')}catch{return {}}})();
+    const complete=accepted && saved.version===RESOURCE_VERSION && await verifyAllResources();
+    if(!complete)show('#termsModal');else await bootAuth();
   },350);
 }
 
@@ -115,6 +135,7 @@ function bindStaticEvents(){
     await cacheGameResources();
     localStorage.setItem('uno_terms_accepted','1');state.terms=true;
     hide('#termsModal');
+    await registerOfflineWorker();
     startBackgroundMusic();
     await bootAuth();
   };
@@ -126,7 +147,7 @@ function bindStaticEvents(){
   $('#btnInventory').onclick=()=>openInventory('items');
   $('#btnCustomize').onclick=()=>openCustomize();
   $('#btnOpenProfile').onclick=()=>openInventory('items');
-  $('#btnOpenSettings').onclick=()=>navigate('settings');
+  $('#btnOpenSettings').onclick=()=>{navigate('settings');refreshResourceStatus();};
   $('#btnRankSmall').onclick=()=>openRank();
   $('#btnMapsPreview').onclick=()=>openShop('official');
   $('#btnSolo').onclick=()=>navigate('solo');
@@ -152,7 +173,7 @@ function bindStaticEvents(){
   $('#btnBackGame').onclick=exitGame;
   $('#btnSound').onclick=toggleMute;
   $('#btnGameSettings').onclick=()=>navigate('settings');
-  $('#btnLogout').onclick=logout;
+  $('#btnLogout').onclick=logout; $('#btnDownloadResources')?.addEventListener('click',downloadAllResources);
   $$('.shop-tab').forEach(b=>b.onclick=()=>openShop(b.dataset.shop));
   $$('.inventory-tab').forEach(b=>b.onclick=()=>openInventory(b.dataset.inv));
   $$('.color-picker button').forEach(b=>b.onclick=()=>chooseColor(b.dataset.color));
@@ -217,7 +238,7 @@ function connectSocket(){
   state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;exitGame();navigate('lobby');});
 }
 
-function renderMapPreview(){const el=$('#mapPreview');el.innerHTML=refs.maps.slice(0,4).map(m=>`<button class="map-tile map-${m.theme}" style="${m.thumb?`background-image:linear-gradient(180deg,transparent,rgba(2,10,35,.8)),url('${m.thumb}')`:''}" data-map="${m.id}"><b>${escapeHtml(m.name)}</b></button>`).join('');el.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>openShop('official'));}
+function renderMapPreview(){const el=$('#mapPreview');el.innerHTML=refs.maps.slice(0,4).map(m=>`<button class="map-tile map-${m.theme}" style="${m.thumb?`background-image:linear-gradient(180deg,transparent,rgba(2,10,35,.8)),url('${m.thumb}')`:''}" data-map="${m.id}"><b>${escapeHtml(m.name)}</b></button>`).join('');el.querySelectorAll('[data-map]').forEach(b=>b.onclick=async()=>{if(await requireMapResource(b.dataset.map)) openShop('official');});}
 async function loadMiniRank(){try{const d=await getJSON('/rank');$('#miniRank').innerHTML=(d.players||[]).slice(0,5).map((p,i)=>`<div class="rank-mini-row"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><small>Nível ${p.level} • ${formatNum(p.wins)} vit.</small></div>`).join('')||'<p class="muted">Ranking ainda vazio.</p>';}catch{}}
 function loadAchievementsPreview(){const a=[['🏆','Primeira Vitória'],['🧠','Mente Matemática'],['🌎','Primeiro Online'],['🎒','Colecionador']];$('#achievementPreview').innerHTML=a.map(x=>`<div class="achievement-chip"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');}
 
@@ -225,13 +246,13 @@ function populateRoomMaps(){const s=$('#roomMap');s.innerHTML=refs.maps.filter(m
 async function openRooms(){navigate('rooms');await loadRooms();}
 async function loadRooms(){try{const d=await getJSON('/rooms');const rooms=d.rooms||[];$('#roomsList').innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${roomTheme(r.options.mapId)}"><span>${r.locked?'🔒':'🌎'}</span></div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers} jogadores</small></div><div class="room-tags"><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span><span>${r.options.difficulty}</span></div><button class="btn btn-primary btn-wide join-room" data-code="${r.code}">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):'<div class="empty-state glass"><span>🌌</span><b>Nenhuma sala aberta agora.</b><small>Crie a primeira mesa!</small></div>';$$('.join-room').forEach(b=>b.onclick=()=>selectRoom(b.dataset.code));}catch(e){toast(e.message,'error');}}
 function roomTheme(id){return refs.maps.find(m=>m.id===id)?.theme||'classroom';}
-async function createRoom(){try{const body={name:$('#roomName').value||`Mesa de ${state.user.username}`,password:$('#roomPassword').value,maxPlayers:Number($('#roomMax').value),turnSeconds:Number($('#roomTime').value),difficulty:$('#roomDifficulty').value,botFill:Number($('#roomBots').value),mapId:$('#roomMap').value,startingCards:Number($('#roomCards').value),allowBots:$('#roomAllowBots').checked,specials:$('#roomSpecials').checked,stackDraw:$('#roomStack').checked,chat:$('#roomChat').checked};const d=await postJSON('/rooms',body);hide('#createRoomModal');state.currentRoom=d.room;state.socket.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+async function createRoom(){try{if(!(await requireMapResource($('#roomMap').value)))return;const body={name:$('#roomName').value||`Mesa de ${state.user.username}`,password:$('#roomPassword').value,maxPlayers:Number($('#roomMax').value),turnSeconds:Number($('#roomTime').value),difficulty:$('#roomDifficulty').value,botFill:Number($('#roomBots').value),mapId:$('#roomMap').value,startingCards:Number($('#roomCards').value),allowBots:$('#roomAllowBots').checked,specials:$('#roomSpecials').checked,stackDraw:$('#roomStack').checked,chat:$('#roomChat').checked};const d=await postJSON('/rooms',body);hide('#createRoomModal');state.currentRoom=d.room;state.socket.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
 async function selectRoom(code){try{const d=await getJSON('/rooms');const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return;state.roomToJoin=room;$('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Sala com senha':'🌎 Sala aberta'}`;$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
 function joinSelectedRoom(){if(!state.roomToJoin)return;const r=state.roomToJoin;state.socket.emit('room:join',{code:r.code,password:$('#joinRoomPassword').value});hide('#joinRoomModal');}
 function renderRoom(room){$('#roomTitle').textContent=room.name;$('#roomCodeBadge').textContent=room.code;$('#roomOptionsText').textContent=`${room.players.length}/${room.options.maxPlayers} jogadores • ${room.options.turnSeconds}s • ${room.options.difficulty} • ${room.options.math?'Matemática':''}`;$('#btnStartRoom').style.display=String(room.ownerId)===String(state.user.id)&&!room.started?'inline-flex':'none';$('#roomPlayers').innerHTML=room.players.map((p,i)=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');$('#roomMapBanner').className=`room-map-banner map-${roomTheme(room.options.mapId)}`;$('#roomMapBanner').innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(refs.maps.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
 function leaveRoom(){if(state.socket)state.socket.emit('room:leave');state.currentRoom=null;navigate('rooms');loadRooms();}
 
-function startSolo(difficulty){SoundFX.click();state.solo=createSolo(difficulty);navigate('game');$('#arenaShell').className=`arena-shell solo-arena map-${state.solo.mapTheme}`;$('.arena-reference').style.display='block';renderSoloGame();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
+async function startSolo(difficulty){SoundFX.click();state.solo=createSolo(difficulty);const soloMap=refs.maps.find(m=>m.theme===state.solo.mapTheme)||refs.maps[0];if(!(await requireMapResource(soloMap.id))){state.solo=null;return;}navigate('game');$('#arenaShell').className=`arena-shell solo-arena map-${state.solo.mapTheme}`;$('.arena-reference').style.display='block';renderSoloGame();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
 function createSolo(difficulty){const deck=createDeck();const player=deck.splice(0,7);const bot=deck.splice(0,7);let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,_discardPile:[],color:top.color,turn:'player',pending:null,botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho',mapTheme:['saloon','neon','geometry'][Math.floor(Math.random()*3)],uno:false,round:1};}
 function createDeck(){const d=[];for(const color of SOLO_COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}return shuffle(d);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -283,13 +304,17 @@ function populateCustomizer(){
 }
 function openCustomize(){populateCustomizer();show('#customizeModal');renderCharacter('#customCharacter',state.profile.avatar);}
 async function saveCharacter(){try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;hide('#customizeModal');renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);toast('Personagem salvo!','success');}catch(e){toast(e.message,'error');}}
-async function saveSettingsFromUI(){if(!state.profile)return;state.profile.settings={music:$('#setMusic').checked,musicVolume:Number($('#setMusicVol').value),sfx:$('#setSfx').checked,sfxVolume:Number($('#setSfxVol').value),animations:$('#setAnimations').checked,reducedMotion:$('#setReducedMotion').checked,chatWorld:$('#setWorldChat').checked,chatRoom:$('#setRoomChat').checked,chatPrivate:$('#setPrivateChat').checked};SoundFX.enabled=state.profile.settings.sfx;SoundFX.volume=state.profile.settings.sfxVolume;BackgroundMusic.setVolume(state.profile.settings.musicVolume);BackgroundMusic.setEnabled(state.profile.settings.music);localStorage.setItem('uv_reduced_motion',state.profile.settings.reducedMotion?'1':'0');document.documentElement.style.setProperty('--motion',state.profile.settings.reducedMotion?'0':'1');try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;}catch{}}
+async function saveSettingsFromUI(){if(!state.profile)return;state.profile.settings={music:$('#setMusic').checked,musicVolume:Number($('#setMusicVol').value),sfx:$('#setSfx').checked,sfxVolume:Number($('#setSfxVol').value),animations:$('#setAnimations').checked,reducedMotion:$('#setReducedMotion').checked,chatWorld:$('#setWorldChat').checked,chatRoom:$('#setRoomChat').checked,chatPrivate:$('#setPrivateChat').checked};SoundFX.enabled=state.profile.settings.sfx;SoundFX.volume=state.profile.settings.sfxVolume;BackgroundMusic.setVolume(state.profile.settings.musicVolume);BackgroundMusic.setEnabled(state.profile.settings.music);localStorage.setItem('uv_reduced_motion',state.profile.settings.reducedMotion?'1':'0'); localStorage.setItem('uv_audio_settings',JSON.stringify({music:state.profile.settings.music,musicVolume:state.profile.settings.musicVolume,sfx:state.profile.settings.sfx,sfxVolume:state.profile.settings.sfxVolume}));document.documentElement.style.setProperty('--motion',state.profile.settings.reducedMotion?'0':'1');try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;}catch{}}
 function applySettings(){const s=state.profile.settings||defaultClientSettings();state.settings=s;$('#setMusic').checked=s.music;$('#setMusicVol').value=s.musicVolume;$('#setSfx').checked=s.sfx;$('#setSfxVol').value=s.sfxVolume;$('#setAnimations').checked=s.animations;$('#setReducedMotion').checked=s.reducedMotion;$('#setWorldChat').checked=s.chatWorld;$('#setRoomChat').checked=s.chatRoom;$('#setPrivateChat').checked=s.chatPrivate;SoundFX.enabled=s.sfx;SoundFX.volume=s.sfxVolume;}
 
 function renderCharacter(selector,a){const el=typeof selector==='string'?$(selector):selector;if(!el||!a)return;const hair=a.hair||'hair_basic';const hairColor=a.hairColor||'#171717';el.innerHTML=`<div class="char-aura ${a.effect||''}"></div><div class="char-body" style="--skin:${a.skinColor||'#d59b76'};--eyes:${a.eyes||'#1d2433'}"><div class="char-head"><div class="char-hair ${hair}" style="--hair:${hairColor}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${a.top||'shirt_basic'}"></div><div class="char-bottom ${a.bottom||'pants_basic'}"></div><div class="char-shoes ${a.shoes||'shoes_basic'}"></div><div class="char-accessory ${a.accessory||''}"></div></div>`;}
 
 async function openRank(){navigate('rank');try{const d=await getJSON('/rank');$('#rankRows').innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${formatNum(p.xp)}</span><span>${formatNum(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){toast(e.message,'error');}}
 async function logout(){try{await postJSON('/logout',undefined);}catch{}try{state.socket?.disconnect()}catch{}state.user=null;state.profile=null;state.token=null;BackgroundMusic.stop();hide('#appScreen');show('#authScreen');}
+
+
+async function refreshResourceStatus(){const el=$('#resourceStatus');if(!el)return;const ok=await verifyAllResources();el.textContent=ok?'✅ Todos os recursos estão salvos neste dispositivo.':'⚠️ Alguns recursos ainda não foram baixados.';el.className=`form-message ${ok?'success':'info'}`;}
+async function downloadAllResources(){const el=$('#resourceStatus'), btn=$('#btnDownloadResources'); if(btn)btn.disabled=true; if(el)el.textContent='Baixando mapas, música, cartas e cosméticos...'; const ok=await cacheGameResources(); if(el){el.textContent=ok?'✅ Download completo. Tudo salvo neste dispositivo.':'❌ O download não terminou. Verifique a conexão e tente novamente.';el.className=`form-message ${ok?'success':'error'}`;} if(btn)btn.disabled=false;}
 
 function setupShopTabs(){/* reservado */}
 
