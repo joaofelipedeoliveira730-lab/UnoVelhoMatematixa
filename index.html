@@ -6,9 +6,26 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="UnoVelho Matematixa — UNO com matemática, personagens e multiplayer.">
 <title>UnoVelho Matematixa</title>
-<link rel="stylesheet" href="style.css?v=20260815-2">
+<link rel="stylesheet" href="style.css?v=20260815-4">
 </head>
 <body>
+
+<main id="platformScreen" class="screen platform-screen">
+  <section class="platform-card glass">
+    <div class="platform-logo"><span>U</span><div>UNO VELHO<small>MATEMATIXA</small></div></div>
+    <div class="platform-kicker">ANTES DE ENTRAR NA MESA</div>
+    <h1>Escolha sua plataforma</h1>
+    <p>O jogo se adapta ao modo escolhido. No celular, a partida usa a tela deitada para ficar igual a uma mesa de cartas.</p>
+    <div class="platform-options">
+      <button id="btnPlatformMobile" class="platform-option mobile" type="button"><span class="platform-icon">📱</span><b>CELULAR</b><small>Tela deitada • toque • interface compacta</small></button>
+      <button id="btnPlatformComputer" class="platform-option computer" type="button"><span class="platform-icon">🖥️</span><b>COMPUTADOR</b><small>Mouse • teclado • tela ampla</small></button>
+    </div>
+    <small class="platform-note">Você poderá trocar essa opção em Configurações.</small>
+  </section>
+</main>
+
+<div id="orientationGuard" class="orientation-guard hidden"><div class="rotate-phone">↻</div><h2>Vire o celular</h2><p>A partida foi feita para jogar deitado, como uma mesa de cartas.</p></div>
+
 <div id="bootScreen" class="boot-screen"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a dimensão Matematixa...</p></div>
 
 <main id="authScreen" class="screen auth-screen hidden">
@@ -56,7 +73,46 @@
 <section id="roomsView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><h2>SALAS ONLINE</h2><div class="subnav-actions"><button id="btnRefreshRooms" class="btn btn-secondary" type="button">↻ Atualizar</button><button id="btnCreateRoom" class="btn btn-primary" type="button">＋ CRIAR SALA</button></div></div><div id="roomsList" class="rooms-list"></div></section>
 <section id="roomView" class="view hidden"><div class="subnav"><button id="btnLeaveRoom" class="back-btn" type="button">← Sair da sala</button><h2 id="roomTitle">SALA</h2><span id="roomCodeBadge" class="code-badge">MATX-0000</span></div><div class="room-layout"><div class="room-main glass"><div class="room-options-bar"><span id="roomOptionsText">Sala</span><button id="btnStartRoom" class="btn btn-primary" type="button">▶ COMEÇAR</button></div><div id="roomPlayers" class="room-players"></div><div id="roomMapBanner" class="room-map-banner"></div></div><aside class="chat-panel glass"><div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div><div id="roomChatMessages" class="chat-messages"></div><form id="roomChatForm" class="chat-form"><input id="roomChatInput" maxlength="500" placeholder="Digite uma mensagem..."><button type="submit">➤</button></form></aside></div></section>
 
-<section id="gameView" class="view hidden"><div id="globalPauseBanner" class="pause-banner hidden"></div><div class="game-layout"><div class="arena-shell" id="arenaShell"><header class="arena-top"><div class="game-stat"><span>PARTIDA</span><b id="roundText">1 / 1</b></div><div id="turnStatus" class="turn-badge">SUA VEZ!</div><div class="arena-tools"><button id="btnSound" class="icon-btn" type="button">🔊</button><button id="btnBackGame" class="icon-btn" type="button">✕</button></div></header><div id="opponents" class="opponents"></div><div class="table-center"><button id="drawStack" class="draw-stack" type="button"><span class="uno-card back-card">UNO</span><b id="deckCount">0</b></button><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div><div class="game-bottom"><div class="player-self"><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div><div id="playerHand" class="hand-cards"></div><div id="gameToast" class="game-toast"></div></div></div><aside class="chat-panel game-chat glass"><div class="chat-tabs"><button class="chat-tab active" data-chat="world" type="button">🌎 Mundo</button><button class="chat-tab" data-chat="room" type="button">🔒 Sala</button><button class="chat-tab" data-chat="private" type="button">👤 Privado</button></div><div id="gameChatMessages" class="chat-messages"></div><form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem..."><button type="submit">➤</button></form></aside></div></section>
+<section id="gameView" class="view hidden game-view">
+  <div id="globalPauseBanner" class="pause-banner hidden"></div>
+  <div class="game-stage-3d">
+    <aside class="game-chat-left chat-panel glass">
+      <div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div>
+      <div class="chat-tabs"><button class="chat-tab active" data-chat="world" type="button">🌎 Mundo</button><button class="chat-tab" data-chat="room" type="button">🔒 Sala</button><button class="chat-tab" data-chat="private" type="button">👤 Privado</button></div>
+      <div id="gameChatMessages" class="chat-messages"></div>
+      <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem..."><button type="submit">➤</button></form>
+    </aside>
+
+    <div id="arenaShell" class="arena-shell arena-3d">
+      <header class="arena-top">
+        <div class="game-stat"><span>PARTIDA</span><b id="roundText">1 / 1</b></div>
+        <div id="turnStatus" class="turn-badge">SUA VEZ!</div>
+        <div class="arena-tools"><button id="btnSound" class="icon-btn" type="button">🔊</button><button id="btnBackGame" class="icon-btn" type="button">✕</button></div>
+      </header>
+
+      <div class="saloon-map">
+        <div class="map-light"></div><div class="table-shadow"></div>
+        <div class="wood-table">
+          <div class="table-rim"></div>
+          <div class="table-felt"></div>
+        </div>
+      </div>
+
+      <div id="opponents" class="opponents table-players"></div>
+      <div class="table-center-3d">
+        <div class="deck-area"><button id="drawStack" class="draw-stack" type="button"><span class="uno-card back-card">UNO</span><b id="deckCount">0</b></button></div>
+        <div class="discard-area"><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div>
+      </div>
+
+      <div class="turn-hint">Clique/toque em uma carta da sua mão para jogar.</div>
+      <div class="player-zone">
+        <div class="player-self"><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
+        <div id="playerHand" class="hand-cards hand-fan-3d"></div>
+        <div id="gameToast" class="game-toast"></div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section id="shopView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>LOJA</h2><div class="shop-tabs"><button class="shop-tab active" data-shop="official" type="button">🏪 Oficial</button><button class="shop-tab" data-shop="market" type="button">🧑‍🤝‍🧑 Jogadores</button></div></div><div id="shopGrid" class="item-grid"></div></section>
 <section id="inventoryView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>INVENTÁRIO</h2></div><div class="profile-layout"><div class="profile-card glass"><div id="profileCharacterLarge" class="character-stage large"></div><h3 id="profileName">Jogador</h3><span id="profileTitle" class="title-badge">INICIANTE</span><div class="profile-stats"><div><b id="profileLevel">1</b><small>Nível</small></div><div><b id="profileWins">0</b><small>Vitórias</small></div><div><b id="profileGames">0</b><small>Partidas</small></div></div></div><div class="inventory-panel glass"><div class="inventory-tabs"><button class="inventory-tab active" data-inv="items" type="button">🎒 Itens</button><button class="inventory-tab" data-inv="achievements" type="button">🏆 Conquistas</button></div><div id="inventoryContent"></div></div></div></section>
@@ -68,10 +124,9 @@
 
 <div id="createRoomModal" class="modal-overlay hidden"><div class="modal modal-wide"><div class="modal-head"><div><span class="pill">🌎 MULTIPLAYER</span><h2>Criar sala</h2></div><button class="close-modal" data-close="createRoomModal" type="button">×</button></div><div class="form-grid"><label>Nome<input id="roomName" maxlength="40" placeholder="Mesa da galera"></label><label>Senha opcional<input id="roomPassword" maxlength="40" type="password"></label><label>Jogadores<select id="roomMax"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label><label>Tempo<select id="roomTime"><option value="20">20s</option><option value="30">30s</option><option selected value="45">45s</option><option value="60">60s</option><option value="90">90s</option></select></label><label>Dificuldade<select id="roomDifficulty"><option value="easy">Fácil</option><option value="medium" selected>Médio</option><option value="hard">Difícil</option></select></label><label>Bots<select id="roomBots"><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option><option value="8">8</option></select></label><label class="full">Mapa<select id="roomMap"></select></label><label>Cartas iniciais<select id="roomCards"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>10</option></select></label><label class="toggle-row"><span>Permitir bots</span><input id="roomAllowBots" type="checkbox" checked></label><label class="toggle-row"><span>Cartas especiais</span><input id="roomSpecials" type="checkbox" checked></label><label class="toggle-row"><span>Empilhar +2/+4</span><input id="roomStack" type="checkbox"></label><label class="toggle-row"><span>Chat</span><input id="roomChat" type="checkbox" checked></label></div><div class="modal-actions"><button class="btn btn-secondary close-modal" data-close="createRoomModal" type="button">CANCELAR</button><button id="btnConfirmCreateRoom" class="btn btn-primary" type="button">CRIAR SALA</button></div></div></div>
 <div id="joinRoomModal" class="modal-overlay hidden"><div class="modal modal-narrow"><div class="modal-head"><h2>Entrar na sala</h2><button class="close-modal" data-close="joinRoomModal" type="button">×</button></div><p id="joinRoomInfo"></p><label>Senha<input id="joinRoomPassword" type="password"></label><button id="btnConfirmJoinRoom" class="btn btn-primary btn-wide" type="button">ENTRAR</button></div></div>
-<div id="mathModal" class="modal-overlay hidden"><div class="modal math-modal"><div class="math-icon">🧠</div><span class="pill">DESAFIO MATEMÁTICO</span><h2 id="mathQuestion">Quanto é?</h2><p>Resolva para jogar esta carta.</p><input id="mathAnswer" inputmode="numeric" type="number" autocomplete="off"><div class="modal-actions"><button id="btnCancelMath" class="btn btn-secondary" type="button">CANCELAR</button><button id="btnSubmitMath" class="btn btn-primary" type="button">CONFIRMAR</button></div><div id="mathFeedback" class="form-message"></div></div></div>
 <div id="colorModal" class="modal-overlay hidden"><div class="modal modal-narrow"><div class="math-icon">🌈</div><h2>Escolha a cor</h2><div class="color-picker"><button data-color="red" type="button">VERMELHO</button><button data-color="yellow" type="button">AMARELO</button><button data-color="green" type="button">VERDE</button><button data-color="blue" type="button">AZUL</button></div></div></div>
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="app.js?v=20260815-2"></script>
+<script src="app.js?v=20260815-4"></script>
 </body>
 </html>
