@@ -209,5 +209,34 @@ CREATE TABLE IF NOT EXISTS app_settings (
     value JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Adicionando colunas na tabela de usuários existente (não apague as chaves que já existem!)
+ALTER TABLE users ADD COLUMN bruto_coins INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN xp INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN skin_atual VARCHAR(255) DEFAULT 'padrao.png';
+
+-- Tabela para a Loja
+CREATE TABLE IF NOT EXISTS loja_itens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    tipo VARCHAR(50) NOT NULL, -- 'skin', 'mapa', 'objeto'
+    preco_brutocoins INT NOT NULL,
+    req_xp INT DEFAULT 0,
+    imagem_url VARCHAR(255)
+);
+
+-- Tabela de Inventário (O que o jogador já comprou)
+CREATE TABLE IF NOT EXISTS inventario (
+    user_id INT,
+    item_id INT,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (item_id) REFERENCES loja_itens(id),
+    PRIMARY KEY (user_id, item_id)
+);
+
+
+
+
+
+
 
 COMMIT;
