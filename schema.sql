@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Migração segura de instalações antigas.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bio VARCHAR(180) NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
 CREATE TABLE IF NOT EXISTS items (
   id VARCHAR(80) PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
@@ -51,6 +57,12 @@ CREATE TABLE IF NOT EXISTS user_inventory (
   acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, item_id)
 );
+
+-- Migração segura de inventário antigo: garante as colunas usadas pelo backend.
+ALTER TABLE user_inventory ADD COLUMN IF NOT EXISTS quantity INT;
+ALTER TABLE user_inventory ALTER COLUMN quantity SET DEFAULT 1;
+UPDATE user_inventory SET quantity=1 WHERE quantity IS NULL OR quantity < 1;
+ALTER TABLE user_inventory ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS player_market (
   listing_id SERIAL PRIMARY KEY,
@@ -121,6 +133,11 @@ CREATE TABLE IF NOT EXISTS moderation_actions (
   expires_at TIMESTAMP,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app_bootstrap (
+  key VARCHAR(80) PRIMARY KEY,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS global_game_state (

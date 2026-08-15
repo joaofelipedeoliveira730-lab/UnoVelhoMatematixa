@@ -9,9 +9,7 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: ADMIN_INITIAL_USERNAME
-        value: Velho
-      - key: ADMIN_INITIAL_PASSWORD
+      - key: CEO_INITIAL_PASSWORD
         sync: false
       - key: NODE_ENV
         value: production

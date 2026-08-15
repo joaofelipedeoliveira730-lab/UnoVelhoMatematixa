@@ -80,31 +80,69 @@ async function initDatabase() {
     await ensureCeo();
     console.log('✅ PostgreSQL conectado e schema aplicado.');
   } catch (err) {
-    console.error('❌ PostgreSQL indisponível:', err.message);
+    console.error('❌ PostgreSQL/schema indisponível:', err.message);
     try { await pool.end(); } catch {}
     pool = null;
     usePostgres = false;
+    if (isProduction || process.env.DATABASE_URL) throw err;
     localDb();
   }
 }
 
 async function ensureCeo() {
   if (!pool) return;
-  const found = await pool.query("SELECT id, username, role FROM users WHERE LOWER(username)='ceovelho' LIMIT 1");
-  if (found.rows.length) {
-    if (found.rows[0].role !== 'CEO') await pool.query("UPDATE users SET role='CEO' WHERE id=$1", [found.rows[0].id]);
-    return;
-  }
-  const initial = process.env.CEO_INITIAL_PASSWORD;
-  if (!initial) {
-    console.warn('⚠️ CeoVelho não existe. Defina CEO_INITIAL_PASSWORD uma única vez para criar a conta CEO.');
-    return;
-  }
-  const hash = await bcrypt.hash(initial, 12);
-  await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)", [hash]);
-  console.log('👑 Conta CeoVelho criada com CEO_INITIAL_PASSWORD.');
-}
+  const password = String(process.env.CEO_INITIAL_PASSWORD || '').trim();
+  const resetMarker = 'ceo_account_reset_v1';
 
+  // O primeiro bootstrap, quando CEO_INITIAL_PASSWORD estiver definido no Render,
+  // limpa contas antigas uma única vez e deixa somente o CEO de teste solicitado.
+  const marker = await pool.query('SELECT key FROM app_bootstrap WHERE key=$1 LIMIT 1', [resetMarker]);
+  if (!marker.rows.length) {
+    if (!password) {
+      throw new Error('CEO_INITIAL_PASSWORD não definido. Configure no Render para concluir o bootstrap do CeoVelho.');
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM users WHERE LOWER(username) <> LOWER($1)', ['CeoVelho']);
+
+      const hash = await bcrypt.hash(password, 12);
+      const existing = await client.query("SELECT id FROM users WHERE LOWER(username)=LOWER('CeoVelho') LIMIT 1");
+      if (existing.rows.length) {
+        await client.query(
+          "UPDATE users SET username='CeoVelho', password_hash=$1, role='CEO', coins=999999999, xp=9999999, level=100 WHERE id=$2",
+          [hash, existing.rows[0].id]
+        );
+      } else {
+        await client.query(
+          "INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)",
+          [hash]
+        );
+      }
+      await client.query('INSERT INTO app_bootstrap(key) VALUES($1)', [resetMarker]);
+      await client.query('COMMIT');
+      console.log('👑 Bootstrap concluído: somente CeoVelho foi mantido/criado.');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+
+  // Em deploys seguintes não apaga contas nem altera dados do jogo.
+  const found = await pool.query("SELECT id, username, role FROM users WHERE LOWER(username)='ceovelho' LIMIT 1");
+  if (!found.rows.length) {
+    if (!password) throw new Error('CeoVelho não existe e CEO_INITIAL_PASSWORD não está definido.');
+    const hash = await bcrypt.hash(password, 12);
+    await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)", [hash]);
+    console.log('👑 Conta CeoVelho recriada.');
+  } else if (found.rows[0].role !== 'CEO') {
+    await pool.query("UPDATE users SET role='CEO' WHERE id=$1", [found.rows[0].id]);
+  }
+}
 function parseCookies(req) {
   const raw = req.headers.cookie || '';
   const out = {};
@@ -242,6 +280,7 @@ app.get('/api/me',auth,async(req,res)=>{const profile=await getProfile(req.user.
 app.post('/api/logout',(req,res)=>{clearAuthCookie(res);res.json({success:true});});
 
 app.post('/api/register',requireDatabase,async(req,res)=>{
+  return res.status(403).json({success:false,message:'Cadastro temporariamente desativado. Use a conta CeoVelho para o teste inicial.'});
   const username=cleanText(req.body.username,24); const password=String(req.body.password||'');
   if(!validUsername(username)||password.length<6||password.length>100) return res.status(400).json({success:false,message:'Usuário deve ter 3-24 caracteres (letras, números ou _), e a senha deve ter 6-100 caracteres.'});
   if(!rateLimit(loginAttempts,req.ip,60000,8)) return res.status(429).json({success:false,message:'Muitas tentativas. Aguarde um minuto.'});
