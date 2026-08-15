@@ -450,7 +450,7 @@ app.post('/api/login',requireDatabase,async(req,res)=>{
   }catch(e){console.error(e);res.status(500).json({success:false,message:'Erro no login.'});}
 });
 
-app.put('/api/profile',auth,async(req,res)=>{try{const avatar=req.body.avatar||{};const allowed=['skinColor','eyes','hair','hairColor','top','bottom','shoes','accessory','effect','emote','title'];const cleanAvatar={};for(const k of allowed)cleanAvatar[k]=cleanText(avatar[k],80);const profile=await saveProfile(req.user.id,{avatar:cleanAvatar,settings:req.body.settings||{},bio:req.body.bio||''});res.json({success:true,profile});}catch(e){res.status(500).json({success:false,message:'Não foi possível salvar o personagem.'});}});
+app.put('/api/profile',auth,async(req,res)=>{try{const avatar=req.body.avatar||{};const allowed=['characterType','skinColor','eyes','hair','hairColor','top','bottom','shoes','accessory','effect','emote','title'];const cleanAvatar={};for(const k of allowed)cleanAvatar[k]=cleanText(avatar[k],80);const profile=await saveProfile(req.user.id,{avatar:cleanAvatar,settings:req.body.settings||{},bio:req.body.bio||''});res.json({success:true,profile});}catch(e){res.status(500).json({success:false,message:'Não foi possível salvar o personagem.'});}});
 app.post('/api/game/solo-finish',auth,async(req,res)=>{
   const win=Boolean(req.body.win);
   const coins=Math.min(1000,Math.max(0,Math.floor(Number(req.body.coins)||0)));
