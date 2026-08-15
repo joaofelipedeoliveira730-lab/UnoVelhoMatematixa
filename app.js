@@ -26,7 +26,14 @@ const COSMETICS = {
 };
 const COLORS = ['red','yellow','green','blue'];
 const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
-const DEFAULT_AVATAR = {skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const DEFAULT_AVATAR = {character:'ze_saideira',skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const CHARACTERS = {
+  ze_saideira:{name:'Zé da Saideira',desc:'O veterano do balcão. Diz que só vai tomar uma e já esquece até a senha do Wi-Fi.',story:'Zé entrou no bar para tomar uma saideira. Três horas depois, ainda estava procurando a primeira. Quando perguntaram se ele queria outra, respondeu: “Não, obrigado. Essa aqui é a última desde 2019!”',body:'#8b4513',skin:'#f1c27d',hair:'#333',accent:'#ffcc00'},
+  tonho_filosofo:{name:'Tonho Filósofo',desc:'Pensa tanto sobre a vida que esquece onde deixou o copo.',story:'Tonho resolve qualquer problema com uma frase profunda. Uma vez ficou 20 minutos olhando para uma carta +2 e concluiu: “No fundo, todo mundo recebe o que joga na mesa.” Ninguém entendeu, mas todo mundo aplaudiu.',body:'#8b0000',skin:'#d59b76',hair:'#333',accent:'#ffffff'},
+  dona_cida:{name:'Dona Cida',desc:'A dona do litrão e a única pessoa que consegue organizar o caos.',story:'Dona Cida não perde uma partida. Quando alguém reclama das regras, ela aponta para o UNO e diz: “Aqui a única regra é não derrubar meu litrão.” Até hoje ninguém teve coragem de discordar.',body:'#b30000',skin:'#d2a679',hair:'#4a4a4a',accent:'#ffffff'},
+  jorginho_falido:{name:'Jorginho Falido',desc:'Ex-playboy, atual especialista em pedir moeda emprestada.',story:'Jorginho já teve carro, lancha e relógio. Agora tem 17 moedas e uma dívida emocional com o vendedor da loja. Mesmo assim, entra em toda partida dizendo: “Hoje eu recupero tudo!”',body:'#cccccc',skin:'#ffe0bd',hair:'#ffd700',accent:'#cc0000'},
+  tiao_sonambulo:{name:'Tião Sonâmbulo',desc:'Dorme em pé, joga dormindo e às vezes ganha sem saber.',story:'Tião começou uma partida às 22h e acordou às 7h com a vitória na tela. Ninguém sabe como aconteceu. Ele também não. Desde então, sua estratégia oficial é: “ZZZ”.',body:'#556b2f',skin:'#c0a080',hair:'#333',accent:'#999'}
+};
 const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true};
 
 const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')==='20260815-4' ? localStorage.getItem('uv_platform') : null;
@@ -131,6 +138,9 @@ function bindEvents(){
   on('#btnShop','click',()=>openShop('official'));
   on('#btnInventory','click',()=>openInventory('items'));
   on('#btnCustomize','click',openCustomize);
+  on('#btnCharacters','click',openCharacters);
+  on('#btnCharacterClose','click',()=>hide('#charactersModal'));
+  on('#characterCards','click',e=>{const b=e.target.closest('[data-character]');if(!b||!state.profile)return;state.profile.avatar.character=b.dataset.character;renderCharacter('#heroCharacter',state.profile.avatar);hide('#charactersModal');toast(`${CHARACTERS[b.dataset.character].name} escolhido! Clique em SALVAR PERSONAGEM para guardar.`,'success');});
   on('#btnOpenProfile','click',()=>openInventory('items'));
   on('#btnOpenSettings','click',()=>navigate('settings'));
   on('#btnRankSmall','click',openRank);
@@ -298,7 +308,33 @@ function renderOnlineGame(game){
   renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
 }
 function characterVariant(name=''){const n=String(name).split('').reduce((a,c)=>((a*31)+c.charCodeAt(0))>>>0,7)%4;return ['character-base-3d.png','character-blue-3d.png','character-red-3d.png','character-purple-3d.png'][n];}
-function characterMarkup(a,name=''){const x={...DEFAULT_AVATAR,...(a||{})};const img=`/assets/characters/${characterVariant(name)}`;const bottom=x.bottom&&x.bottom!=='pants_basic'?`<span class="avatar-item-tag bottom-tag">${escapeHtml(itemName(x.bottom))}</span>`:'';const top=x.top&&x.top!=='shirt_basic'?`<span class="avatar-item-tag top-tag">${escapeHtml(itemName(x.top))}</span>`:'';const acc=x.accessory?`<span class="avatar-item-tag acc-tag">${escapeHtml(itemName(x.accessory))}</span>`:'';return `<div class="char-3d-live" style="--avatar-hue:${(String(name).length%4)*4}deg"><div class="char-aura ${escapeHtml(x.effect)}"></div><img src="${img}" alt="Personagem 3D" draggable="false"><div class="char-item-overlays">${top}${bottom}${acc}</div></div>`;}
+function characterMarkup(a,name=''){
+ const x={...DEFAULT_AVATAR,...(a||{})}; const c=CHARACTERS[x.character]||CHARACTERS.ze_saideira;
+ const skin=x.skinColor||c.skin, hair=x.hairColor||c.hair, body=c.body, accent=c.accent;
+ const drunk=(x.character==='tiao_sonambulo'||x.emote==='emote_wave')?'drunk':'drunk';
+ const accessory=x.accessory||'';
+ return `<div class="char-3d-live svg-character ${drunk}" style="--skin:${escapeHtml(skin)};--hair:${escapeHtml(hair)};--body:${escapeHtml(body)};--accent:${escapeHtml(accent)}">
+   <div class="drunk-z z1">Z</div><div class="drunk-z z2">z</div><div class="drunk-bubble">🍺</div>
+   <svg viewBox="0 0 100 120" width="100%" height="100%" role="img" aria-label="${escapeHtml(c.name)}">
+    <g class="drunk-body">
+      <path d="M25 118 L32 62 Q50 55 68 62 L75 118Z" fill="var(--body)" rx="8"/>
+      <circle cx="50" cy="42" r="23" fill="var(--skin)"/>
+      <path d="M27 36 Q50 7 73 36 L70 24 Q50 4 30 24Z" fill="var(--hair)"/>
+      <circle cx="42" cy="43" r="3" fill="${escapeHtml(x.eyes||'#1d2433')}"/><circle cx="58" cy="43" r="3" fill="${escapeHtml(x.eyes||'#1d2433')}"/>
+      <path d="M39 54 Q50 61 61 54" fill="none" stroke="#222" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="50" cy="48" r="5" fill="#ff5555" opacity=".85"/>
+      <rect x="70" y="68" width="17" height="25" rx="3" fill="#ffffff55" stroke="#fff"/>
+      <rect x="72" y="73" width="13" height="17" rx="2" fill="var(--accent)"/><rect x="70" y="65" width="17" height="8" rx="3" fill="#fff"/>
+      ${x.character==='tonho_filosofo'?'<rect x="34" y="37" width="13" height="9" rx="2" fill="#fff"/><rect x="53" y="37" width="13" height="9" rx="2" fill="#fff"/>':''}
+      ${x.character==='dona_cida'?'<circle cx="50" cy="16" r="10" fill="var(--hair)"/>':''}
+      ${x.character==='jorginho_falido'?'<path d="M42 63 L58 63 L52 83 L48 83Z" fill="#cc0000"/>':''}
+      ${x.character==='tiao_sonambulo'?'<text x="15" y="45" font-size="18" fill="#aaa">Z</text>':''}
+      ${accessory.includes('hat')?'<path d="M25 24 Q50 3 75 24 L82 28 L18 28Z" fill="#222"/>':''}
+    </g>
+   </svg>
+   <div class="char-item-overlays"><span class="avatar-item-tag">${escapeHtml(c.name)}</span></div>
+ </div>`;
+}
 function renderPlayedCards(cards){const el=$('#playedCards');if(!el)return;const recent=cards.slice(-5);el.innerHTML=recent.map((c,i)=>`<div class="uno-card card-${c.color} played-mini" style="--i:${i}"><span>${escapeHtml(c.value)}</span></div>`).join('');}
 function applyMapScene(mapId){const theme=mapTheme(mapId);const shell=$('#arenaShell');const scene=$('#mapScene');const decor=$('#mapDecor');if(shell)shell.dataset.mapTheme=theme;if(scene){scene.className=`saloon-map first-person-map map-${theme}`;}if(decor){const meta=MAP_PERSONALITY[theme]||MAP_PERSONALITY.saloon;decor.innerHTML=(meta.decor||'🍺 ✨').split(' ').map((x,i)=>`<span class="decor decor-${i}">${x}</span>`).join('');}}
 function getSeatEl(playerId){return document.querySelector(`[data-player-id="${CSS.escape(String(playerId))}"]`)||document.querySelector('.player-self');}
@@ -385,7 +421,12 @@ async function equipCustomItem(id,slot){
   state.profile.avatar[slot]=id;renderCustomPage();renderCharacter('#customCharacterPage',state.profile.avatar);Sound.click();
 }
 
-async function saveCharacter(){try{const d=await put('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''});state.profile=normalizeProfile(d.profile);renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);renderCharacter('#customCharacterPage',state.profile.avatar);updateUserUI();renderCustomPage();navigate('lobby');toast('Personagem salvo com sucesso!','success');}catch(e){toast(e.message,'error');}}
+function openCharacters(){
+ const el=$('#characterCards'); if(!el)return;
+ el.innerHTML=Object.entries(CHARACTERS).map(([id,c])=>`<article class="character-story-card ${state.profile?.avatar?.character===id?'selected':''}"><div class="story-avatar" id="story-${id}"></div><div class="story-copy"><h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(c.desc)}</p><small>${escapeHtml(c.story)}</small><button class="btn btn-primary btn-wide" data-character="${id}" type="button">ESCOLHER</button></div></article>`).join('');
+ Object.keys(CHARACTERS).forEach(id=>renderCharacter(`#story-${id}`,{...DEFAULT_AVATAR,character:id})); show('#charactersModal');
+}
+async function saveCharacter(){try{if(!state.token||!state.profile)throw new Error('Sua sessão expirou. Entre novamente na conta.'); const avatar={...DEFAULT_AVATAR,...state.profile.avatar}; avatar.character=CHARACTERS[avatar.character]?avatar.character:'ze_saideira'; state.profile.avatar=avatar; const d=await put('/profile',{avatar,settings:state.profile.settings,bio:state.profile.bio||''});state.profile=normalizeProfile(d.profile);renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);renderCharacter('#customCharacterPage',state.profile.avatar);updateUserUI();renderCustomPage();navigate('lobby');toast('Personagem salvo com sucesso!','success');}catch(e){toast(e.message,'error');}}
 function renderCharacter(selector,a){const el=$(selector);if(!el)return;const x={...DEFAULT_AVATAR,...(a||{})};const name=state.user?.username||'Jogador';el.innerHTML=characterMarkup(x,name);el.classList.add('character-3d-container');}
 function applySettings(){const s={...defaults(),...(state.profile?.settings||{})};const ids=[['setMusic',s.music],['setSfx',s.sfx],['setAnimations',s.animations],['setReducedMotion',s.reducedMotion],['setWorldChat',s.chatWorld],['setRoomChat',s.chatRoom],['setPrivateChat',s.chatPrivate]];ids.forEach(([id,v])=>{if($('#'+id))$('#'+id).checked=!!v;});if($('#setMusicVol'))$('#setMusicVol').value=s.musicVolume;if($('#setSfxVol'))$('#setSfxVol').value=s.sfxVolume;Sound.enabled=s.sfx!==false;Sound.volume=Number(s.sfxVolume)||.7;document.documentElement.style.setProperty('--motion',s.reducedMotion?'0':'1');}
 let settingsSaveTimer=null;function saveSettings(){if(!state.profile)return;const s={music:!!$('#setMusic')?.checked,musicVolume:Number($('#setMusicVol')?.value||.35),sfx:!!$('#setSfx')?.checked,sfxVolume:Number($('#setSfxVol')?.value||.7),animations:!!$('#setAnimations')?.checked,reducedMotion:!!$('#setReducedMotion')?.checked,chatWorld:!!$('#setWorldChat')?.checked,chatRoom:!!$('#setRoomChat')?.checked,chatPrivate:!!$('#setPrivateChat')?.checked};state.profile.settings=s;applySettings();clearTimeout(settingsSaveTimer);settingsSaveTimer=setTimeout(async()=>{try{await put('/profile',{avatar:state.profile.avatar,settings:s,bio:state.profile.bio||''});}catch{}},400);}

@@ -322,7 +322,7 @@ function validUsername(v) { return /^[A-Za-z0-9_]{3,24}$/.test(v); }
 function xpForLevel(level) { return Math.floor(100 * Math.pow(level - 1, 1.45)); }
 function levelForXp(xp) { let level=1; while(level<100 && xp >= xpForLevel(level+1)) level++; return level; }
 function publicUser(u) { return { id:u.id, username:u.username, role:u.role, coins:Number(u.coins||0), xp:Number(u.xp||0), level:Number(u.level||1), wins:Number(u.wins||0), losses:Number(u.losses||0), gamesPlayed:Number(u.games_played||0) }; }
-function defaultAvatar() { return { skinColor:'#d59b76', eyes:'#1d2433', hair:'hair_basic', hairColor:'#171717', top:'shirt_basic', bottom:'pants_basic', shoes:'shoes_basic', accessory:null, effect:null, emote:'emote_wave', title:'title_beginner' }; }
+function defaultAvatar() { return { character:'ze_saideira', skinColor:'#d59b76', eyes:'#1d2433', hair:'hair_basic', hairColor:'#171717', top:'shirt_basic', bottom:'pants_basic', shoes:'shoes_basic', accessory:null, effect:null, emote:'emote_wave', title:'title_beginner' }; }
 function defaultSettings() { return { music:true, musicVolume:0.45, sfx:true, sfxVolume:0.75, animations:true, chatWorld:true, chatRoom:true, chatPrivate:true, reducedMotion:false }; }
 async function getProfile(userId) {
   if (usePostgres) {
@@ -450,7 +450,21 @@ app.post('/api/login',requireDatabase,async(req,res)=>{
   }catch(e){console.error(e);res.status(500).json({success:false,message:'Erro no login.'});}
 });
 
-app.put('/api/profile',auth,async(req,res)=>{try{const avatar=req.body.avatar||{};const allowed=['skinColor','eyes','hair','hairColor','top','bottom','shoes','accessory','effect','emote','title'];const cleanAvatar={};for(const k of allowed)cleanAvatar[k]=cleanText(avatar[k],80);const profile=await saveProfile(req.user.id,{avatar:cleanAvatar,settings:req.body.settings||{},bio:req.body.bio||''});res.json({success:true,profile});}catch(e){res.status(500).json({success:false,message:'Não foi possível salvar o personagem.'});}});
+app.put('/api/profile',auth,async(req,res)=>{
+  try{
+    const avatar=req.body.avatar||{};
+    const allowed=['character','skinColor','eyes','hair','hairColor','top','bottom','shoes','accessory','effect','emote','title'];
+    const cleanAvatar={};
+    for(const k of allowed) cleanAvatar[k]=cleanText(avatar[k],80);
+    const characters=['ze_saideira','tonho_filosofo','dona_cida','jorginho_falido','tiao_sonambulo'];
+    if(!characters.includes(cleanAvatar.character)) cleanAvatar.character='ze_saideira';
+    const profile=await saveProfile(req.user.id,{avatar:cleanAvatar,settings:req.body.settings||{},bio:req.body.bio||''});
+    res.json({success:true,message:'Personagem salvo com sucesso!',profile});
+  }catch(e){
+    console.error('❌ profile/save:',e);
+    res.status(500).json({success:false,message:`Não foi possível salvar o personagem: ${e.message||'erro interno'}`});
+  }
+});
 app.post('/api/game/solo-finish',auth,async(req,res)=>{
   const win=Boolean(req.body.win);
   const coins=Math.min(1000,Math.max(0,Math.floor(Number(req.body.coins)||0)));
