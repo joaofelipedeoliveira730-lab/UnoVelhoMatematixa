@@ -1,28 +1,386 @@
-/* CARTAS ESPECIAIS E CORINGAS */
-.card-black {
-  background: linear-gradient(135deg, #111 0%, #444 100%);
-  border-color: #ffcc00;
-  color: #ffcc00;
+/* style.css - Uno Velho Matematixa Visual Completo */
+
+/* RESET E VARIÁVEIS GLOBAIS */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-/* TEMAS DOS MAPAS */
+:root {
+  --bg-dark: #121214;
+  --card-bg: #202024;
+  --card-border: #323238;
+  --primary-color: #00875f;
+  --primary-hover: #00b37e;
+  --secondary-color: #323238;
+  --secondary-hover: #41414d;
+  --accent-color: #ffcc00;
+  --danger-color: #f75a68;
+  --text-color: #e1e1e6;
+  --text-muted: #a8a8b3;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-color);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+}
+
+.container {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--accent-color);
+  font-size: 2rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+h2, h3 {
+  margin-bottom: 12px;
+  color: var(--text-color);
+}
+
+/* CARTOES E SEÇÕES */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+/* MODAIS */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.message {
+  margin-bottom: 15px;
+  font-weight: bold;
+  text-align: center;
+  min-height: 20px;
+}
+
+/* FORMULÁRIOS E INPUTS */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+input, select {
+  background: #121214;
+  border: 1px solid var(--card-border);
+  color: var(--text-color);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent-color);
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background: var(--card-border);
+  margin: 20px 0;
+}
+
+/* BOTÕES */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 12px 20px;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--secondary-hover);
+}
+
+.btn-large {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  margin-top: 15px;
+  background: linear-gradient(135deg, #00875f 0%, #00b37e 100%);
+  box-shadow: 0 4px 15px rgba(0, 179, 126, 0.3);
+}
+
+.btn-large:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 179, 126, 0.4);
+}
+
+/* DASHBOARD E PAINEL LOBBY */
+.header-user {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.badge-ceo {
+  background: linear-gradient(135deg, #ffcc00 0%, #ff8800 100%);
+  color: #000;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+}
+
+.selectors-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.selectors-grid label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+
+/* TABULEIRO DE JOGO (ARENA) */
+.game-arena {
+  text-align: center;
+  position: relative;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  border-radius: 16px;
+  transition: background 0.5s ease, border-color 0.5s ease;
+}
+
+.arena-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.turn-status {
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--accent-color);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--accent-color);
+}
+
+.opponent-area {
+  margin: 10px 0;
+}
+
+.player-badge {
+  background: #29292e;
+  padding: 8px 18px;
+  border-radius: 20px;
+  display: inline-block;
+  font-weight: bold;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.table-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  margin: 20px 0;
+}
+
+/* CARTAS DE UNO */
+.uno-card {
+  width: 75px;
+  height: 110px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: bold;
+  color: white;
+  border: 3px solid #ffffff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.uno-card:hover {
+  transform: translateY(-10px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+.card-red { background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%); }
+.card-blue { background: linear-gradient(135deg, #0088ff 0%, #0055cc 100%); }
+.card-green { background: linear-gradient(135deg, #00cc66 0%, #008844 100%); }
+.card-yellow { background: linear-gradient(135deg, #ffbb00 0%, #cc9900 100%); color: #121214; }
+.card-black { background: linear-gradient(135deg, #222222 0%, #000000 100%); border-color: var(--accent-color); color: var(--accent-color); }
+
+.card-back {
+  background: linear-gradient(135deg, #2d2d30 0%, #171719 100%);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.player-area {
+  margin-top: 10px;
+}
+
+.player-controls {
+  margin-bottom: 10px;
+}
+
+.btn-uno {
+  background: linear-gradient(135deg, #ff0055 0%, #cc0044 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 8px 24px;
+  border-radius: 20px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 12px rgba(255, 0, 85, 0.5);
+  cursor: pointer;
+}
+
+.btn-uno:active {
+  transform: scale(0.95);
+}
+
+.hand-cards {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 10px 5px;
+}
+
+/* TEMAS DOS MAPAS DA ARENA */
 .map-classroom {
-  background: #1c2620;
+  background: #192b20;
   border: 3px solid #00cc66;
 }
 
 .map-geometry {
-  background: #151a30;
+  background: #141c38;
   border: 3px solid #0088ff;
 }
 
 .map-ceo {
-  background: linear-gradient(135deg, #2a1b00 0%, #553b00 100%);
-  border: 3px solid #ffcc00;
-  box-shadow: 0 0 25px rgba(255, 204, 0, 0.4);
+  background: linear-gradient(135deg, #2a1c00 0%, #4a3300 100%);
+  border: 3px solid var(--accent-color);
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.3);
 }
 
-/* DESTAQUE PARA CARTA DO MONTE */
-#discardPile {
-  transform: scale(1.1);
+/* DESAFIO MATEMÁTICO (MODAL MATH) */
+.math-box {
+  background: #202024;
+  border: 2px solid var(--accent-color);
+  border-radius: 16px;
+}
+
+.math-question {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 20px 0;
+  color: var(--accent-color);
+  background: #121214;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px dashed var(--accent-color);
+}
+
+#mathAnswer {
+  font-size: 20px;
+  text-align: center;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+/* RESPONSIVIDADE */
+@media (min-width: 500px) {
+  .selectors-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
