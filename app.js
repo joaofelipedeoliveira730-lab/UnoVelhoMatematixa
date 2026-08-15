@@ -1,30 +1,4 @@
-/* UnoVelho Matematixa 3.0 - frontend completo */
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'database.json');
-
-// Cria o database.json automaticamente caso não exista
-if (!fs.existsSync(DB_FILE)) {
-  fs.writeFileSync(DB_FILE, JSON.stringify({ pontuacoes: [] }, null, 2));
-}
-
-app.use(express.json());
-// Serve os arquivos estáticos (HTML, CSS, JS do cliente e áudios)
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Servidor ativo' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-
+/* UnoVelho Matematixa - frontend completo */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
