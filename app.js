@@ -1,4 +1,3 @@
-/* UnoVelho Matematixa 3.0 - frontend completo */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
@@ -128,7 +127,8 @@ async function bootAuth(){
 }
 
 function bindStaticEvents(){
-  $('#termsCheck').addEventListener('change',e=>$('#btnAcceptTerms').disabled=!e.target.checked);
+  const on=(id,event,fn)=>{const el=$(id);if(el)el.addEventListener(event,fn);};
+  on('#termsCheck','change',e=>{const b=$('#btnAcceptTerms');if(b)b.disabled=!e.target.checked;});
   $('#btnAcceptTerms').onclick=async()=>{
     if(!$('#termsCheck').checked)return;
     const btn=$('#btnAcceptTerms');btn.disabled=true;btn.textContent='⏳ BAIXANDO RECURSOS...';
@@ -141,11 +141,11 @@ function bindStaticEvents(){
   };
   $('#formLogin').onsubmit=login;
   $('#formRegister').onsubmit=register;
-  $('#brandHome').onclick=()=>navigate('lobby');
-  $('#btnPlay').onclick=()=>navigate('play');
-  $('#btnShop').onclick=()=>openShop('official');
-  $('#btnInventory').onclick=()=>openInventory('items');
-  $('#btnCustomize').onclick=()=>openCustomize();
+  on('#brandHome','click',()=>navigate('lobby'));
+  on('#btnPlay','click',()=>navigate('play'));
+  on('#btnShop','click',()=>openShop('official'));
+  on('#btnInventory','click',()=>openInventory('items'));
+  on('#btnCustomize','click',()=>openCustomize());
   $('#btnOpenProfile').onclick=()=>openInventory('items');
   $('#btnOpenSettings').onclick=()=>{navigate('settings');refreshResourceStatus();};
   $('#btnRankSmall').onclick=()=>openRank();
@@ -321,4 +321,17 @@ function setupShopTabs(){/* reservado */}
 // Seleção de uma carta online: servidor gera o desafio e só então a carta pode ser enviada.
 // O cliente nunca recebe a resposta correta do desafio.
 
-window.addEventListener('DOMContentLoaded',()=>{try{init();}catch(err){console.error('UnoVelho init:',err);try{hide('#bootScreen');}catch{};try{toast('Erro ao iniciar o jogo: '+(err?.message||err),'error',8000);}catch{}}});
+document.addEventListener('click',e=>{
+  const el=e.target.closest('button,a,[role=button]');
+  if(!el)return;
+  const id=el.id;
+  if(id==='btnPlay'){e.preventDefault();e.stopPropagation();navigate('play');return;}
+  if(id==='btnCustomize'){e.preventDefault();e.stopPropagation();openCustomize();return;}
+  if(id==='btnShop'){e.preventDefault();e.stopPropagation();openShop('official');return;}
+  if(id==='btnInventory'){e.preventDefault();e.stopPropagation();openInventory('items');return;}
+  if(id==='btnSolo'){e.preventDefault();e.stopPropagation();navigate('solo');return;}
+  if(id==='btnOnline'){e.preventDefault();e.stopPropagation();openRooms();return;}
+  if(id==='btnRank'){e.preventDefault();e.stopPropagation();openRank();return;}
+});
+
+window.addEventListener('DOMContentLoaded',init);
