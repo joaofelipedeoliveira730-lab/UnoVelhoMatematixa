@@ -79,7 +79,7 @@
     <aside class="game-chat-left chat-panel glass">
       <div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div>
       <div class="chat-tabs"><button class="chat-tab active" data-chat="world" type="button">🌎 Mundo</button><button class="chat-tab" data-chat="room" type="button">🔒 Sala</button><button class="chat-tab" data-chat="private" type="button">👤 Privado</button></div>
-      <div id="gameChatMessages" class="chat-messages"></div>
+      <div id="gameChatTyping" class="chat-typing hidden"></div><div id="gameChatMessages" class="chat-messages"></div>
       <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem..."><button type="submit">➤</button></form>
     </aside>
 
@@ -90,23 +90,24 @@
         <div class="arena-tools"><button id="btnSound" class="icon-btn" type="button">🔊</button><button id="btnBackGame" class="icon-btn" type="button">✕</button></div>
       </header>
 
-      <div class="saloon-map">
-        <div class="map-light"></div><div class="table-shadow"></div>
+      <div id="mapScene" class="saloon-map map-saloon">
+        <div class="map-decor" id="mapDecor" aria-hidden="true"></div><div class="map-light"></div><div class="table-shadow"></div>
         <div class="wood-table">
           <div class="table-rim"></div>
           <div class="table-felt"></div>
         </div>
       </div>
 
-      <div id="opponents" class="opponents table-players"></div>
+      <div id="opponents" class="opponents table-players"></div><div id="gameActionLayer" class="game-action-layer" aria-hidden="true"></div>
       <div class="table-center-3d">
         <div class="deck-area"><button id="drawStack" class="draw-stack" type="button"><span class="uno-card back-card">UNO</span><b id="deckCount">0</b></button></div>
-        <div class="discard-area"><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div>
+        <div class="discard-area"><div id="playedCards" class="played-cards"></div><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div>
       </div>
 
       <div class="turn-hint">Clique/toque em uma carta da sua mão para jogar.</div>
       <div class="player-zone">
-        <div class="player-self"><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
+        <div id="emoteTray" class="emote-tray" aria-label="Emotes"><button type="button" data-emote="😀">😀</button><button type="button" data-emote="😂">😂</button><button type="button" data-emote="😡">😡</button><button type="button" data-emote="🔥">🔥</button><button type="button" data-emote="👏">👏</button><button type="button" data-emote="🎉">🎉</button></div>
+        <div class="player-self" data-player-id=""><div class="player-emote" data-emote-for="self"></div><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
         <div id="playerHand" class="hand-cards hand-fan-3d"></div>
         <div id="gameToast" class="game-toast"></div>
       </div>

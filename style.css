@@ -98,3 +98,60 @@ body.in-game{overflow:hidden}.game-view{position:fixed!important;inset:0;z-index
 @media(max-width:900px) and (orientation:landscape){.game-stage-3d{grid-template-columns:170px minmax(0,1fr);padding:5px;gap:5px}.game-chat-left{border-radius:13px!important}.table-players{inset:45px 0 105px}.player-zone{min-height:125px}.hand-fan-3d{height:85px}.uno-card{width:50px;height:73px;border-width:3px}.uno-card span{font-size:22px}.uno-card i{font-size:10px}.table-center-3d{gap:20px}.table-players .opponent-card{min-width:95px;padding:5px}.turn-hint{top:69%;font-size:7px}.game-toast{bottom:130px}.platform-card{padding:25px}.platform-options{gap:10px}}
 @media(max-width:700px) and (orientation:portrait){.platform-options{grid-template-columns:1fr}.platform-card{padding:24px 17px}.platform-option{min-height:150px}.platform-icon{font-size:42px}}
 @media(min-width:1200px){.game-stage-3d{grid-template-columns:270px minmax(900px,1fr);padding:14px;gap:14px}.hand-fan-3d{height:140px}.uno-card{width:74px;height:108px}.table-center-3d{gap:50px}}
+
+
+/* ===== MESA VIVA 3D — atualização 2026-08-15 ===== */
+.game-stage-3d{position:relative;min-height:100%;isolation:isolate}
+.game-chat-left{position:relative;z-index:40}
+.saloon-map{transition:filter .5s ease,background .5s ease}
+.map-medieval{background-image:linear-gradient(rgba(35,12,5,.18),rgba(8,5,3,.55)),radial-gradient(circle at 50% 30%,#f6b65a33,transparent 28%),linear-gradient(145deg,#281008,#6a2e14 48%,#170704);}
+.map-pirate{background-image:linear-gradient(rgba(0,10,22,.18),rgba(0,4,12,.55)),radial-gradient(circle at 50% 25%,#4ed7ff22,transparent 30%),linear-gradient(145deg,#041a2b,#123c55 50%,#06111b);}
+.map-modern{background-image:linear-gradient(rgba(12,19,35,.08),rgba(5,8,18,.5)),radial-gradient(circle at 65% 30%,#ffffff16,transparent 22%),linear-gradient(145deg,#24364c,#10263d 55%,#09111e);}
+#arenaShell[data-map-theme="medieval"] .wood-table{background:linear-gradient(145deg,#7c3d1c,#2c1108 48%,#6a3018);}
+#arenaShell[data-map-theme="pirate"] .wood-table{background:linear-gradient(145deg,#6d3c1c,#241208 48%,#4b2712);transform:perspective(900px) rotateX(56deg) rotateZ(-1deg);}
+#arenaShell[data-map-theme="modern"] .wood-table{background:linear-gradient(145deg,#4a5662,#161c22 48%,#303943);}
+#arenaShell[data-map-theme="pirate"] .table-felt{background:radial-gradient(ellipse at center,#174d42,#092c2c 70%);}
+#arenaShell[data-map-theme="modern"] .table-felt{background:radial-gradient(ellipse at center,#263c4d,#121c25 70%);}
+.map-decor{position:absolute;inset:0;z-index:2;pointer-events:none;font-size:clamp(24px,3vw,46px);opacity:.8;text-shadow:0 8px 20px #000}
+.map-decor .decor{position:absolute;filter:drop-shadow(0 6px 7px #000);animation:decorFloat 4s ease-in-out infinite}
+.map-decor .decor-0{left:7%;top:18%}.map-decor .decor-1{right:8%;top:22%;animation-delay:-1s}.map-decor .decor-2{right:16%;bottom:23%;animation-delay:-2s}.map-decor .decor-3{left:18%;bottom:28%;animation-delay:-3s}
+@keyframes decorFloat{50%{transform:translateY(-8px) rotate(2deg)}}
+.table-players{pointer-events:none;z-index:28}
+.opponent-seat{position:absolute!important;display:flex!important;flex-direction:column;align-items:center;min-width:120px;padding:4px 8px!important;background:rgba(2,10,21,.28)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:18px!important;backdrop-filter:blur(7px);box-shadow:0 12px 30px rgba(0,0,0,.35)!important;pointer-events:none!important;transition:filter .2s,transform .35s}
+.opponent-seat.seat-0{left:50%;top:0;transform:translateX(-50%)}
+.opponent-seat.seat-1{left:2%;top:38%;transform:translateY(-50%)}
+.opponent-seat.seat-2{right:2%;top:38%;transform:translateY(-50%)}
+.opponent-seat.seat-3{left:50%;bottom:0;transform:translateX(-50%)}
+.opponent-seat.active{filter:brightness(1.25);box-shadow:0 0 30px rgba(72,230,255,.28)!important}
+.player-character{width:76px;height:86px;position:relative;display:grid;place-items:end center;transform:translateZ(0)}
+.player-character .char-body{transform:scale(.72);transform-origin:bottom center}
+.player-nameplate{position:relative;z-index:3;margin-top:-7px;padding:4px 8px;border-radius:999px;background:rgba(0,0,0,.58);white-space:nowrap;text-align:center}
+.player-nameplate b{font-size:9px}.player-nameplate small{display:block;color:#a7c9e8;font-size:7px}
+.player-seat .mini-hand{margin-top:2px;max-width:95px;opacity:.92}
+.player-emote{position:absolute;top:-24px;left:50%;transform:translate(-50%,10px) scale(.4);opacity:0;z-index:15;font-size:38px;filter:drop-shadow(0 4px 6px #000);pointer-events:none}
+.player-emote.show{animation:emotePop 2.2s ease forwards}
+@keyframes emotePop{0%{opacity:0;transform:translate(-50%,15px) scale(.3)}12%{opacity:1;transform:translate(-50%,-8px) scale(1.2)}28%{transform:translate(-50%,-4px) scale(1)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-40px) scale(.8)}}
+.player-seat.playing .player-character,.player-self.playing .self-profile{animation:playerPlay .65s cubic-bezier(.2,.8,.3,1)}
+.player-seat.drawing .player-character,.player-self.drawing .self-profile{animation:playerDraw .7s ease}
+.player-seat.typing .player-character,.player-self.typing .self-profile{animation:playerTyping 1s ease-in-out infinite}
+.player-seat.typing .player-character:after,.player-self.typing .self-profile:after{content:'📱';position:absolute;bottom:30px;left:50%;font-size:22px;transform:translateX(-50%);animation:phoneType .5s ease-in-out infinite alternate;z-index:20}
+@keyframes playerPlay{0%{transform:translateY(0) scale(.95)}45%{transform:translateY(10px) scale(1.08)}100%{transform:translateY(0) scale(1)}}
+@keyframes playerDraw{0%{transform:translateX(0)}45%{transform:translateX(-14px) rotate(-4deg)}100%{transform:translateX(0)}}
+@keyframes playerTyping{50%{transform:translateY(-3px)}}
+@keyframes phoneType{to{transform:translateX(-50%) rotate(-8deg) translateY(-3px)}}
+.game-action-layer{position:absolute;inset:0;z-index:80;pointer-events:none;overflow:hidden}
+.action-flying-card{position:absolute;left:0;top:0;width:58px;height:84px;border:3px solid #fff;border-radius:11px;display:grid;place-items:center;font-size:25px;font-weight:1000;box-shadow:0 16px 35px #0008;transform:translate(calc(var(--sx) - 29px),calc(var(--sy) - 42px)) rotate(-8deg) scale(.85);opacity:0;transition:transform .72s cubic-bezier(.15,.85,.25,1),opacity .12s ease;z-index:90}
+.action-flying-card.go{opacity:1;transform:translate(calc(var(--ex) - 29px),calc(var(--ey) - 42px)) rotate(360deg) scale(1)}
+.action-flying-card.draw{transform:translate(calc(var(--sx) - 29px),calc(var(--sy) - 42px)) rotate(12deg) scale(.75)}
+.action-flying-card.draw.go{transform:translate(calc(var(--ex) - 29px),calc(var(--ey) - 42px)) rotate(-30deg) scale(.65);opacity:.95}
+.played-cards{position:absolute;inset:50% auto auto 50%;width:105px;height:145px;transform:translate(-50%,-50%);pointer-events:none;z-index:2}
+.played-mini{position:absolute!important;width:68px!important;height:98px!important;left:50%;top:50%;transform:translate(-50%,-50%) rotate(calc((var(--i) - 2) * 7deg)) translate(calc((var(--i) - 2) * 7px),calc((var(--i) - 2) * -3px));opacity:.8;box-shadow:0 10px 22px #0008}
+.played-mini span{font-size:25px!important}
+.discard-area{position:relative;z-index:4}
+.emote-tray{position:absolute;right:12px;bottom:112px;z-index:50;display:flex;gap:5px;padding:6px;border-radius:999px;background:rgba(2,9,20,.68);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(10px)}
+.emote-tray button{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#12213a;color:#fff;font-size:17px;cursor:pointer;transition:.15s}
+.emote-tray button:hover{transform:translateY(-5px) scale(1.1);background:#1d426b}
+.chat-typing{min-height:18px;padding:3px 10px;color:#78dfff;font-size:9px;font-style:italic;background:rgba(25,107,155,.12)}
+.game-chat-left .chat-form{position:relative;z-index:2}
+@media(max-width:900px) and (orientation:landscape){.game-chat-left{min-width:165px}.opponent-seat{min-width:90px}.player-character{width:58px;height:67px}.player-character .char-body{transform:scale(.56)}.player-nameplate b{font-size:7px}.player-nameplate small{font-size:6px}.emote-tray{right:6px;bottom:95px}.emote-tray button{width:27px;height:27px;font-size:14px}.played-cards{transform:translate(-50%,-48%) scale(.8)}}
+@media(max-width:650px) and (orientation:landscape){.game-stage-3d{grid-template-columns:150px minmax(0,1fr)}.opponent-seat.seat-1{left:1%}.opponent-seat.seat-2{right:1%}.emote-tray{gap:2px}.emote-tray button{width:24px;height:24px;font-size:12px}}
