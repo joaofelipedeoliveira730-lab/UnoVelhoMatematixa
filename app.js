@@ -26,12 +26,11 @@ const COSMETICS = {
 };
 const COLORS = ['red','yellow','green','blue'];
 const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
-const DEFAULT_AVATAR = {characterType:'ze',skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const DEFAULT_AVATAR = {skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
 const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true};
 
 const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')==='20260815-4' ? localStorage.getItem('uv_platform') : null;
 const state = {
-  unoDeadline: 0, unoTimer: null,
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
   currentRoom:null, roomToJoin:null, selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
   solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', actionTimers:new Map(), typingTimer:null, musicTimer:null
@@ -138,6 +137,13 @@ function bindEvents(){
   on('#btnSolo','click',()=>navigate('solo'));
   on('#btnOnline','click',openRooms);
   on('#btnRank','click',openRank);
+  on('#btnModeDraw','click',()=>openDrawingRoomCreator());
+  $$('[data-mode-soon]').forEach(b=>b.addEventListener('click',()=>toast(`🎮 ${b.dataset.modeSoon} está entrando no Matematixa. O próximo modo jogável é o Adivinha o Desenho!`,'info',4500)));
+  on('#btnBackDraw','click',leaveDrawingGame);
+  on('#btnDrawClear','click',()=>state.socket?.emit('drawing:clear',{roomCode:state.currentRoom?.code}));
+  on('#btnDrawEraser','click',()=>toggleDrawEraser());
+  on('#drawGuessForm','submit',e=>{e.preventDefault();const input=$('#drawGuessInput');const text=input?.value.trim();if(!text)return;state.socket?.emit('drawing:guess',{roomCode:state.currentRoom?.code,guess:text});if(input)input.value='';});
+  initDrawingCanvas();
   on('#btnRefreshRooms','click',loadRooms);
   on('#btnCreateRoom','click',openCreateRoom);
   on('#btnCreateRoomLobby','click',openCreateRoom);
@@ -165,7 +171,7 @@ function bindEvents(){
   ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>on('#'+id,'change',saveSettings));
   on('#setMusicVol','input',saveSettings);on('#setSfxVol','input',saveSettings);
   on('#roomChatForm','submit',e=>{e.preventDefault();sendChat($('#roomChatInput')?.value,'room');if($('#roomChatInput'))$('#roomChatInput').value='';});
-  on('#gameChatForm','submit',e=>{e.preventDefault();const input=$('#gameChatInput');sendChat(input?.value,'world');if(input){input.value='';state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}});
+  on('#gameChatForm','submit',e=>{e.preventDefault();const input=$('#gameChatInput');sendChat(input?.value,state.currentChat);if(input){input.value='';state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}});
   $$('#emoteTray [data-emote]').forEach(b=>b.addEventListener('click',()=>sendEmote(b.dataset.emote)));
   on('#gameChatInput','input',()=>{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:true});clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}),900);});
   on('#gameChatInput','blur',()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}));
@@ -218,7 +224,7 @@ function navigate(view){
   const target=$(`#${view}View`);if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
   $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;
   document.body.classList.toggle('in-game',view==='game');
-  if(view==='game'&&state.platform==='mobile'){try{screen.orientation?.lock?.('landscape');}catch{}}
+  if((view==='game'||view==='draw')&&state.platform==='mobile'){try{screen.orientation?.lock?.('landscape');}catch{}}
   updateOrientationGuard();
   window.scrollTo({top:0,behavior:'smooth'});
   if(view==='lobby'){renderCharacter('#heroCharacter',state.profile.avatar);loadMiniRank();}
@@ -230,12 +236,19 @@ function connectSocket(){
   try{state.socket=io({withCredentials:true,auth:{token:state.token},transports:['websocket','polling']});}catch(e){toast('Não foi possível iniciar o multiplayer.','error');return;}
   state.socket.on('connect',()=>{});state.socket.on('connect_error',e=>toast('Multiplayer indisponível: '+(e.message||'erro'),'error',3500));
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
-  state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');});
-  state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);}});
+  state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');if(room.started&&room.options?.gameMode==='draw')navigate('draw');});
+  state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);if(room.started&&room.options?.gameMode==='draw')navigate('draw');}});
   state.socket.on('room:system',m=>toast(m.message));state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
   state.socket.on('toast',m=>toast(m.message,m.type||'info'));state.socket.on('chat:message',renderChatMessage);state.socket.on('chat:typing',renderTypingIndicator);state.socket.on('game:chatAction',handleChatAction);
   state.socket.on('game:action',handleGameAction);state.socket.on('game:emote',handleGameEmote);
   state.socket.on('game:state',renderOnlineGame);
+  state.socket.on('drawing:state',renderDrawingState);
+  state.socket.on('drawing:stroke',receiveDrawingStroke);
+  state.socket.on('drawing:clear',clearDrawingCanvas);
+  state.socket.on('drawing:reveal',renderDrawingReveal);
+  state.socket.on('drawing:guess',renderDrawingGuess);
+  state.socket.on('drawing:turn',renderDrawingTurn);
+  state.socket.on('drawing:round',renderDrawingRound);
   state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);});
   state.socket.on('global:pause',m=>{show('#globalPauseBanner');if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='⏸ '+m.message;});state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
   state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
@@ -253,7 +266,17 @@ async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=aw
 function mapTheme(id){return MAPS.find(m=>m.id===id)?.theme||'classroom';}
 async function selectRoom(code){try{const d=await get('/rooms');const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return toast('Sala não encontrada.','error');state.roomToJoin=room;$('#joinRoomInfo')&&($('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Com senha':'🌎 Aberta'}`);if($('#joinRoomPassword'))$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
 function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:r.code,password:$('#joinRoomPassword')?.value||''});hide('#joinRoomModal');}
-async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:$('#roomGameMode')?.value||'uno',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};if(body.gameMode==='draw'){body.turnSeconds=Math.max(30,Number(body.turnSeconds)||45);body.startingCards=7;}
+  if(['truco','checkers','chess'].includes(body.gameMode)){toast('Esse modo está na lista de próximos lançamentos. Escolha UNO ou Adivinha o Desenho para jogar agora.','info',4500);if($('#roomGameMode'))$('#roomGameMode').value='uno';body.gameMode='uno';return;}
+  const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+function openDrawingRoomCreator(){
+  navigate('rooms');
+  setTimeout(()=>{openCreateRoom();if($('#roomGameMode'))$('#roomGameMode').value='draw';},0);
+}
+function leaveDrawingGame(){
+  if(state.socket&&state.currentRoom)state.socket.emit('room:leave');
+  state.currentRoom=null;state._drawingGame=null;stopDrawingTimer();if(drawSnapshotTimer)clearInterval(drawSnapshotTimer);drawSnapshotTimer=null;clearDrawingCanvas();navigate('lobby');
+}
 function renderRoom(room){
   if(!room)return;$('#roomTitle')&&($('#roomTitle').textContent=room.name);$('#roomCodeBadge')&&($('#roomCodeBadge').textContent=room.code);$('#roomOptionsText')&&($('#roomOptionsText').textContent=`${room.players.length}/${room.options.maxPlayers} jogadores • ${room.options.turnSeconds}s • ${room.options.difficulty} • Matemática`);if($('#btnStartRoom'))$('#btnStartRoom').style.display=String(room.ownerId)===String(state.user.id)&&!room.started?'inline-flex':'none';
   const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
@@ -266,7 +289,7 @@ function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d
 function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
 async function startSolo(difficulty){state.solo=makeSolo(difficulty);navigate('game');$('#arenaShell')?.classList.add('solo-arena');renderSolo();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
 function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho'};}
-function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand)hand.innerHTML=g.player.map((c,i)=>cardHtml(c,i,g.player.length)).join('');armUnoButton(g.turn==='player'&&g.player.length===1);}
+function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand)hand.innerHTML=g.player.map((c,i)=>cardHtml(c,i,g.player.length)).join('');}
 function renderArenaCard(card,color){if($('#discardPile')){$('#discardPile').className=`uno-card card-${color} big-card`;$('#discardPile').textContent=card?.value||'?';}if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';}
 function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(delta*5).toFixed(2);const lift=Math.min(12,Math.abs(delta)*2).toFixed(1);return `<button class="uno-card card-${c.color} hand-card" data-index="${i}" style="--rot:${rot}deg;--lift:${lift}px;--z:${20+i}" type="button" aria-label="Jogar carta ${escapeHtml(c.value)}"><i>${escapeHtml(c.value)}</i><span>${escapeHtml(c.value)}</span><em>${c.type==='number'?'UNO':c.type.toUpperCase()}</em></button>`;}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
@@ -280,6 +303,49 @@ function botScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player
 function chooseColorBot(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
 async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1000);}
 
+// ---------------- ADIVINHA O DESENHO ----------------
+const DRAW_COLORS=['#111827','#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#ffffff'];
+let drawCtx=null,projectorCtx=null,drawPainting=false,drawLast=null,drawColor='#111827',drawEraser=false,drawTimerHandle=null,drawSnapshotTimer=null;
+function initDrawingCanvas(){
+  const canvas=$('#drawCanvas');if(!canvas)return;
+  drawCtx=canvas.getContext('2d');drawCtx.lineCap='round';drawCtx.lineJoin='round';const pc=$('#projectorCanvas');projectorCtx=pc?.getContext('2d');if(projectorCtx){projectorCtx.lineCap='round';projectorCtx.lineJoin='round';}clearDrawingCanvas();startDrawingSnapshotTimer();
+  const point=e=>{const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*(canvas.width/r.width),y:(e.clientY-r.top)*(canvas.height/r.height)}};
+  const start=e=>{if(!state._drawingGame?.isDrawer)return;drawPainting=true;drawLast=point(e);drawSegment(drawLast,drawLast,true);canvas.setPointerCapture?.(e.pointerId);};
+  const move=e=>{if(!drawPainting||!state._drawingGame?.isDrawer)return;const p=point(e);drawSegment(drawLast,p,false);drawLast=p;};
+  const end=e=>{drawPainting=false;drawLast=null;try{canvas.releasePointerCapture?.(e.pointerId)}catch{}};
+  canvas.addEventListener('pointerdown',start);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('pointerleave',()=>{if(drawPainting)drawPainting=false;});
+  const palette=$('#drawPalette');if(palette)palette.innerHTML=DRAW_COLORS.map(c=>`<button type="button" class="draw-color ${c===drawColor?'active':''}" data-draw-color="${c}" style="--c:${c}"></button>`).join('');
+  palette?.addEventListener('click',e=>{const b=e.target.closest('[data-draw-color]');if(!b)return;drawColor=b.dataset.drawColor;drawEraser=false;$('#btnDrawEraser')?.classList.remove('active');$$('.draw-color').forEach(x=>x.classList.toggle('active',x===b));});
+  on('#drawBrush','input',()=>{});
+}
+function drawSegment(a,b,emit=true){if(!drawCtx)return;const size=Number($('#drawBrush')?.value||7);drawCtx.strokeStyle=drawEraser?'#ffffff':drawColor;drawCtx.lineWidth=size;drawCtx.beginPath();drawCtx.moveTo(a.x,a.y);drawCtx.lineTo(b.x,b.y);drawCtx.stroke();if(emit&&state.socket&&state.currentRoom){state.socket.emit('drawing:stroke',{roomCode:state.currentRoom.code,x1:a.x,y1:a.y,x2:b.x,y2:b.y,color:drawColor,size,erase:drawEraser});}}
+function receiveDrawingStroke(d){const draw=(ctx)=>{if(!ctx)return;const old=ctx.strokeStyle,ow=ctx.lineWidth;ctx.strokeStyle=d.erase?'#ffffff':d.color;ctx.lineWidth=Number(d.size)||7;ctx.beginPath();ctx.moveTo(Number(d.x1),Number(d.y1));ctx.lineTo(Number(d.x2),Number(d.y2));ctx.stroke();ctx.strokeStyle=old;ctx.lineWidth=ow;};draw(drawCtx);draw(projectorCtx);$('#projectorEmpty')?.classList.add('hidden');}
+function clearDrawingCanvas(){for(const ctx of [drawCtx,projectorCtx]){if(!ctx)continue;ctx.save();ctx.fillStyle='#ffffff';ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.restore();}$('#projectorEmpty')?.classList.remove('hidden');}
+function toggleDrawEraser(){drawEraser=!drawEraser;$('#btnDrawEraser')?.classList.toggle('active',drawEraser);}
+function stopDrawingTimer(){if(drawTimerHandle)clearInterval(drawTimerHandle);drawTimerHandle=null;}
+function startDrawingSnapshotTimer(){if(drawSnapshotTimer)clearInterval(drawSnapshotTimer);drawSnapshotTimer=setInterval(()=>{if(!state._drawingGame?.isDrawer||!state.currentRoom||!drawCtx||!state.socket)return;try{const data=drawCtx.canvas.toDataURL('image/jpeg',.48);state.socket.emit('drawing:snapshot',{roomCode:state.currentRoom.code,dataUrl:data});}catch{}},3500);}
+function startDrawingTimer(seconds){stopDrawingTimer();let left=Math.max(0,Number(seconds)||45);const el=$('#drawTimer');if(el)el.textContent=left;drawTimerHandle=setInterval(()=>{left--;if(el)el.textContent=Math.max(0,left);if(left<=0)stopDrawingTimer();},1000);}
+function renderDrawingState(g){
+  state._drawingGame=g;state.solo=null;if(state.currentView!=='draw')navigate('draw');
+  const mine=String(g.drawerId)===String(state.user?.id);const title=$('#drawTurnLabel');if(title)title.textContent=mine?'✏️ SUA VEZ DE DESENHAR':'👀 '+(g.drawerName||'Jogador')+' está desenhando';
+  $('#drawWordHint')&&( $('#drawWordHint').textContent=mine?'Você vê a palavra. Não escreva o nome no desenho!':'A palavra está escondida. Seja rápido para adivinhar!');
+  const secret=$('#drawSecretWord');if(secret)secret.textContent=mine?(g.secretWord||'...'):'???';
+  $('#drawWordCard')?.classList.toggle('hidden',!mine);$('#drawCanvasLock')?.classList.toggle('hidden',mine);
+  const canvas=$('#drawCanvas');if(canvas)canvas.classList.toggle('drawer-active',mine);startDrawingTimer(g.secondsLeft||g.turnSeconds||45);
+  const players=$('#drawPlayers');if(players)players.innerHTML=(g.players||[]).map(p=>`<div class="draw-player ${String(p.userId)===String(g.drawerId)?'drawing-now':''}"><span class="draw-avatar">${p.avatar?.emoji||'👤'}</span><div><b>${escapeHtml(p.username)}</b><small>${p.points||0} pts${String(p.userId)===String(g.drawerId)?' • DESENHANDO':''}</small></div></div>`).join('');
+  const feed=$('#drawGuessFeed');if(feed&&g.guesses){feed.innerHTML=g.guesses.map(x=>`<div class="guess-line ${x.correct?'correct':''}"><b>${escapeHtml(x.username)}</b><span>${escapeHtml(x.guess)}</span>${x.correct?'<em>✓ ACERTOU</em>':''}</div>`).join('');feed.scrollTop=feed.scrollHeight;}
+}
+function renderDrawingTurn(g){renderDrawingState({...state._drawingGame,...g});clearDrawingCanvas();}
+function renderDrawingRound(g){renderDrawingState({...state._drawingGame,...g});if($('#projectorScreen'))$('#projectorScreen').innerHTML='<canvas id="projectorCanvas" width="1200" height="700"></canvas><div class="projector-empty" id="projectorEmpty">🎥<b>PROJETOR</b><small>O desenho aparecerá aqui para todos.</small></div>';projectorCtx=$('#projectorCanvas')?.getContext('2d');if(projectorCtx){projectorCtx.lineCap='round';projectorCtx.lineJoin='round';}clearDrawingCanvas();hide('#drawReveal');}
+function renderDrawingReveal(g){
+  const box=$('#drawReveal');if(box){$('#drawRevealWord').textContent=g.word||'...';box.classList.remove('hidden');}
+  const screen=$('#projectorScreen');if(screen&&g.dataUrl){screen.innerHTML=`<img src="${escapeHtml(g.dataUrl)}" alt="Desenho revelado">`;}
+  toast(`🔎 Era: ${g.word||'???'}`,'success',4500);
+}
+function renderDrawingGuess(g){
+  const feed=$('#drawGuessFeed');if(!feed)return;const line=document.createElement('div');line.className=`guess-line ${g.correct?'correct':''}`;line.innerHTML=`<b>${escapeHtml(g.username)}</b><span>${escapeHtml(g.guess)}</span>${g.correct?'<em>✓ ACERTOU</em>':''}`;feed.appendChild(line);feed.scrollTop=feed.scrollHeight;if(g.correct)Sound.ok();
+}
+
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
 function renderOnlineGame(game){
@@ -290,7 +356,7 @@ function renderOnlineGame(game){
   const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;state.currentMapTheme=theme.music||'saloon';applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
   renderArenaCard(game.top,game.currentColor);$('#deckCount')&&($('#deckCount').textContent=game.deckCount);
   renderPlayedCards(game.recentDiscard||[]);
-  const hand=$('#playerHand');if(hand)hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');armUnoButton(mine&&(game.hand||[]).length===1);
+  const hand=$('#playerHand');if(hand)hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');
   const ops=$('#opponents');
   if(ops){const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));ops.innerHTML=others.map((p,i)=>{
     const seat=i%4;const active=String(p.userId)===String(game.currentPlayerId);const char=characterMarkup(p.avatar||DEFAULT_AVATAR,p.username);return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
@@ -298,8 +364,8 @@ function renderOnlineGame(game){
   const self=$('.player-self');if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
   renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
 }
-function characterVariant(name=''){const n=String(name).split('').reduce((a,c)=>((a*31)+c.charCodeAt(0))>>>0,7)%5;return ['velho','azul','vermelho','roxo','dourado'][n];}
-function characterMarkup(a,name=''){const x={...DEFAULT_AVATAR,...(a||{})};const skin=x.skinColor||'#d59b76',hair=x.hairColor||'#171717',eyes=x.eyes||'#1d2433';const type=x.characterType||characterVariant(name);const defs={ze:{shirt:'#8b4513',hair:'#333',prop:'🍺',hat:'',pose:'drunk'},tonho:{shirt:'#8b0000',hair:'#333',prop:'🧠',hat:'🤓',pose:'think'},cida:{shirt:'#b30000',hair:'#4a4a4a',prop:'🍺',hat:'👒',pose:'proud'},jorginho:{shirt:'#ccc',hair:'#ffd700',prop:'💸',hat:'',pose:'sad'},tiao:{shirt:'#556b2f',hair:'#4a4a4a',prop:'💤',hat:'',pose:'sleep'}};const d=defs[type]||defs.ze;return `<div class="char-code-3d character-${escapeHtml(type)} ${escapeHtml(d.pose)}" style="--skin:${escapeHtml(skin)};--hair:${escapeHtml(hair||d.hair)};--eyes:${escapeHtml(eyes)};--shirt:${escapeHtml(d.shirt)}"><div class="char-aura ${escapeHtml(x.effect||'')}"></div><div class="char-name-tag"><b>${escapeHtml(name||'Jogador')}</b><small>${escapeHtml(itemName(x.title).toUpperCase())}</small></div><svg class="char-svg" viewBox="0 0 100 120" role="img" aria-label="${escapeHtml(name||'Jogador')}"><ellipse cx="50" cy="112" rx="30" ry="6" class="char-shadow"/><path d="M22 108 Q24 72 50 70 Q76 72 78 108Z" class="char-shirt"/><path d="M31 108 L35 79 L44 82 L40 108Z M69 108 L65 79 L56 82 L60 108Z" class="char-pants"/><circle cx="50" cy="48" r="24" class="char-skin"/><path d="M27 45 Q27 17 50 18 Q74 17 74 45 Q66 31 50 31 Q35 31 27 45Z" class="char-hair"/><circle cx="41" cy="48" r="3.2" class="char-eye"/><circle cx="59" cy="48" r="3.2" class="char-eye"/><path d="M43 61 Q50 65 57 61" class="char-mouth"/><circle cx="50" cy="56" r="4" class="char-nose"/><path d="M42 78 L50 90 L58 78" class="char-shirt-detail"/></svg><div class="char-prop">${d.prop}</div><div class="char-hat">${d.hat}</div></div>`;}
+function characterVariant(name=''){const n=String(name).split('').reduce((a,c)=>((a*31)+c.charCodeAt(0))>>>0,7)%4;return ['character-base-3d.png','character-blue-3d.png','character-red-3d.png','character-purple-3d.png'][n];}
+function characterMarkup(a,name=''){const x={...DEFAULT_AVATAR,...(a||{})};const img=`/assets/characters/${characterVariant(name)}`;const bottom=x.bottom&&x.bottom!=='pants_basic'?`<span class="avatar-item-tag bottom-tag">${escapeHtml(itemName(x.bottom))}</span>`:'';const top=x.top&&x.top!=='shirt_basic'?`<span class="avatar-item-tag top-tag">${escapeHtml(itemName(x.top))}</span>`:'';const acc=x.accessory?`<span class="avatar-item-tag acc-tag">${escapeHtml(itemName(x.accessory))}</span>`:'';return `<div class="char-3d-live" style="--avatar-hue:${(String(name).length%4)*4}deg"><div class="char-aura ${escapeHtml(x.effect)}"></div><img src="${img}" alt="Personagem 3D" draggable="false"><div class="char-item-overlays">${top}${bottom}${acc}</div></div>`;}
 function renderPlayedCards(cards){const el=$('#playedCards');if(!el)return;const recent=cards.slice(-5);el.innerHTML=recent.map((c,i)=>`<div class="uno-card card-${c.color} played-mini" style="--i:${i}"><span>${escapeHtml(c.value)}</span></div>`).join('');}
 function applyMapScene(mapId){const theme=mapTheme(mapId);const shell=$('#arenaShell');const scene=$('#mapScene');const decor=$('#mapDecor');if(shell)shell.dataset.mapTheme=theme;if(scene){scene.className=`saloon-map first-person-map map-${theme}`;}if(decor){const meta=MAP_PERSONALITY[theme]||MAP_PERSONALITY.saloon;decor.innerHTML=(meta.decor||'🍺 ✨').split(' ').map((x,i)=>`<span class="decor decor-${i}">${x}</span>`).join('');}}
 function getSeatEl(playerId){return document.querySelector(`[data-player-id="${CSS.escape(String(playerId))}"]`)||document.querySelector('.player-self');}
@@ -316,8 +382,7 @@ function stopMapMusic(){clearInterval(state.musicTimer);state.musicTimer=null;}
 
 function chooseColor(color){if(state.solo&&state.pendingSoloCard){const card=state.pendingSoloCard.card;state.pendingSoloCard=null;hide('#colorModal');applySoloCard(card,color);return;}if(!state.pendingCard||!state.socket)return;state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,chosenColor:color});state.pendingCard=null;state.pendingChallenge=null;hide('#colorModal');}
 function drawGameCard(){if(state.solo){soloDraw();return;}if(state.currentRoom?.started)state.socket?.emit('game:draw');}
-function armUnoButton(active){const btn=$('#btnUno');if(!btn)return;clearTimeout(state.unoTimer);state.unoDeadline=active?Date.now()+2800:0;btn.classList.toggle('hidden',!active);btn.classList.toggle('uno-urgent',active);if(active){const tick=()=>{const left=Math.max(0,state.unoDeadline-Date.now());btn.dataset.left=String(left);btn.style.setProperty('--uno-progress',`${left/28}%`);if(left<=0){btn.classList.remove('uno-urgent');btn.classList.add('uno-missed');setTimeout(()=>{btn.classList.add('hidden');btn.classList.remove('uno-missed');},450);toast('💥 Você demorou! O UNO escapou.','error');return;}state.unoTimer=setTimeout(tick,60)};tick();}}
-function callUno(){if(!state.unoDeadline||Date.now()>state.unoDeadline)return toast('💨 Tarde demais! O botão UNO sumiu.','error');clearTimeout(state.unoTimer);state.unoDeadline=0;armUnoButton(false);Sound.ok();if(state.solo){toast('📣 UNOOOOOOO!!!','success',1800);return;}if(state.currentRoom)state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom.code,body:'📣 UNOOOOOOO!!!'});}
+function callUno(){if(state.solo){if(state.solo.player.length===1){Sound.ok();toast('📣 UNO!','success');}else toast('Você só chama UNO com uma carta.','error');return;}if(state.currentRoom)state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom.code,body:'📣 UNO!'});}
 function exitGame(){state.solo=null;state._onlineGame=null;state.pendingCard=null;state.pendingSoloCard=null;hide('#colorModal');navigate(state.currentRoom?'room':'lobby');}
 function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted&&state.profile?.settings?.sfx!==false;if($('#btnSound'))$('#btnSound').textContent=state.muted?'🔇':'🔊';}
 
@@ -337,7 +402,7 @@ async function sellItem(id){const price=prompt('Preço em moedas (mínimo 10):',
 function renderAchievements(){const el=$('#inventoryContent');if(!el)return;const arr=[['🏆','Primeira Vitória','Vença sua primeira partida.'],['🧠','Mente Matemática','Acerte desafios matemáticos.'],['🌎','Primeiro Online','Finalize uma partida online.'],['🎒','Colecionador','Desbloqueie 10 itens.'],['⭐','Nível 10','Alcance o nível 10.'],['💎','Nível 25','Alcance o nível 25.']];el.innerHTML=`<div class="achievement-list">${arr.map(a=>`<div class="achievement-card"><span>${a[0]}</span><div><b>${a[1]}</b><small>${a[2]}</small></div><em>EM PROGRESSO</em></div>`).join('')}</div>`;}
 
 // ---------------- PERSONAGEM / CONFIG ----------------
-function populateCustomizer(){const ct=$('#customCharacterType');if(ct){ct.value=state.profile.avatar.characterType||'ze';ct.onchange=()=>{state.profile.avatar.characterType=ct.value;renderCharacter('#customCharacter',state.profile.avatar);renderCharacter('#customCharacterPage',state.profile.avatar);};}for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
+function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
@@ -394,7 +459,7 @@ let settingsSaveTimer=null;function saveSettings(){if(!state.profile)return;cons
 
 async function openRank(){navigate('rank');const el=$('#rankRows');if(!el)return;try{const d=await get('/rank');el.innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${fmt(p.xp)}</span><span>${fmt(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){el.innerHTML=`<div class="empty-state">${escapeHtml(e.message)}</div>`;}}
 function switchChat(ch){state.currentChat=ch;$$('.chat-tab').forEach(b=>b.classList.toggle('active',b.dataset.chat===ch));if($('#gameChatInput'))$('#gameChatInput').placeholder=ch==='private'?'Mensagem privada...':'Mensagem...';}
-function sendChat(body,channel='world'){const text=String(body||'').trim();if(!text)return;if(channel!=='world')channel='world';if(state.profile?.settings?.chatWorld===false)return toast('Chat global desativado.','error');if(channel==='room'&&!state.profile.settings.chatRoom)return toast('Chat da sala desativado.','error');state.socket?.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});}
+function sendChat(body,channel){const text=String(body||'').trim();if(!text)return;if(channel==='world'&&!state.profile.settings.chatWorld)return toast('Chat mundial desativado.','error');if(channel==='room'&&!state.profile.settings.chatRoom)return toast('Chat da sala desativado.','error');state.socket?.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});}
 function renderChatMessage(m){if(m.channel==='room'&&state.currentRoom?.code!==m.roomCode)return;[$('#roomChatMessages'),$('#gameChatMessages')].forEach(box=>{if(!box)return;const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);box.scrollTop=box.scrollHeight;});}
 async function logout(){try{await post('/logout');}catch{}try{state.socket?.disconnect();}catch{}localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;state.currentRoom=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
 
