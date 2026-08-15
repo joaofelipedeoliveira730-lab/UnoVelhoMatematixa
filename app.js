@@ -1,375 +1,272 @@
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => [...document.querySelectorAll(s)];
-const API = '/api';
-const RESOURCE_VERSION = 'unovelho-matx-v8';
-const LOCAL_RESOURCE_STATE = 'unovelho.resources.v8';
+/* UnoVelho Matematixa — frontend integrado
+ * Compatível com o server.js atual do projeto.
+ * Não depende de Service Worker, cache de recursos ou IDs opcionais para iniciar.
+ */
+'use strict';
 
-const refs = {
-  maps: [
-    {id:'map_saloon',name:'Saloon Clássico',thumb:'assets/maps/saloon.svg',theme:'saloon',resource:'assets/maps/saloon.svg'},
-    {id:'map_classroom',name:'Sala de Aula',thumb:'assets/maps/classroom.svg',theme:'classroom',resource:'assets/maps/classroom.svg'},
-    {id:'map_geometry',name:'Laboratório Geométrico',thumb:'assets/maps/geometry.svg',theme:'geometry',resource:'assets/maps/geometry.svg'},
-    {id:'map_neon_city',name:'Cidade Neon',thumb:'assets/maps/neon.svg',theme:'neon',resource:'assets/maps/neon.svg'},
-    {id:'map_forest',name:'Floresta Matemática',thumb:'assets/maps/forest.svg',theme:'forest',resource:'assets/maps/forest.svg'},
-    {id:'map_desert',name:'Deserto Dourado',thumb:'assets/maps/desert.svg',theme:'desert',resource:'assets/maps/desert.svg'},
-    {id:'map_ice',name:'Montanha Congelada',thumb:'assets/maps/ice.svg',theme:'ice',resource:'assets/maps/ice.svg'},
-    {id:'map_space',name:'Estação Espacial',thumb:'assets/maps/space.svg',theme:'space',resource:'assets/maps/space.svg'},
-    {id:'map_math_dimension',name:'Dimensão Matemática',thumb:'assets/maps/math.svg',theme:'math',resource:'assets/maps/math.svg'},
-    {id:'map_ceo',name:'Dimensão CEO',thumb:'assets/maps/ceo.svg',theme:'ceo',resource:'assets/maps/ceo.svg'}
-  ],
-  hair: ['hair_basic','hair_curl','hair_long','hair_mohawk','hair_afro','hair_braids','hair_ice','hair_ceo'],
-  top: ['shirt_basic','shirt_red','shirt_neon','shirt_gold','shirt_space'],
-  bottom: ['pants_basic','pants_black','pants_neon'],
-  shoes: ['shoes_basic','shoes_red','shoes_gold'],
-  accessory: ['glasses_basic','glasses_cyan','glasses_gold','hat_cap','hat_cowboy','hat_crown','mask_math','backpack_blue','backpack_space'],
-  effect: ['aura_blue','aura_gold','aura_rainbow'],
-  emote: ['emote_wave','emote_math','emote_fire'],
-  title: ['title_beginner','title_calculator','title_master','title_ceo']
+const API = '/api';
+const VERSION = '20260815-2';
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+
+const MAPS = [
+  ['map_saloon','Saloon Clássico','saloon'],['map_classroom','Sala de Aula','classroom'],['map_geometry','Laboratório Geométrico','geometry'],
+  ['map_neon_city','Cidade Neon','neon'],['map_forest','Floresta Matemática','forest'],['map_desert','Deserto Dourado','desert'],
+  ['map_ice','Montanha Congelada','ice'],['map_space','Estação Espacial','space'],['map_math_dimension','Dimensão Matemática','math'],['map_ceo','Dimensão CEO','ceo']
+].map(([id,name,theme])=>({id,name,theme,asset:`assets/maps/${theme}.svg`}));
+
+const COSMETICS = {
+  hair:['hair_basic','hair_curl','hair_long','hair_mohawk','hair_afro','hair_braids','hair_ice','hair_ceo'],
+  top:['shirt_basic','shirt_red','shirt_neon','shirt_gold','shirt_space'], bottom:['pants_basic','pants_black','pants_neon'],
+  shoes:['shoes_basic','shoes_red','shoes_gold'], accessory:['glasses_basic','glasses_cyan','glasses_gold','hat_cap','hat_cowboy','hat_crown','mask_math','backpack_blue','backpack_space'],
+  effect:['aura_blue','aura_gold','aura_rainbow'], emote:['emote_wave','emote_math','emote_fire'], title:['title_beginner','title_calculator','title_master','title_ceo']
 };
+const COLORS = ['red','yellow','green','blue'];
+const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
+const DEFAULT_AVATAR = {skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true};
 
 const state = {
-  user:null,
-  profile:null,
-  token:null,
-  items:[],
-  inventory:[],
-  socket:null,
-  currentView:'lobby',
-  previousView:'lobby',
-  currentRoom:null,
-  currentChat:'world',
-  pendingCard:null,
-  pendingChallenge:null,
-  pendingSoloCard:null,
-  solo:null,
-  settings:null,
-  terms:false,
-  audio:null,
-  musicNode:null,
-  muted:false,
-  roomToJoin:null,
-  shopMode:'official',
-  inventoryMode:'items',
-  selectedPrivateUser:null
+  user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
+  currentRoom:null, roomToJoin:null, selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
+  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, muted:false
 };
 
-const SOLO_COLORS=['red','yellow','green','blue'];
-const SOLO_NAMES={red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
-
-const SoundFX = {
-  ctx:null,
-  enabled:true,
-  volume:.75,
-  init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();}catch{}},
-  tone(freq,d=.12,type='sine',gain=.07){if(!this.enabled)return;try{this.init();const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(Math.max(.001,gain*this.volume),this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+d);o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch{}},
-  card(){this.tone(430,.08,'triangle',.08)},
-  click(){this.tone(720,.06,'sine',.05)},
-  ok(){this.tone(620,.12);setTimeout(()=>this.tone(880,.18),80)},
-  bad(){this.tone(130,.25,'sawtooth',.08)},
-  win(){[523,659,783,1046].forEach((f,i)=>setTimeout(()=>this.tone(f,.2),i*110))},
-  lose(){[260,200,140].forEach((f,i)=>setTimeout(()=>this.tone(f,.22,'triangle'),i*120))}
+const Sound = {
+  enabled:true, volume:.7, ctx:null,
+  init(){try{if(!this.ctx)this.ctx=new (window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();}catch{}},
+  tone(f,d=.1,type='sine'){if(!this.enabled)return;try{this.init();if(!this.ctx)return;const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(.0001,this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.04*this.volume,this.ctx.currentTime+.01);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+d);o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch{}},
+  click(){this.tone(700,.06)}, ok(){this.tone(650,.12);setTimeout(()=>this.tone(880,.12),80)}, bad(){this.tone(130,.2,'sawtooth')}, card(){this.tone(420,.07,'triangle')}, win(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>this.tone(f,.18),i*90))}
 };
 
-const BackgroundMusic={audio:null,ctx:null,master:null,timer:null,step:0,enabled:true,volume:.45,started:false,init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.volume*.08;this.master.connect(this.ctx.destination);}}catch{}},start(){if(this.started)return; try{if(!this.audio){this.audio=new Audio('/assets/audio/matematixa-theme.wav');this.audio.loop=true;this.audio.preload='auto';this.audio.volume=Math.max(0,Math.min(1,this.volume));} this.audio.currentTime=0; const p=this.audio.play(); if(p?.catch)p.catch(()=>{});}catch{} if(this.started)return;this.init();if(!this.ctx||!this.master)return;this.started=true;this.schedule();},schedule(){if(!this.started||!this.ctx)return;const notes=[261.63,329.63,392,523.25,392,329.63,293.66,349.23,440,587.33,440,349.23];const n=notes[this.step%notes.length];const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='triangle';o.frequency.value=n;g.gain.setValueAtTime(.0001,this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.055,this.ctx.currentTime+.025);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+.30);o.connect(g);g.connect(this.master);o.start();o.stop(this.ctx.currentTime+.32);this.step++;this.timer=setTimeout(()=>this.schedule(),330);},stop(){this.started=false;if(this.audio){try{this.audio.pause();}catch{}}if(this.timer)clearTimeout(this.timer);this.timer=null;},setEnabled(v){this.enabled=v;if(v)this.start();else this.stop();},setVolume(v){this.volume=Number(v)||0;if(this.master)this.master.gain.value=this.volume*.08;if(this.audio)this.audio.volume=Math.max(0,Math.min(1,this.volume));}};
-function startBackgroundMusic(){if(state.profile?.settings?.music!==false){BackgroundMusic.setVolume(state.profile?.settings?.musicVolume??.45);BackgroundMusic.start();}}
-
-function toast(message,type='info',duration=2800){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='error'?'⚠️':type==='success'?'✓':'ℹ️'}</span><div>${escapeHtml(message).replace(/\n/g,'<br>')}</div>`;$('#toastContainer').appendChild(el);setTimeout(()=>el.classList.add('out'),duration-350);setTimeout(()=>el.remove(),duration);}
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));}
-function show(id){$(id)?.classList.remove('hidden')}
-function hide(id){$(id)?.classList.add('hidden')}
-function setMessage(id,msg,type='info'){const el=$(id);if(!el)return;el.textContent=msg;el.className=`form-message ${type}`;}
-function authHeaders(extra={}){const h={...(extra||{})};if(state.token)h.Authorization=`Bearer ${state.token}`;return h;}
-function postJSON(url,body,opts={}){return fetch(API+url,{method:opts.method||'POST',headers:authHeaders({'Content-Type':'application/json',...(opts.headers||{})}),body:body===undefined?undefined:JSON.stringify(body),credentials:'include'}).then(async r=>{let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} de comunicação com o servidor.`),{data:d,status:r.status});return d;});}
-async function getJSON(url){const r=await fetch(API+url,{credentials:'include',headers:authHeaders()});let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} ao carregar o jogo.`),{data:d,status:r.status});return d;}
-async function resourceList(){
-  try { const d=await fetch('/assets/manifest.json',{cache:'no-store'}); if(d.ok){const j=await d.json(); if(Array.isArray(j.resources)) return j.resources;} } catch {}
-  return ['/','/index.html','/style.css','/app.js','/service-worker.js','/socket.io/socket.io.js','/assets/reference-arena.jpg','/assets/reference-cards.jpg','/assets/reference-lobby.jpg','/assets/audio/matematixa-theme.wav',...refs.maps.map(m=>'/'+m.resource),...Array.from({length:100},(_,i)=>`/assets/cosmetics/cosmetic_${String(i+1).padStart(3,'0')}.svg`)];
+function fmt(n){return new Intl.NumberFormat('pt-BR').format(Number(n)||0);}
+function toast(message,type='info',ms=3000){const box=$('#toastContainer');if(!box)return;const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='error'?'⚠️':type==='success'?'✓':'ℹ️'}</span><div>${escapeHtml(message).replace(/\n/g,'<br>')}</div>`;box.appendChild(el);setTimeout(()=>el.classList.add('out'),Math.max(300,ms-350));setTimeout(()=>el.remove(),ms);}
+function setMsg(id,msg,type='info'){const el=$(id);if(el){el.textContent=msg;el.className=`form-message ${type}`;}}
+function show(id){const el=typeof id==='string'?$(id):id;if(el)el.classList.remove('hidden');}
+function hide(id){const el=typeof id==='string'?$(id):id;if(el)el.classList.add('hidden');}
+function on(id,event,fn){const el=$(id);if(el)el.addEventListener(event,fn);}
+function authHeaders(extra={}){return {...extra,...(state.token?{Authorization:`Bearer ${state.token}`}:{})};}
+async function api(url,options={}){
+  const opts={credentials:'include',...options,headers:authHeaders({'Content-Type':'application/json',...(options.headers||{})})};
+  const res=await fetch(API+url,opts);let data={};try{data=await res.json();}catch{}
+  if(!res.ok)throw Object.assign(new Error(data.message||`Erro ${res.status} de comunicação com o servidor.`),{status:res.status,data});
+  return data;
 }
-async function registerOfflineWorker(){try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js',{scope:'/'});}catch(e){console.warn('Service Worker:',e);}}
-async function isResourceCached(url){
-  try{if(!('caches' in window))return false; const c=await caches.open(RESOURCE_VERSION); return !!(await c.match(url));}catch{return false;}
-}
-async function ensureResource(url){
-  if(await isResourceCached(url)) return true;
-  try{const c=await caches.open(RESOURCE_VERSION); await c.add(url); return true;}catch{return false;}
-}
-async function cacheGameResources(){
-  const progress=$('#downloadProgress');
-  const urls=await resourceList();
-  if(!('caches' in window)){if(progress)progress.textContent='NAVEGADOR SEM CACHE';return false;}
-  try{
-    const cache=await caches.open(RESOURCE_VERSION); let done=0; let failed=[];
-    for(const url of urls){try{const req=new Request(url,{cache:'reload'}); const res=await fetch(req); if(!res.ok)throw new Error(String(res.status)); await cache.put(req,res.clone());}catch(e){failed.push(url);} done++; if(progress)progress.textContent=`${Math.round(done/urls.length*100)}%`;}
-    const ok=failed.length===0; if(progress)progress.textContent=ok?'TODOS OS RECURSOS BAIXADOS':'FALTARAM '+failed.length; localStorage.setItem(LOCAL_RESOURCE_STATE,JSON.stringify({version:RESOURCE_VERSION,downloadedAt:Date.now(),total:urls.length,failed})); return ok;
-  }catch{if(progress)progress.textContent='ERRO NO DOWNLOAD';return false;}
-}
-async function verifyAllResources(){const urls=await resourceList(); if(!('caches' in window))return false; for(const u of urls){if(!(await isResourceCached(u)))return false;} return true;}
-async function requireMapResource(mapId){const m=refs.maps.find(x=>x.id===mapId); if(!m)return false; const ok=await isResourceCached('/'+m.resource); if(!ok){toast('Mapa Não encontrado. Abaixe todos os cookies/recursos antes de jogar.','error',6000);return false;}return true;}
-function showResourceMessage(){toast('Mapa Não encontrado. Abaixe todos os cookies/recursos antes de abrir este mapa.','error',6000);}
+async function get(url){return api(url,{method:'GET'});}
+async function post(url,body){return api(url,{method:'POST',body:body===undefined?undefined:JSON.stringify(body)});}
+async function put(url,body){return api(url,{method:'PUT',body:JSON.stringify(body)});}
 
+function defaults(){return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));}
+function normalizeProfile(profile){const p=profile||{};p.avatar={...DEFAULT_AVATAR,...(p.avatar||{})};p.settings={...defaults(),...(p.settings||{})};p.bio=p.bio||'';return p;}
+function itemName(id){const item=state.items.find(x=>x.id===id);if(item?.name)return item.name;return ({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'Iniciante');}
 
-function init(){
-  registerOfflineWorker();
+async function clearOldClientCache(){
+  try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}}catch{}
+  try{if('caches' in window){const keys=await caches.keys();for(const k of keys)if(k.toLowerCase().includes('unovelho'))await caches.delete(k);}}catch{}
+}
+
+async function init(){
+  await clearOldClientCache();
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
-  bindStaticEvents();
-  setTimeout(async()=>{
-    hide('#bootScreen');
-    const accepted=localStorage.getItem('uno_terms_accepted')==='1';
-    const saved=(()=>{try{return JSON.parse(localStorage.getItem(LOCAL_RESOURCE_STATE)||'{}')}catch{return {}}})();
-    const complete=accepted && saved.version===RESOURCE_VERSION && await verifyAllResources();
-    if(!complete)show('#termsModal');else await bootAuth();
-  },350);
+  setTimeout(()=>hide('#bootScreen'),250);
+  bindEvents();
+  try{
+    const me=await get('/me');
+    state.user=me.user;state.profile=normalizeProfile(me.profile);state.token=localStorage.getItem('uv_token')||null;
+    await enterApp(false);
+  }catch{
+    show('#authScreen');hide('#appScreen');
+  }
 }
 
-async function bootAuth(){
-  try{const d=await getJSON('/me');state.user=d.user;state.profile=d.profile;state.settings=d.profile.settings;await enterApp();}
-  catch{show('#authScreen');}
-}
+function bindEvents(){
+  // Auth
+  $$('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuth(b.dataset.auth)));
+  on('#formLogin','submit',login);on('#formRegister','submit',register);
 
-function bindStaticEvents(){
-  const on=(id,event,fn)=>{const el=$(id);if(el)el.addEventListener(event,fn);};
-  on('#termsCheck','change',e=>{const b=$('#btnAcceptTerms');if(b)b.disabled=!e.target.checked;});
-  $('#btnAcceptTerms').onclick=async()=>{
-    if(!$('#termsCheck').checked)return;
-    const btn=$('#btnAcceptTerms');btn.disabled=true;btn.textContent='⏳ BAIXANDO RECURSOS...';
-    await cacheGameResources();
-    localStorage.setItem('uno_terms_accepted','1');state.terms=true;
-    hide('#termsModal');
-    await registerOfflineWorker();
-    startBackgroundMusic();
-    await bootAuth();
-  };
-  $('#formLogin').onsubmit=login;
-  $('#formRegister').onsubmit=register;
+  // Navegação principal — todos os botões são ligados aqui, sem depender de outros componentes.
   on('#brandHome','click',()=>navigate('lobby'));
   on('#btnPlay','click',()=>navigate('play'));
   on('#btnShop','click',()=>openShop('official'));
   on('#btnInventory','click',()=>openInventory('items'));
-  on('#btnCustomize','click',()=>openCustomize());
-  $('#btnOpenProfile').onclick=()=>openInventory('items');
-  $('#btnOpenSettings').onclick=()=>{navigate('settings');refreshResourceStatus();};
-  $('#btnRankSmall').onclick=()=>openRank();
-  $('#btnMapsPreview').onclick=()=>openShop('official');
-  $('#btnSolo').onclick=()=>navigate('solo');
-  $('#btnOnline').onclick=()=>openRooms();
-  $('#btnRank').onclick=()=>openRank();
-  $$('.back-btn[data-back]').forEach(b=>b.onclick=()=>navigate(b.dataset.back));
-  $$('.close-modal').forEach(b=>b.onclick=()=>hide(`#${b.dataset.close}`));
-  $('#btnCancelMath').onclick=()=>hide('#mathModal');
-  $('#btnSubmitMath').onclick=submitMath;
-  $('#mathAnswer').addEventListener('keydown',e=>{if(e.key==='Enter')submitMath();});
-  $$('.difficulty').forEach(b=>b.onclick=()=>startSolo(b.dataset.difficulty));
-  $('#btnRefreshRooms').onclick=loadRooms;
-  $('#btnCreateRoom').onclick=()=>{populateRoomMaps();show('#createRoomModal');};
-  $('#btnConfirmCreateRoom').onclick=createRoom;
-  $('#btnConfirmJoinRoom').onclick=joinSelectedRoom;
-  $('#btnStartRoom').onclick=()=>state.socket?.emit('room:start');
-  $('#btnLeaveRoom').onclick=leaveRoom;
-  $('#roomChatForm').onsubmit=e=>{e.preventDefault();sendChat($('#roomChatInput').value,'room');$('#roomChatInput').value='';};
-  $('#gameChatForm').onsubmit=e=>{e.preventDefault();sendChat($('#gameChatInput').value,state.currentChat);$('#gameChatInput').value='';};
-  $$('.chat-tab').forEach(b=>b.onclick=()=>switchChat(b.dataset.chat));
-  $('#drawStack').onclick=()=>soloOrOnlineDraw();
-  $('#btnUno').onclick=callUno;
-  $('#btnBackGame').onclick=exitGame;
-  $('#btnSound').onclick=toggleMute;
-  $('#btnGameSettings').onclick=()=>navigate('settings');
-  $('#btnLogout').onclick=logout; $('#btnDownloadResources')?.addEventListener('click',downloadAllResources);
-  $$('.shop-tab').forEach(b=>b.onclick=()=>openShop(b.dataset.shop));
-  $$('.inventory-tab').forEach(b=>b.onclick=()=>openInventory(b.dataset.inv));
-  $$('.color-picker button').forEach(b=>b.onclick=()=>chooseColor(b.dataset.color));
-  $$('.swatch').forEach(b=>b.onclick=()=>{state.profile.avatar.skinColor=b.dataset.value;renderCharacter('#customCharacter',state.profile.avatar);});
-  $('#btnSaveCharacter').onclick=saveCharacter;
-  ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>$( '#'+id)?.addEventListener('change',saveSettingsFromUI));
-  $('#setMusicVol')?.addEventListener('input',saveSettingsFromUI);
-  $('#setSfxVol')?.addEventListener('input',saveSettingsFromUI);
-  window.addEventListener('beforeunload',()=>{try{state.socket?.disconnect()}catch{}});
+  on('#btnCustomize','click',openCustomize);
+  on('#btnOpenProfile','click',()=>openInventory('items'));
+  on('#btnOpenSettings','click',()=>navigate('settings'));
+  on('#btnRankSmall','click',openRank);
+  on('#btnMapsPreview','click',()=>openShop('official'));
+  on('#btnSolo','click',()=>navigate('solo'));
+  on('#btnOnline','click',openRooms);
+  on('#btnRank','click',openRank);
+  on('#btnRefreshRooms','click',loadRooms);
+  on('#btnCreateRoom','click',openCreateRoom);
+  on('#btnConfirmCreateRoom','click',createRoom);
+  on('#btnConfirmJoinRoom','click',joinSelectedRoom);
+  on('#btnStartRoom','click',()=>state.socket?.emit('room:start'));
+  on('#btnLeaveRoom','click',leaveRoom);
+  on('#btnSaveCharacter','click',saveCharacter);
+  on('#btnCancelMath','click',cancelMath);
+  on('#btnSubmitMath','click',submitMath);
+  on('#mathAnswer','keydown',e=>{if(e.key==='Enter')submitMath();});
+  on('#drawStack','click',drawGameCard);
+  on('#btnUno','click',callUno);
+  on('#btnBackGame','click',exitGame);
+  on('#btnSound','click',toggleMute);
+  on('#btnLogout','click',logout);
+  $$('.difficulty').forEach(b=>b.addEventListener('click',()=>startSolo(b.dataset.difficulty)));
+  $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
+  $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
+  $$('.shop-tab').forEach(b=>b.addEventListener('click',()=>openShop(b.dataset.shop)));
+  $$('.inventory-tab').forEach(b=>b.addEventListener('click',()=>openInventory(b.dataset.inv)));
+  $$('.chat-tab').forEach(b=>b.addEventListener('click',()=>switchChat(b.dataset.chat)));
+  $$('.swatch').forEach(b=>b.addEventListener('click',()=>{state.profile.avatar.skinColor=b.dataset.skin;renderCharacter('#customCharacter',state.profile.avatar);}));
+  ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>on('#'+id,'change',saveSettings));
+  on('#setMusicVol','input',saveSettings);on('#setSfxVol','input',saveSettings);
+  on('#roomChatForm','submit',e=>{e.preventDefault();sendChat($('#roomChatInput')?.value,'room');if($('#roomChatInput'))$('#roomChatInput').value='';});
+  on('#gameChatForm','submit',e=>{e.preventDefault();sendChat($('#gameChatInput')?.value,state.currentChat);if($('#gameChatInput'))$('#gameChatInput').value='';});
+
+  // Delegação para conteúdo criado dinamicamente.
+  document.addEventListener('click',e=>{
+    const map=e.target.closest('[data-map]');if(map){openShop('official');return;}
+    const join=e.target.closest('[data-join-room]');if(join){selectRoom(join.dataset.joinRoom);return;}
+    const buy=e.target.closest('[data-buy-item]');if(buy){buyItem(buy.dataset.buyItem);return;}
+    const market=e.target.closest('[data-buy-market]');if(market){buyMarket(market.dataset.buyMarket);return;}
+    const sell=e.target.closest('[data-sell]');if(sell){sellItem(sell.dataset.sell);return;}
+    const hand=e.target.closest('#playerHand .hand-card');if(hand){playHandCard(Number(hand.dataset.index));return;}
+    const back=e.target.closest('[data-color]');if(back&&$('#colorModal')&&!$('#colorModal').classList.contains('hidden')){chooseColor(back.dataset.color);return;}
+  });
 }
 
-async function login(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#loginMessage','Entrando...');const d=await postJSON('/login',{username:fd.get('username'),password:fd.get('password')});state.token=d.token||state.token;state.user=d.user;state.profile=d.profile||{avatar:{},settings:{}};state.settings=state.profile.settings;setMessage('#loginMessage',d.message,'success');await enterApp();}catch(err){setMessage('#loginMessage',err.message,'error');SoundFX.bad();}}
-async function register(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#registerMessage','Criando conta...');const d=await postJSON('/register',{username:fd.get('regUsername'),password:fd.get('regPassword')});state.token=d.token||state.token;state.user=d.user;state.profile=d.profile||{avatar:{},settings:{}};state.settings=state.profile.settings;setMessage('#registerMessage',d.message,'success');await enterApp(true);}catch(err){setMessage('#registerMessage',err.message,'error');SoundFX.bad();}}
+function switchAuth(mode){
+  $$('.auth-tab').forEach(b=>b.classList.toggle('active',b.dataset.auth===mode));
+  $('#formLogin')?.classList.toggle('hidden',mode!=='login');$('#formRegister')?.classList.toggle('hidden',mode!=='register');
+}
+async function login(e){
+  e.preventDefault();const fd=new FormData(e.currentTarget);const btn=e.submitter;try{if(btn)btn.disabled=true;setMsg('#loginMessage','Entrando...');const d=await post('/login',{username:fd.get('username'),password:fd.get('password')});state.token=d.token||null;if(state.token)localStorage.setItem('uv_token',state.token);state.user=d.user;state.profile=normalizeProfile(d.profile);await enterApp(false);setMsg('#loginMessage','Login realizado!','success');Sound.ok();}catch(err){setMsg('#loginMessage',err.message,'error');Sound.bad();}finally{if(btn)btn.disabled=false;}}
+async function register(e){
+  e.preventDefault();const fd=new FormData(e.currentTarget);const btn=e.submitter;try{if(btn)btn.disabled=true;setMsg('#registerMessage','Criando conta...');const d=await post('/register',{username:fd.get('regUsername'),password:fd.get('regPassword')});state.token=d.token||null;if(state.token)localStorage.setItem('uv_token',state.token);state.user=d.user;state.profile=normalizeProfile(d.profile);await enterApp(true);Sound.ok();}catch(err){setMsg('#registerMessage',err.message,'error');Sound.bad();}finally{if(btn)btn.disabled=false;}}
 
 async function enterApp(forceCustomize=false){
-  hide('#authScreen');show('#appScreen');
-  if(!state.profile)state.profile={avatar:{},settings:{}};
-  if(!state.profile.avatar)state.profile.avatar={};
-  if(!state.profile.settings)state.profile.settings=defaultClientSettings();
-  try{state.items=(await getJSON('/items')).items||[];}catch(e){state.items=[];toast('Catálogo temporariamente indisponível. O jogo continuará funcionando.','error',3500);}
-  try{state.inventory=(await getJSON('/inventory')).items||[];}catch(e){state.inventory=[];toast('Inventário ainda não pôde ser carregado.','error',3500);}
-  updateUserUI();
-  connectSocket();
-  try{renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);}catch(e){console.error('Erro ao renderizar personagem:',e);}
-  try{loadMiniRank();}catch(e){console.error('Erro no ranking:',e);}
-  try{renderMapPreview();}catch(e){console.error('Erro nos mapas:',e);}
-  try{loadAchievementsPreview();}catch(e){console.error('Erro nas conquistas:',e);}
-  try{populateCustomizer();}catch(e){console.error('Erro no personalizador:',e);}
-  try{applySettings();}catch(e){console.error('Erro nas configurações:',e);}
-  show('#appScreen');
-  hide('#authScreen');
-  navigate('lobby');
-  if(forceCustomize||!state.profile.avatar?.hair)openCustomize();
-  startBackgroundMusic();
+  hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
+  try{state.items=(await get('/items')).items||[];}catch{state.items=[];}
+  try{state.inventory=(await get('/inventory')).items||[];}catch{state.inventory=[];}
+  updateUserUI();applySettings();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
+  renderMapPreview();renderAchievementsPreview();await loadMiniRank();connectSocket();navigate('lobby');
+  if(forceCustomize)openCustomize();
 }
-function defaultClientSettings(){return {music:true,musicVolume:.45,sfx:true,sfxVolume:.75,animations:true,chatWorld:true,chatRoom:true,chatPrivate:true,reducedMotion:false};}
-
-function updateUserUI(){const u=state.user;if(!u)return;$('#coinValue').textContent=formatNum(u.coins);$('#levelValue').textContent=u.level;$('#heroName').textContent=u.username;$('#winsValue').textContent=u.wins||0;$('#xpValue').textContent=formatNum(u.xp);$('#profileName').textContent=u.username;$('#profileLevel').textContent=u.level;$('#profileWins').textContent=u.wins||0;$('#profileGames').textContent=u.gamesPlayed||0;$('#accountInfo').innerHTML=`<b>${escapeHtml(u.username)}</b><br>Cargo: ${escapeHtml(u.role)}<br>🪙 ${formatNum(u.coins)} • ⭐ ${formatNum(u.xp)} XP`;const pct=Math.min(100,Math.max(0,((u.xp-(u.level>1?xpForLevelClient(u.level):0))/Math.max(1,xpForLevelClient(u.level+1)-(u.level>1?xpForLevelClient(u.level):0)))*100));$('#xpBar').style.width=pct+'%';const title=itemName(state.profile?.avatar?.title)||'INICIANTE';$('#profileTitle').textContent=title.toUpperCase();$('#customNamePreview').textContent=u.username;$('#customTitlePreview').textContent=title.toUpperCase();$('#avatarMiniFace').textContent='🙂';}
-function formatNum(n){return new Intl.NumberFormat('pt-BR').format(Number(n||0));}
-function xpForLevelClient(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45));}
-function itemName(id){return state.items.find(x=>x.id===id)?.name||({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'');}
+function updateUserUI(){
+  const u=state.user;if(!u)return;const a=state.profile.avatar||DEFAULT_AVATAR;const title=itemName(a.title);
+  $('#coinValue')&&( $('#coinValue').textContent=fmt(u.coins));$('#levelValue')&&( $('#levelValue').textContent=u.level||1);$('#heroName')&&( $('#heroName').textContent=u.username);$('#winsValue')&&( $('#winsValue').textContent=u.wins||0);$('#xpValue')&&( $('#xpValue').textContent=fmt(u.xp));
+  $('#profileName')&&($('#profileName').textContent=u.username);$('#profileLevel')&&($('#profileLevel').textContent=u.level||1);$('#profileWins')&&($('#profileWins').textContent=u.wins||0);$('#profileGames')&&($('#profileGames').textContent=u.gamesPlayed||0);$('#profileTitle')&&($('#profileTitle').textContent=title.toUpperCase());$('#customNamePreview')&&($('#customNamePreview').textContent=u.username);$('#customTitlePreview')&&($('#customTitlePreview').textContent=title.toUpperCase());$('#accountInfo')&&($('#accountInfo').innerHTML=`<b>${escapeHtml(u.username)}</b><br>Cargo: ${escapeHtml(u.role||'user')}<br>🪙 ${fmt(u.coins)} • ⭐ ${fmt(u.xp)} XP`);
+  const level=Math.max(1,Number(u.level)||1),base=xpLevel(level),next=xpLevel(level+1);const pct=Math.max(0,Math.min(100,((Number(u.xp)||0)-base)/Math.max(1,next-base)*100));$('#xpBar')&&($('#xpBar').style.width=pct+'%');
+}
+function xpLevel(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45));}
 
 function navigate(view){
-  if(view==='lobby'&&!state.user)return false;
-  const views=$$('.view');
-  views.forEach(v=>{
-    v.classList.add('hidden');
-    v.style.removeProperty('display');
-    v.setAttribute('aria-hidden','true');
-  });
-  const target=document.getElementById(`${view}View`);
-  if(!target){
-    console.error('View não encontrada:',view);
-    return false;
-  }
-  target.classList.remove('hidden');
-  target.style.removeProperty('display');
-  target.setAttribute('aria-hidden','false');
-  state.previousView=state.currentView;
-  state.currentView=view;
-  window.scrollTo({top:0,behavior:'auto'});
-  return true;
+  if(!state.user)return;
+  const target=$(`#${view}View`);if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
+  $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;window.scrollTo({top:0,behavior:'smooth'});
+  if(view==='lobby'){renderCharacter('#heroCharacter',state.profile.avatar);loadMiniRank();}
+  if(view==='settings')applySettings();
 }
 
 function connectSocket(){
-  if(state.socket?.connected)return;
-  state.socket=io({withCredentials:true,auth:state.token?{token:state.token}:{}});
-  state.socket.on('connect',()=>toast('Conectado ao servidor online.','success',1800));
-  state.socket.on('connect_error',e=>toast('Conexão online indisponível: '+(e.message||'erro'),'error'));
+  if(!window.io||!state.token)return;if(state.socket?.connected)return;
+  try{state.socket=io({withCredentials:true,auth:{token:state.token},transports:['websocket','polling']});}catch(e){toast('Não foi possível iniciar o multiplayer.','error');return;}
+  state.socket.on('connect',()=>{});state.socket.on('connect_error',e=>toast('Multiplayer indisponível: '+(e.message||'erro'),'error',3500));
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
   state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');});
   state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);}});
-  state.socket.on('room:system',m=>toast(m.message));
-  state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
-  state.socket.on('toast',m=>toast(m.message,m.type||'info'));
-  state.socket.on('chat:message',renderChatMessage);
+  state.socket.on('room:system',m=>toast(m.message));state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
+  state.socket.on('toast',m=>toast(m.message,m.type||'info'));state.socket.on('chat:message',renderChatMessage);
+  state.socket.on('math:challenge',c=>{state.pendingCard=c;openMathOnline(c);});
+  state.socket.on('math:result',r=>{hide('#mathModal');state.pendingCard=null;if(!r.ok){Sound.bad();toast('Resposta errada. A carta não foi jogada.','error');}});
   state.socket.on('game:state',renderOnlineGame);
-  state.socket.on('math:challenge',c=>{state.pendingChallenge=c;openMathForOnline(c);});
-  state.socket.on('math:result',r=>{hide('#mathModal');state.pendingChallenge=null;state.pendingCard=null;if(!r.ok){SoundFX.bad();toast('Resposta errada. Você não pode jogar essa carta.','error');}});
-  state.socket.on('game:winner',m=>{SoundFX.win();toast(`🏆 ${m.username} venceu a partida!`,'success',5000);});
-  state.socket.on('global:pause',m=>{show('#globalPauseBanner');$('#globalPauseBanner').textContent='⏸ '+m.message;});
-  state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
-  state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6500));
-  state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
-  state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;exitGame();navigate('lobby');});
+  state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);});
+  state.socket.on('global:pause',m=>{show('#globalPauseBanner');if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='⏸ '+m.message;});state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
+  state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
+  state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;navigate('lobby');});
 }
 
-function renderMapPreview(){const el=$('#mapPreview');el.innerHTML=refs.maps.slice(0,4).map(m=>`<button class="map-tile map-${m.theme}" style="${m.thumb?`background-image:linear-gradient(180deg,transparent,rgba(2,10,35,.8)),url('${m.thumb}')`:''}" data-map="${m.id}"><b>${escapeHtml(m.name)}</b></button>`).join('');el.querySelectorAll('[data-map]').forEach(b=>b.onclick=async()=>{if(await requireMapResource(b.dataset.map)) openShop('official');});}
-async function loadMiniRank(){try{const d=await getJSON('/rank');$('#miniRank').innerHTML=(d.players||[]).slice(0,5).map((p,i)=>`<div class="rank-mini-row"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><small>Nível ${p.level} • ${formatNum(p.wins)} vit.</small></div>`).join('')||'<p class="muted">Ranking ainda vazio.</p>';}catch{}}
-function loadAchievementsPreview(){const a=[['🏆','Primeira Vitória'],['🧠','Mente Matemática'],['🌎','Primeiro Online'],['🎒','Colecionador']];$('#achievementPreview').innerHTML=a.map(x=>`<div class="achievement-chip"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');}
+function renderMapPreview(){const el=$('#mapPreview');if(!el)return;el.innerHTML=MAPS.slice(0,4).map(m=>`<button class="map-tile map-${m.theme}" data-map="${m.id}" type="button"><b>${escapeHtml(m.name)}</b></button>`).join('');}
+async function loadMiniRank(){const el=$('#miniRank');if(!el)return;try{const d=await get('/rank');el.innerHTML=(d.players||[]).slice(0,5).map((p,i)=>`<div class="rank-mini-row"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><small>Nível ${p.level} • ${fmt(p.wins)} vit.</small></div>`).join('')||'<p class="muted">Ranking ainda vazio.</p>';}catch{el.innerHTML='<p class="muted">Ranking indisponível.</p>';}}
+function renderAchievementsPreview(){const el=$('#achievementPreview');if(!el)return;el.innerHTML=[['🏆','Primeira Vitória'],['🧠','Mente Matemática'],['🌎','Primeiro Online'],['🎒','Colecionador']].map(a=>`<div class="achievement-chip"><span>${a[0]}</span><b>${a[1]}</b></div>`).join('');}
 
-function populateRoomMaps(){const s=$('#roomMap');s.innerHTML=refs.maps.filter(m=>m.id!=='map_ceo'||state.user.role==='CEO').map(m=>`<option value="${m.id}">${m.name}</option>`).join('');}
+function openCreateRoom(){if(!state.socket){connectSocket();}populateRoomMaps();show('#createRoomModal');}
+function populateRoomMaps(){const el=$('#roomMap');if(!el)return;el.innerHTML=MAPS.filter(m=>m.id!=='map_ceo'||state.user?.role==='CEO').map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');}
 async function openRooms(){navigate('rooms');await loadRooms();}
-async function loadRooms(){try{const d=await getJSON('/rooms');const rooms=d.rooms||[];$('#roomsList').innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${roomTheme(r.options.mapId)}"><span>${r.locked?'🔒':'🌎'}</span></div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers} jogadores</small></div><div class="room-tags"><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span><span>${r.options.difficulty}</span></div><button class="btn btn-primary btn-wide join-room" data-code="${r.code}">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):'<div class="empty-state glass"><span>🌌</span><b>Nenhuma sala aberta agora.</b><small>Crie a primeira mesa!</small></div>';$$('.join-room').forEach(b=>b.onclick=()=>selectRoom(b.dataset.code));}catch(e){toast(e.message,'error');}}
-function roomTheme(id){return refs.maps.find(m=>m.id===id)?.theme||'classroom';}
-async function createRoom(){try{if(!(await requireMapResource($('#roomMap').value)))return;const body={name:$('#roomName').value||`Mesa de ${state.user.username}`,password:$('#roomPassword').value,maxPlayers:Number($('#roomMax').value),turnSeconds:Number($('#roomTime').value),difficulty:$('#roomDifficulty').value,botFill:Number($('#roomBots').value),mapId:$('#roomMap').value,startingCards:Number($('#roomCards').value),allowBots:$('#roomAllowBots').checked,specials:$('#roomSpecials').checked,stackDraw:$('#roomStack').checked,chat:$('#roomChat').checked};const d=await postJSON('/rooms',body);hide('#createRoomModal');state.currentRoom=d.room;state.socket.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
-async function selectRoom(code){try{const d=await getJSON('/rooms');const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return;state.roomToJoin=room;$('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Sala com senha':'🌎 Sala aberta'}`;$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
-function joinSelectedRoom(){if(!state.roomToJoin)return;const r=state.roomToJoin;state.socket.emit('room:join',{code:r.code,password:$('#joinRoomPassword').value});hide('#joinRoomModal');}
-function renderRoom(room){$('#roomTitle').textContent=room.name;$('#roomCodeBadge').textContent=room.code;$('#roomOptionsText').textContent=`${room.players.length}/${room.options.maxPlayers} jogadores • ${room.options.turnSeconds}s • ${room.options.difficulty} • ${room.options.math?'Matemática':''}`;$('#btnStartRoom').style.display=String(room.ownerId)===String(state.user.id)&&!room.started?'inline-flex':'none';$('#roomPlayers').innerHTML=room.players.map((p,i)=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');$('#roomMapBanner').className=`room-map-banner map-${roomTheme(room.options.mapId)}`;$('#roomMapBanner').innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(refs.maps.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
-function leaveRoom(){if(state.socket)state.socket.emit('room:leave');state.currentRoom=null;navigate('rooms');loadRooms();}
-
-async function startSolo(difficulty){SoundFX.click();state.solo=createSolo(difficulty);const soloMap=refs.maps.find(m=>m.theme===state.solo.mapTheme)||refs.maps[0];if(!(await requireMapResource(soloMap.id))){state.solo=null;return;}navigate('game');$('#arenaShell').className=`arena-shell solo-arena map-${state.solo.mapTheme}`;$('.arena-reference').style.display='block';renderSoloGame();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
-function createSolo(difficulty){const deck=createDeck();const player=deck.splice(0,7);const bot=deck.splice(0,7);let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,_discardPile:[],color:top.color,turn:'player',pending:null,botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho',mapTheme:['saloon','neon','geometry'][Math.floor(Math.random()*3)],uno:false,round:1};}
-function createDeck(){const d=[];for(const color of SOLO_COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}return shuffle(d);}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function isPlayable(c,game){return c.color==='black'||c.color===game.color||c.value===game.discard.value;}
-function renderSoloGame(){const g=state.solo;if(!g)return;$('#roundText').textContent='1 / 1';$('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT';$('#turnStatus').classList.toggle('bot',g.turn!=='player');$('#discardPile').className=`uno-card card-${g.color} big-card`;$('#discardPile').textContent=g.discard.value;$('#colorIndicator').textContent=SOLO_NAMES[g.color];$('#deckCount').textContent=g.deck.length;$('#opponents').innerHTML=`<div class="opponent-card"><div class="opponent-avatar">🤖</div><div><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(g.bot.length,7)}).map(()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;$('#playerHand').innerHTML=g.player.map((c,i)=>`<button class="uno-card card-${c.color} hand-card" data-index="${i}"><i>${c.value}</i><span>${c.value}</span><em>${c.type==='number'?'MAT':c.type.toUpperCase()}</em></button>`).join('');$$('#playerHand .hand-card').forEach(b=>b.onclick=()=>attemptSoloCard(Number(b.dataset.index)));}
-function attemptSoloCard(i){const g=state.solo;if(!g||g.turn!=='player')return;const card=g.player[i];if(!isPlayable(card,g)){SoundFX.bad();toast('Essa carta não combina com a mesa.','error');return;}state.pendingSoloCard={index:i,card};openMathForSolo(card);}
-function soloChallenge(card){let a,b,op;if(card.type==='draw2'||card.type==='draw4'){a=2+Math.floor(Math.random()*8);b=2+Math.floor(Math.random()*8);op='×';}else if(card.type==='skip'||card.type==='reverse'){a=15+Math.floor(Math.random()*30);b=1+Math.floor(Math.random()*Math.min(15,a-1));op='−';}else{a=5+Math.floor(Math.random()*35);b=1+Math.floor(Math.random()*25);op='+';}return{a,b,op,answer:op==='×'?a*b:op==='−'?a-b:a+b};}
-function openMathForSolo(card){state.pendingChallenge=soloChallenge(card);$('#mathQuestion').textContent=`Quanto é ${state.pendingChallenge.a} ${state.pendingChallenge.op} ${state.pendingChallenge.b}?`;$('#mathAnswer').value='';$('#mathFeedback').textContent='';show('#mathModal');setTimeout(()=>$('#mathAnswer').focus(),100);}
-function openMathForOnline(c){state.pendingCard=c;$('#mathQuestion').textContent=`Quanto é ${c.a} ${c.op} ${c.b}?`;$('#mathAnswer').value='';$('#mathFeedback').textContent='';show('#mathModal');setTimeout(()=>$('#mathAnswer').focus(),100);}
-function submitMath(){const answer=Number($('#mathAnswer').value);if(!Number.isFinite(answer))return;const g=state.solo;if(g&&state.pendingSoloCard){const c=state.pendingChallenge;if(answer!==c.answer){SoundFX.bad();hide('#mathModal');state.pendingSoloCard=null;toast('Conta errada! Você compra uma carta e perde a vez.','error');soloDraw();return;}hide('#mathModal');const card=state.pendingSoloCard.card;state.pendingSoloCard=null;playSoloCard(card);return;}if(state.pendingCard&&state.socket){state.pendingCard._answer=answer;hide('#mathModal');if(state.pendingCard.value==='🌈'||state.pendingCard.type==='draw4'){show('#colorModal');}else{state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,answer});state.pendingCard=null;}}}
-function playSoloCard(card){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g._discardPile.push(g.discard);g.discard=card;if(card.color==='black'){g.color=SOLO_COLORS[Math.floor(Math.random()*4)];toast(`Coringa! Cor escolhida: ${SOLO_NAMES[g.color]}`,'success');}else g.color=card.color;SoundFX.card();if(card.type==='draw2'){drawFromDeck(g,g.bot,2);toast('Bot comprou +2!');}if(card.type==='draw4'){drawFromDeck(g,g.bot,4);toast('Bot comprou +4!');}if(g.player.length===0){finishSolo(true);return;}if(card.type==='skip'||card.type==='reverse'){renderSoloGame();return;}g.turn='bot';renderSoloGame();setTimeout(botSoloTurn,900);}
-function drawFromDeck(g,hand,count){for(let n=0;n<count;n++){if(!g.deck.length)recycleSolo(g);if(g.deck.length)hand.push(g.deck.pop());}}
-function recycleSolo(g){const top=g.discard;const pile=[...g._discardPile||[]];if(!pile.length)return;g.deck=shuffle(pile);g._discardPile=[];g.discard=top;}
-function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;drawFromDeck(g,g.player,1);g.turn='bot';renderSoloGame();setTimeout(botSoloTurn,800);}
-function botSoloTurn(){const g=state.solo;if(!g||g.turn!=='bot')return;let candidates=g.bot.filter(c=>isPlayable(c,g));let card;if(g.difficulty==='easy')card=candidates[0];else if(g.difficulty==='medium')card=candidates.sort((a,b)=>cardValue(b)-cardValue(a))[0];else card=candidates.sort((a,b)=>botScore(g,b)-botScore(g,a))[0];if(!card){drawFromDeck(g,g.bot,1);g.turn='player';renderSoloGame();return;}g.bot.splice(g.bot.indexOf(card),1);g._discardPile.push(g.discard);g.discard=card;g.color=card.color==='black'?chooseBotColor(g.bot):card.color;SoundFX.card();if(card.type==='draw2')drawFromDeck(g,g.player,2);if(card.type==='draw4')drawFromDeck(g,g.player,4);if(g.bot.length===0){finishSolo(false);return;}if(card.type==='skip'||card.type==='reverse'){renderSoloGame();setTimeout(botSoloTurn,900);return;}g.turn='player';renderSoloGame();}
-function cardValue(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?45:Number(c.value)||0;}
-function botScore(g,c){let score=cardValue(c);if(c.color===g.color)score+=20;if(g.player.length<=3&&c.type!=='number')score+=25;return score;}
-function chooseBotColor(hand){const counts={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(counts[c.color]!=null)counts[c.color]++;});return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];}
-async function finishSolo(win){const g=state.solo;if(!g)return;win?SoundFX.win():SoundFX.lose();const coins=win?100:15;const xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.` ,win?'success':'info',5000);try{const d=await postJSON('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1200);}
-function soloOrOnlineDraw(){if(state.solo){soloDraw();return;}if(state.currentRoom?.started)state.socket?.emit('game:draw');}
-function callUno(){if(state.solo){if(state.solo.player.length===1){state.solo.uno=true;SoundFX.ok();toast('📣 UNO!','success');}else toast('Você só pode chamar UNO com uma carta.','error');}else{state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom?.code,body:'📣 UNO!'});SoundFX.ok();}}
-function exitGame(){state.solo=null;state.pendingCard=null;state.pendingSoloCard=null;hide('#mathModal');hide('#colorModal');navigate(state.currentRoom?'room':'lobby');}
-function toggleMute(){state.muted=!state.muted;SoundFX.enabled=!state.muted&&state.settings?.sfx!==false;$('#btnSound').textContent=state.muted?'🔇':'🔊';}
-
-function renderOnlineGame(game){if(!game)return;navigate('game');$('#arenaShell').className=`arena-shell online-arena map-${roomTheme(game.mapId)}`;$('#roundText').textContent='ONLINE';const mine=String(game.currentPlayerId)===String(state.user.id);$('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE';$('#turnStatus').classList.toggle('bot',!mine);$('#discardPile').className=`uno-card card-${game.currentColor} big-card`;$('#discardPile').textContent=game.top?.value||'?';$('#colorIndicator').textContent=SOLO_NAMES[game.currentColor]||game.currentColor;$('#deckCount').textContent=game.deckCount;$('#playerHand').innerHTML=(game.hand||[]).map((c,i)=>`<button class="uno-card card-${c.color} hand-card" data-index="${i}"><i>${c.value}</i><span>${c.value}</span><em>${c.type==='number'?'MAT':c.type.toUpperCase()}</em></button>`).join('');$$('#playerHand .hand-card').forEach((b,i)=>b.onclick=()=>{const c=game.hand[i];if(!mine)return toast('Aguarde sua vez.');if(!isPlayable(c,{color:game.currentColor,discard:game.top}))return toast('Essa carta não pode ser jogada.','error');state.pendingCard={...c,cardId:c.id};state.socket.emit('game:challenge',{cardId:c.id});});$('#opponents').innerHTML=game.players.filter(p=>String(p.userId)!==String(state.user.id)).map(p=>`<div class="opponent-card ${String(p.userId)===String(game.currentPlayerId)?'active':''}"><div class="opponent-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(p.cardCount,7)}).map(()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`).join('');renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName').textContent=state.user.username;$('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase();}
-function chooseColor(color){hide('#colorModal');if(state.pendingCard&&state.socket){state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,answer:state.pendingCard._answer,chosenColor:color});state.pendingCard=null;}}
-
-function sendChat(body,channel='world'){const text=String(body||'').trim();if(!text)return;state.socket?.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});}
-function switchChat(ch){state.currentChat=ch;$$('.chat-tab').forEach(b=>b.classList.toggle('active',b.dataset.chat===ch));$('#gameChatMessages').innerHTML='';$('#gameChatInput').placeholder=ch==='private'?'Mensagem privada...':'Mensagem...';}
-function renderChatMessage(m){if(m.channel==='room'&&state.currentRoom?.code!==m.roomCode)return;if(m.channel==='private'&&Number(m.senderId)!==Number(state.selectedPrivateUser)&&Number(m.receiverId)!==Number(state.user.id))return;const targets=[$('#roomChatMessages'),$('#gameChatMessages')];targets.forEach(box=>{if(!box)return;const item=document.createElement('div');item.className=`chat-line ${Number(m.senderId)===Number(state.user.id)?'mine':''}`;item.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(item);box.scrollTop=box.scrollHeight;});}
-
-async function openShop(mode='official'){state.shopMode=mode;navigate('shop');$$('.shop-tab').forEach(b=>b.classList.toggle('active',b.dataset.shop===mode));try{if(mode==='market'){const d=await getJSON('/shop/market');renderMarket(d.listings||[]);}else{renderOfficialShop();}}catch(e){toast(e.message,'error');}}
-function renderOfficialShop(){const owned=new Set(state.inventory.map(x=>x.id));const list=state.items.filter(i=>i.is_active!==false&&!i.asset?.ceoOnly||i.asset?.ceoOnly&&state.user.role==='CEO');$('#shopGrid').innerHTML=list.map(item=>itemCard(item,owned.has(item.id))).join('');$$('.buy-item').forEach(b=>b.onclick=()=>buyItem(b.dataset.id));}
-function itemCard(i,owned=false){const asset=i.asset||{};const visual=asset.theme||asset.style||'item';return `<article class="item-card glass rarity-${i.rarity}"><div class="item-visual ${visual}">${i.category==='map'?'🗺️':i.category==='deck'?'🎴':i.category==='hair'?'💇':i.category==='clothing'?'👕':i.category==='accessory'?'🕶️':i.category==='effect'?'✨':i.category==='emote'?'🎭':i.category==='title'?'🏷️':'🧩'}</div><div class="item-info"><span class="item-category">${escapeHtml(i.category)}</span><b>${escapeHtml(i.name)}</b><small>${escapeHtml(i.description||'')}</small><div class="item-buy"><span>${i.xp_required?`⭐ ${formatNum(i.xp_required)} XP`:'Disponível'}</span>${owned?'<button class="btn btn-owned" disabled>DESBLOQUEADO</button>':`<button class="btn btn-primary buy-item" data-id="${i.id}">${i.price?'🪙 '+formatNum(i.price):'GRÁTIS'}</button>`}</div></div></article>`;}
-async function buyItem(id){try{const d=await postJSON('/shop/buy',{itemId:id});toast(d.message,'success');state.inventory=(await getJSON('/inventory')).items||[];const me=await getJSON('/me');state.user=me.user;state.profile=me.profile;updateUserUI();renderOfficialShop();}catch(e){toast(e.message,'error');}}
-function renderMarket(list){$('#shopGrid').innerHTML=list.length?list.map(l=>`<article class="item-card glass rarity-${l.rarity}"><div class="item-visual generated">🧑‍🤝‍🧑</div><div class="item-info"><span class="item-category">VENDA DE JOGADOR</span><b>${escapeHtml(l.name)}</b><small>Vendedor: ${escapeHtml(l.seller)}</small><div class="item-buy"><span>🪙 ${formatNum(l.price)}</span><button class="btn btn-primary market-buy" data-id="${l.listing_id}">COMPRAR</button></div></div></article>`).join(''):'<div class="empty-state glass"><span>🛍️</span><b>Nenhum anúncio ativo.</b><small>Tenha itens duplicados e coloque-os à venda.</small></div>';$$('.market-buy').forEach(b=>b.onclick=()=>buyMarket(b.dataset.id));}
-async function buyMarket(id){try{const d=await postJSON('/shop/market/buy',{listingId:Number(id)});toast(d.message,'success');openShop('market');}catch(e){toast(e.message,'error');}}
-
-async function openInventory(mode='items'){state.inventoryMode=mode;navigate('inventory');state.inventory=(await getJSON('/inventory')).items||[];$$('.inventory-tab').forEach(b=>b.classList.toggle('active',b.dataset.inv===mode));renderCharacter('#profileCharacterLarge',state.profile.avatar);if(mode==='items')renderInventoryItems();else renderAchievements();}
-function renderInventoryItems(){const by={};state.inventory.forEach(i=>(by[i.category]??=[]).push(i));$('#inventoryContent').innerHTML=Object.keys(by).length?Object.entries(by).map(([cat,arr])=>`<div class="inventory-section"><h3>${cat.toUpperCase()}</h3><div class="inventory-grid">${arr.map(i=>`<div class="owned-item"><div class="owned-icon">${i.category==='hair'?'💇':i.category==='clothing'?'👕':i.category==='accessory'?'🕶️':i.category==='map'?'🗺️':i.category==='deck'?'🎴':'✨'}</div><b>${escapeHtml(i.name)}</b><small>x${i.quantity||1}</small><button class="mini-sell" data-sell="${i.id}">VENDER</button></div>`).join('')}</div></div>`).join(''):'<div class="empty-state"><span>🎒</span><b>Seu inventário está esperando sua primeira conquista.</b></div>';}
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-sell]');if(!b)return;const price=prompt('Preço em moedas para este item (mínimo 10):','500');if(price===null)return;try{await postJSON('/shop/market/list',{itemId:b.dataset.sell,price:Number(price)});toast('Item anunciado na loja de jogadores!','success');state.inventory=(await getJSON('/inventory')).items||[];renderInventoryItems();}catch(err){toast(err.message,'error');}});
-
-function renderAchievements(){const arr=[['first_win','🏆','Primeira Vitória','Vença sua primeira partida.'],['math_10','🧠','Mente Matemática','Acerte 10 desafios.'],['online_first','🌎','Primeiro Online','Finalize uma partida online.'],['collector','🎒','Colecionador','Desbloqueie 10 itens.'],['level_10','⭐','Nível 10','Alcance o nível 10.'],['level_25','💎','Nível 25','Alcance o nível 25.']];$('#inventoryContent').innerHTML=`<div class="achievement-list">${arr.map(a=>`<div class="achievement-card"><span>${a[1]}</span><div><b>${a[2]}</b><small>${a[3]}</small></div><em>EM PROGRESSO</em></div>`).join('')}</div>`;}
-
-function populateCustomizer(){
-  const categories={hair:'#customHair',top:'#customTop',bottom:'#customBottom',shoes:'#customShoes',accessory:'#customAccessory',effect:'#customEffect',emote:'#customEmote',title:'#customTitle'};
-  for(const [cat,sel] of Object.entries(categories)){const el=$(sel);if(!el)continue;const allowed=new Set(state.inventory.map(i=>i.id));const ids=refs[cat]||[];const opts=ids.filter(id=>allowed.has(id)||state.user.role==='CEO'&&state.items.find(i=>i.id===id)?.asset?.ceoOnly).map(id=>({id,name:itemName(id)}));el.innerHTML=opts.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')||`<option value="${ids[0]||''}">${escapeHtml(itemName(ids[0]||''))}</option>`;el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
-  $('#customEyes').value=state.profile.avatar.eyes||'#1d2433';$('#customHairColor').value=state.profile.avatar.hairColor||'#171717';$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar)};$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar)};
+async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=await get('/rooms');const rooms=d.rooms||[];el.innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${mapTheme(r.options?.mapId)}">${r.locked?'🔒':'🌎'}</div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers}</small></div><div class="room-tags"><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span><span>${r.options.difficulty}</span></div><button class="btn btn-primary btn-wide" data-join-room="${r.code}" type="button">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):'<div class="empty-state glass"><span>🌌</span><b>Nenhuma sala aberta.</b><small>Crie a primeira mesa.</small></div>';}catch(e){el.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível carregar as salas.</b><small>${escapeHtml(e.message)}</small></div>`;}}
+function mapTheme(id){return MAPS.find(m=>m.id===id)?.theme||'classroom';}
+async function selectRoom(code){try{const d=await get('/rooms');const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return toast('Sala não encontrada.','error');state.roomToJoin=room;$('#joinRoomInfo')&&($('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Com senha':'🌎 Aberta'}`);if($('#joinRoomPassword'))$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
+function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:r.code,password:$('#joinRoomPassword')?.value||''});hide('#joinRoomModal');}
+async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+function renderRoom(room){
+  if(!room)return;$('#roomTitle')&&($('#roomTitle').textContent=room.name);$('#roomCodeBadge')&&($('#roomCodeBadge').textContent=room.code);$('#roomOptionsText')&&($('#roomOptionsText').textContent=`${room.players.length}/${room.options.maxPlayers} jogadores • ${room.options.turnSeconds}s • ${room.options.difficulty} • Matemática`);if($('#btnStartRoom'))$('#btnStartRoom').style.display=String(room.ownerId)===String(state.user.id)&&!room.started?'inline-flex':'none';
+  const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
+  const banner=$('#roomMapBanner');if(banner){banner.className=`room-map-banner map-${mapTheme(room.options.mapId)}`;banner.innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(MAPS.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
 }
-function openCustomize(){populateCustomizer();show('#customizeModal');renderCharacter('#customCharacter',state.profile.avatar);}
-async function saveCharacter(){try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;hide('#customizeModal');renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);toast('Personagem salvo!','success');}catch(e){toast(e.message,'error');}}
-async function saveSettingsFromUI(){if(!state.profile)return;state.profile.settings={music:$('#setMusic').checked,musicVolume:Number($('#setMusicVol').value),sfx:$('#setSfx').checked,sfxVolume:Number($('#setSfxVol').value),animations:$('#setAnimations').checked,reducedMotion:$('#setReducedMotion').checked,chatWorld:$('#setWorldChat').checked,chatRoom:$('#setRoomChat').checked,chatPrivate:$('#setPrivateChat').checked};SoundFX.enabled=state.profile.settings.sfx;SoundFX.volume=state.profile.settings.sfxVolume;BackgroundMusic.setVolume(state.profile.settings.musicVolume);BackgroundMusic.setEnabled(state.profile.settings.music);localStorage.setItem('uv_reduced_motion',state.profile.settings.reducedMotion?'1':'0'); localStorage.setItem('uv_audio_settings',JSON.stringify({music:state.profile.settings.music,musicVolume:state.profile.settings.musicVolume,sfx:state.profile.settings.sfx,sfxVolume:state.profile.settings.sfxVolume}));document.documentElement.style.setProperty('--motion',state.profile.settings.reducedMotion?'0':'1');try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;}catch{}}
-function applySettings(){const s=state.profile.settings||defaultClientSettings();state.settings=s;$('#setMusic').checked=s.music;$('#setMusicVol').value=s.musicVolume;$('#setSfx').checked=s.sfx;$('#setSfxVol').value=s.sfxVolume;$('#setAnimations').checked=s.animations;$('#setReducedMotion').checked=s.reducedMotion;$('#setWorldChat').checked=s.chatWorld;$('#setRoomChat').checked=s.chatRoom;$('#setPrivateChat').checked=s.chatPrivate;SoundFX.enabled=s.sfx;SoundFX.volume=s.sfxVolume;}
+function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');loadRooms();}
 
-function renderCharacter(selector,a){const el=typeof selector==='string'?$(selector):selector;if(!el||!a)return;const hair=a.hair||'hair_basic';const hairColor=a.hairColor||'#171717';el.innerHTML=`<div class="char-aura ${a.effect||''}"></div><div class="char-body" style="--skin:${a.skinColor||'#d59b76'};--eyes:${a.eyes||'#1d2433'}"><div class="char-head"><div class="char-hair ${hair}" style="--hair:${hairColor}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${a.top||'shirt_basic'}"></div><div class="char-bottom ${a.bottom||'pants_basic'}"></div><div class="char-shoes ${a.shoes||'shoes_basic'}"></div><div class="char-accessory ${a.accessory||''}"></div></div>`;}
+// ---------------- SOLO ----------------
+function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
+function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
+async function startSolo(difficulty){state.solo=makeSolo(difficulty);navigate('game');$('#arenaShell')?.classList.add('solo-arena');renderSolo();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
+function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho'};}
+function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-card"><div class="opponent-avatar">🤖</div><div><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand)hand.innerHTML=g.player.map((c,i)=>cardHtml(c,i)).join('');}
+function renderArenaCard(card,color){if($('#discardPile')){$('#discardPile').className=`uno-card card-${color} big-card`;$('#discardPile').textContent=card?.value||'?';}if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';}
+function cardHtml(c,i){return `<button class="uno-card card-${c.color} hand-card" data-index="${i}" type="button"><i>${escapeHtml(c.value)}</i><span>${escapeHtml(c.value)}</span><em>${c.type==='number'?'MAT':c.type.toUpperCase()}</em></button>`;}
+function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
+function soloChallenge(card){let a,b,op;if(card.type==='draw2'||card.type==='draw4'){a=2+Math.floor(Math.random()*8);b=2+Math.floor(Math.random()*8);op='×';}else if(card.type==='skip'||card.type==='reverse'){a=15+Math.floor(Math.random()*30);b=1+Math.floor(Math.random()*Math.min(15,a-1));op='−';}else{a=5+Math.floor(Math.random()*35);b=1+Math.floor(Math.random()*25);op='+';}return{a,b,op,answer:op==='×'?a*b:op==='−'?a-b:a+b};}
+function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');state.pendingSoloCard={index,card};state.pendingChallenge=soloChallenge(card);openMath(state.pendingChallenge);}
+function openMath(c){if(!c)return;$('#mathQuestion')&&($('#mathQuestion').textContent=`Quanto é ${c.a} ${c.op} ${c.b}?`);if($('#mathAnswer'))$('#mathAnswer').value='';hide('#colorModal');show('#mathModal');setTimeout(()=>$('#mathAnswer')?.focus(),100);}
+function cancelMath(){state.pendingChallenge=null;state.pendingSoloCard=null;state.pendingCard=null;hide('#mathModal');hide('#colorModal');}
+function submitMath(){const answer=Number($('#mathAnswer')?.value);if(!Number.isFinite(answer))return setMsg('#mathFeedback','Digite uma resposta.','error');const c=state.pendingChallenge;if(state.solo&&state.pendingSoloCard){hide('#mathModal');if(answer!==c.answer){state.pendingSoloCard=null;state.pendingChallenge=null;Sound.bad();toast('Resposta errada. Você compra uma carta e perde a vez.','error');soloDraw();return;}const card=state.pendingSoloCard.card;state.pendingSoloCard=null;state.pendingChallenge=null;applySoloCard(card);return;}if(state.pendingCard&&state.socket){if(answer!==c.answer){hide('#mathModal');state.pendingCard=null;state.pendingChallenge=null;Sound.bad();toast('Resposta errada.','error');return;}state.pendingCard._answer=answer;hide('#mathModal');if(state.pendingCard.value==='🌈'||state.pendingCard.type==='draw4'){show('#colorModal');}else{state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,answer});state.pendingCard=null;state.pendingChallenge=null;}}}
+function applySoloCard(card){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.color=card.color==='black'?COLORS[Math.floor(Math.random()*4)]:card.color;Sound.card();if(card.type==='draw2')drawSolo(g.bot,2);if(card.type==='draw4')drawSolo(g.bot,4);if(g.player.length===0)return finishSolo(true);if(card.type==='skip'||card.type==='reverse'){renderSolo();return;}g.turn='bot';renderSolo();setTimeout(botTurn,850);}
+function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
+function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;drawSolo(g.player,1);g.turn='bot';renderSolo();setTimeout(botTurn,700);}
+function botTurn(){const g=state.solo;if(!g||g.turn!=='bot')return;let cards=g.bot.filter(c=>playable(c,g.discard,g.color));if(g.difficulty==='medium')cards.sort((a,b)=>cardScore(b)-cardScore(a));if(g.difficulty==='hard')cards.sort((a,b)=>botScore(g,b)-botScore(g,a));const card=cards[0];if(!card){drawSolo(g.bot,1);g.turn='player';renderSolo();return;}g.bot.splice(g.bot.indexOf(card),1);g.pile.push(g.discard);g.discard=card;g.color=card.color==='black'?chooseColorBot(g.bot):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.player,2);if(card.type==='draw4')drawSolo(g.player,4);if(g.bot.length===0)return finishSolo(false);g.turn=card.type==='skip'||card.type==='reverse'?'bot':'player';renderSolo();if(g.turn==='bot')setTimeout(botTurn,800);}
+function cardScore(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?40:Number(c.value)||0;}
+function botScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player.length<=3&&c.type!=='number')n+=25;return n;}
+function chooseColorBot(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
+async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1000);}
 
-async function openRank(){navigate('rank');try{const d=await getJSON('/rank');$('#rankRows').innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${formatNum(p.xp)}</span><span>${formatNum(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){toast(e.message,'error');}}
-async function logout(){try{await postJSON('/logout',undefined);}catch{}try{state.socket?.disconnect()}catch{}state.user=null;state.profile=null;state.token=null;BackgroundMusic.stop();hide('#appScreen');show('#authScreen');}
+// ---------------- ONLINE ----------------
+function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');state.pendingCard={...card,cardId:card.id};state.socket?.emit('game:challenge',{cardId:card.id});}
+function renderOnlineGame(game){state._onlineGame=game;state.solo=null;navigate('game');$('#roundText')&&($('#roundText').textContent='ONLINE');const mine=String(game.currentPlayerId)===String(state.user.id);$('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');$('#turnStatus')?.classList.toggle('bot',!mine);renderArenaCard(game.top,game.currentColor);$('#deckCount')&&($('#deckCount').textContent=game.deckCount);const hand=$('#playerHand');if(hand)hand.innerHTML=(game.hand||[]).map(cardHtml).join('');const ops=$('#opponents');if(ops)ops.innerHTML=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id)).map(p=>`<div class="opponent-card ${String(p.userId)===String(game.currentPlayerId)?'active':''}"><div class="opponent-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`).join('');renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());}
+function chooseColor(color){if(!state.pendingCard||!state.socket)return;state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,answer:state.pendingCard._answer,chosenColor:color});state.pendingCard=null;state.pendingChallenge=null;hide('#colorModal');}
+function openMathOnline(c){state.pendingChallenge=c;openMath(c);}
+function drawGameCard(){if(state.solo){soloDraw();return;}if(state.currentRoom?.started)state.socket?.emit('game:draw');}
+function callUno(){if(state.solo){if(state.solo.player.length===1){Sound.ok();toast('📣 UNO!','success');}else toast('Você só chama UNO com uma carta.','error');return;}if(state.currentRoom)state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom.code,body:'📣 UNO!'});}
+function exitGame(){state.solo=null;state._onlineGame=null;cancelMath();navigate(state.currentRoom?'room':'lobby');}
+function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted&&state.profile?.settings?.sfx!==false;if($('#btnSound'))$('#btnSound').textContent=state.muted?'🔇':'🔊';}
 
+// ---------------- LOJA / INVENTÁRIO ----------------
+async function openShop(mode='official'){state.shopMode=mode;navigate('shop');$$('.shop-tab').forEach(b=>b.classList.toggle('active',b.dataset.shop===mode));try{if(mode==='market'){const d=await get('/shop/market');renderMarket(d.listings||[]);}else{renderOfficialShop();}}catch(e){toast(e.message,'error');}}
+function renderOfficialShop(){const el=$('#shopGrid');if(!el)return;const owned=new Set(state.inventory.map(x=>x.id));const list=state.items.filter(i=>i.is_active!==false&&(!i.asset?.ceoOnly||state.user?.role==='CEO'));el.innerHTML=list.length?list.map(i=>itemCard(i,owned.has(i.id))).join(''):'<div class="empty-state glass"><span>🛍️</span><b>Loja vazia.</b><small>Os itens ainda não foram carregados.</small></div>';}
+function itemCard(i,owned){const icon={map:'🗺️',deck:'🎴',hair:'💇',clothing:'👕',accessory:'🕶️',effect:'✨',emote:'🎭',title:'🏷️'}[i.category]||'🧩';return `<article class="item-card glass rarity-${escapeHtml(i.rarity||'common')}"><div class="item-visual ${escapeHtml(i.asset?.theme||'')}">${icon}</div><div class="item-info"><span class="item-category">${escapeHtml(i.category||'item')}</span><b>${escapeHtml(i.name)}</b><small>${escapeHtml(i.description||'')}</small><div class="item-buy"><span>🪙 ${fmt(i.price)}</span>${owned?'<button class="btn btn-owned" disabled>POSSUÍDO</button>':`<button class="btn btn-primary" data-buy-item="${escapeHtml(i.id)}" type="button">COMPRAR</button>`}</div></div></article>`;}
+async function buyItem(id){try{const d=await post('/shop/buy',{itemId:id});toast(d.message,'success');const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);state.inventory=(await get('/inventory')).items||[];updateUserUI();renderOfficialShop();}catch(e){toast(e.message,'error');}}
+function renderMarket(list){const el=$('#shopGrid');if(!el)return;el.innerHTML=list.length?list.map(l=>`<article class="item-card glass"><div class="item-visual generated">🧑‍🤝‍🧑</div><div class="item-info"><span class="item-category">VENDA DE JOGADOR</span><b>${escapeHtml(l.name)}</b><small>Vendedor: ${escapeHtml(l.seller)}</small><div class="item-buy"><span>🪙 ${fmt(l.price)}</span><button class="btn btn-primary" data-buy-market="${l.listing_id}" type="button">COMPRAR</button></div></div></article>`).join(''):'<div class="empty-state glass"><span>🛍️</span><b>Nenhum anúncio.</b></div>';}
+async function buyMarket(id){try{const d=await post('/shop/market/buy',{listingId:Number(id)});toast(d.message,'success');await openShop('market');}catch(e){toast(e.message,'error');}}
+async function openInventory(mode='items'){state.inventoryMode=mode;navigate('inventory');state.inventory=(await get('/inventory')).items||[];$$('.inventory-tab').forEach(b=>b.classList.toggle('active',b.dataset.inv===mode));renderCharacter('#profileCharacterLarge',state.profile.avatar);if(mode==='items')renderInventoryItems();else renderAchievements();}
+function renderInventoryItems(){const el=$('#inventoryContent');if(!el)return;if(!state.inventory.length){el.innerHTML='<div class="empty-state"><span>🎒</span><b>Seu inventário está vazio.</b><small>Compre itens na loja para começar sua coleção.</small></div>';return;}const groups={};state.inventory.forEach(i=>(groups[i.category]??=[]).push(i));el.innerHTML=Object.entries(groups).map(([cat,arr])=>`<div class="inventory-section"><h3>${escapeHtml(cat.toUpperCase())}</h3><div class="inventory-grid">${arr.map(i=>`<div class="owned-item"><div class="owned-icon">🧩</div><b>${escapeHtml(i.name)}</b><small>x${i.quantity||1}</small><button class="mini-sell" data-sell="${escapeHtml(i.id)}" type="button">VENDER</button></div>`).join('')}</div></div>`).join('');}
+async function sellItem(id){const price=prompt('Preço em moedas (mínimo 10):','500');if(price===null)return;try{await post('/shop/market/list',{itemId:id,price:Number(price)});toast('Item anunciado!','success');state.inventory=(await get('/inventory')).items||[];renderInventoryItems();}catch(e){toast(e.message,'error');}}
+function renderAchievements(){const el=$('#inventoryContent');if(!el)return;const arr=[['🏆','Primeira Vitória','Vença sua primeira partida.'],['🧠','Mente Matemática','Acerte desafios matemáticos.'],['🌎','Primeiro Online','Finalize uma partida online.'],['🎒','Colecionador','Desbloqueie 10 itens.'],['⭐','Nível 10','Alcance o nível 10.'],['💎','Nível 25','Alcance o nível 25.']];el.innerHTML=`<div class="achievement-list">${arr.map(a=>`<div class="achievement-card"><span>${a[0]}</span><div><b>${a[1]}</b><small>${a[2]}</small></div><em>EM PROGRESSO</em></div>`).join('')}</div>`;}
 
-async function refreshResourceStatus(){const el=$('#resourceStatus');if(!el)return;const ok=await verifyAllResources();el.textContent=ok?'✅ Todos os recursos estão salvos neste dispositivo.':'⚠️ Alguns recursos ainda não foram baixados.';el.className=`form-message ${ok?'success':'info'}`;}
-async function downloadAllResources(){const el=$('#resourceStatus'), btn=$('#btnDownloadResources'); if(btn)btn.disabled=true; if(el)el.textContent='Baixando mapas, música, cartas e cosméticos...'; const ok=await cacheGameResources(); if(el){el.textContent=ok?'✅ Download completo. Tudo salvo neste dispositivo.':'❌ O download não terminou. Verifique a conexão e tente novamente.';el.className=`form-message ${ok?'success':'error'}`;} if(btn)btn.disabled=false;}
+// ---------------- PERSONAGEM / CONFIG ----------------
+function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
+  if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
+  if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
+}
+function openCustomize(){if(!state.profile)return toast('Perfil ainda não carregado.','error');populateCustomizer();renderCharacter('#customCharacter',state.profile.avatar);show('#customizeModal');}
+async function saveCharacter(){try{const d=await put('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''});state.profile=normalizeProfile(d.profile);renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);updateUserUI();hide('#customizeModal');toast('Personagem salvo com sucesso!','success');}catch(e){toast(e.message,'error');}}
+function renderCharacter(selector,a){const el=$(selector);if(!el)return;const x={...DEFAULT_AVATAR,...(a||{})};el.innerHTML=`<div class="char-aura ${escapeHtml(x.effect)}"></div><div class="char-body" style="--skin:${escapeHtml(x.skinColor)};--eyes:${escapeHtml(x.eyes)}"><div class="char-head"><div class="char-hair ${escapeHtml(x.hair)}" style="--hair:${escapeHtml(x.hairColor)}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${escapeHtml(x.top)}"></div><div class="char-bottom ${escapeHtml(x.bottom)}"></div><div class="char-shoes ${escapeHtml(x.shoes)}"></div><div class="char-accessory ${escapeHtml(x.accessory)}"></div></div>`;}
+function applySettings(){const s={...defaults(),...(state.profile?.settings||{})};const ids=[['setMusic',s.music],['setSfx',s.sfx],['setAnimations',s.animations],['setReducedMotion',s.reducedMotion],['setWorldChat',s.chatWorld],['setRoomChat',s.chatRoom],['setPrivateChat',s.chatPrivate]];ids.forEach(([id,v])=>{if($('#'+id))$('#'+id).checked=!!v;});if($('#setMusicVol'))$('#setMusicVol').value=s.musicVolume;if($('#setSfxVol'))$('#setSfxVol').value=s.sfxVolume;Sound.enabled=s.sfx!==false;Sound.volume=Number(s.sfxVolume)||.7;document.documentElement.style.setProperty('--motion',s.reducedMotion?'0':'1');}
+let settingsSaveTimer=null;function saveSettings(){if(!state.profile)return;const s={music:!!$('#setMusic')?.checked,musicVolume:Number($('#setMusicVol')?.value||.35),sfx:!!$('#setSfx')?.checked,sfxVolume:Number($('#setSfxVol')?.value||.7),animations:!!$('#setAnimations')?.checked,reducedMotion:!!$('#setReducedMotion')?.checked,chatWorld:!!$('#setWorldChat')?.checked,chatRoom:!!$('#setRoomChat')?.checked,chatPrivate:!!$('#setPrivateChat')?.checked};state.profile.settings=s;applySettings();clearTimeout(settingsSaveTimer);settingsSaveTimer=setTimeout(async()=>{try{await put('/profile',{avatar:state.profile.avatar,settings:s,bio:state.profile.bio||''});}catch{}},400);}
 
-function setupShopTabs(){/* reservado */}
-
-// Seleção de uma carta online: servidor gera o desafio e só então a carta pode ser enviada.
-// O cliente nunca recebe a resposta correta do desafio.
-
-document.addEventListener('click',e=>{
-  const el=e.target.closest('button,a,[role=button]');
-  if(!el)return;
-  const id=el.id;
-  if(id==='btnPlay'){e.preventDefault();e.stopPropagation();navigate('play');return;}
-  if(id==='btnCustomize'){e.preventDefault();e.stopPropagation();openCustomize();return;}
-  if(id==='btnShop'){e.preventDefault();e.stopPropagation();openShop('official');return;}
-  if(id==='btnInventory'){e.preventDefault();e.stopPropagation();openInventory('items');return;}
-  if(id==='btnSolo'){e.preventDefault();e.stopPropagation();navigate('solo');return;}
-  if(id==='btnOnline'){e.preventDefault();e.stopPropagation();openRooms();return;}
-  if(id==='btnRank'){e.preventDefault();e.stopPropagation();openRank();return;}
-});
+async function openRank(){navigate('rank');const el=$('#rankRows');if(!el)return;try{const d=await get('/rank');el.innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${fmt(p.xp)}</span><span>${fmt(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){el.innerHTML=`<div class="empty-state">${escapeHtml(e.message)}</div>`;}}
+function switchChat(ch){state.currentChat=ch;$$('.chat-tab').forEach(b=>b.classList.toggle('active',b.dataset.chat===ch));if($('#gameChatInput'))$('#gameChatInput').placeholder=ch==='private'?'Mensagem privada...':'Mensagem...';}
+function sendChat(body,channel){const text=String(body||'').trim();if(!text)return;if(channel==='world'&&!state.profile.settings.chatWorld)return toast('Chat mundial desativado.','error');if(channel==='room'&&!state.profile.settings.chatRoom)return toast('Chat da sala desativado.','error');state.socket?.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});}
+function renderChatMessage(m){if(m.channel==='room'&&state.currentRoom?.code!==m.roomCode)return;[$('#roomChatMessages'),$('#gameChatMessages')].forEach(box=>{if(!box)return;const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);box.scrollTop=box.scrollHeight;});}
+async function logout(){try{await post('/logout');}catch{}try{state.socket?.disconnect();}catch{}localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;state.currentRoom=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
 
 window.addEventListener('DOMContentLoaded',init);
-
-
-// Proteção do frontend: um erro visual não pode deixar o lobby vazio.
-window.addEventListener('error',e=>{
-  console.error('UnoVelho frontend:',e.error||e.message);
-  if(state.user){
-    const lobby=document.getElementById('lobbyView');
-    const app=document.getElementById('appScreen');
-    if(app)app.classList.remove('hidden');
-    if(lobby){
-      lobby.classList.remove('hidden');
-      lobby.style.removeProperty('display');
-    }
-  }
-});
