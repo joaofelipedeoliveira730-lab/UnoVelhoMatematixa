@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="UnoVelho Matematixa — UNO com matemática, personagens e multiplayer.">
 <title>UnoVelho Matematixa</title>
-<link rel="stylesheet" href="style.css?v=20260815-4">
+<link rel="stylesheet" href="style.css?v=20260815-menu-v2">
 </head>
 <body>
 
@@ -59,13 +59,52 @@
   <div class="top-actions"><div class="currency">🪙 <b id="coinValue">0</b></div><div class="level-chip"><span>NÍVEL</span><b id="levelValue">1</b></div><button id="btnOpenProfile" class="avatar-mini" type="button">🙂</button><button id="btnOpenSettings" class="icon-btn" type="button">⚙️</button></div>
 </header>
 
-<section id="lobbyView" class="view">
-  <div class="lobby-hero">
-    <div class="hero-cards" aria-hidden="true"><div>+4</div><div>7</div><div>🔄</div><div>2</div><div>🌈</div></div>
-    <div class="hero-copy"><span class="pill">🌎 MULTIPLAYER ONLINE</span><h1>UNO <span>MATEMATIXA</span></h1><p>Seu raciocínio é a sua carta mais forte.</p><div class="hero-profile"><div id="heroCharacter" class="character-stage small"></div><div><b id="heroName">Jogador</b><div class="xp-line"><span id="xpBar"></span></div><small><span id="xpValue">0</span> XP • <span id="winsValue">0</span> vitórias</small></div></div></div>
-    <div class="hero-actions"><button id="btnPlay" class="menu-btn play" type="button"><span>🎮</span><b>JOGAR</b><small>Solo • Online • Ranking</small></button><button id="btnShop" class="menu-btn shop" type="button"><span>🛍️</span><b>LOJA</b><small>Itens e cosméticos</small></button><button id="btnInventory" class="menu-btn inventory" type="button"><span>🎒</span><b>INVENTÁRIO</b><small>Itens e conquistas</small></button><button id="btnCustomize" class="menu-btn customize" type="button"><span>✨</span><b>PERSONALIZAR</b><small>Monte seu personagem</small></button></div>
+<section id="lobbyView" class="view lobby-v2">
+  <div class="menu-bg-scene" aria-hidden="true">
+    <div class="bg-glow glow-a"></div><div class="bg-glow glow-b"></div>
+    <div class="bg-card bg-card-a">7</div><div class="bg-card bg-card-b">+2</div><div class="bg-card bg-card-c">↻</div>
+    <div class="chase-track">
+      <div class="chase-dust dust-a"></div><div class="chase-dust dust-b"></div><div class="chase-dust dust-c"></div>
+      <div class="chase-old"><span class="old-cane">╱</span><span class="old-body">👴</span></div>
+      <div class="chase-mom"><span class="mom-body">👩</span><span class="slipper">🩴</span></div>
+    </div>
   </div>
-  <div class="dashboard-grid"><article class="panel glass"><div class="panel-title"><span>🔥 Destaques</span><button id="btnRankSmall" class="text-btn" type="button">Ranking →</button></div><div id="miniRank" class="mini-rank"></div></article><article class="panel glass"><div class="panel-title"><span>🗺️ Mapas</span><button id="btnMapsPreview" class="text-btn" type="button">Ver mapas →</button></div><div id="mapPreview" class="map-preview"></div></article><article class="panel glass"><div class="panel-title"><span>🏆 Conquistas</span></div><div id="achievementPreview" class="achievement-preview"></div></article></div>
+
+  <header class="menu-top-v2">
+    <div class="player-card-v2 glass">
+      <button id="btnOpenProfileMenu" class="menu-avatar-button" type="button"><span>🙂</span></button>
+      <div class="player-card-info"><b id="heroName">Jogador</b><span>NÍVEL <strong id="levelValue">1</strong></span><div class="xp-line"><span id="xpBar"></span></div><small><span id="xpValue">0</span> XP</small></div>
+    </div>
+    <div class="brand-3d-v2"><div class="uno-3d">UNO</div><div class="velho-3d">DO VELHO</div><span>MATEMATIXA</span></div>
+    <div class="economy-v2"><div>🪙 <b id="coinValue">0</b><button type="button">＋</button></div><div>💎 <b>320</b><button type="button">＋</button></div></div>
+  </header>
+
+  <div class="menu-main-v2">
+    <section class="menu-character-column">
+      <div class="character-platform-v2">
+        <div id="heroCharacter" class="character-stage menu-character"></div>
+        <div class="platform-ring"></div>
+      </div>
+      <button id="btnCustomize" class="edit-skin-v2" type="button"><span>✏️</span><b>EDITAR SKIN</b></button>
+      <button id="btnInventory" class="character-small-action" type="button">🎒 INVENTÁRIO</button>
+    </section>
+
+    <section class="main-buttons-v2">
+      <button id="btnPlay" class="big-menu-btn green" type="button"><span class="btn-icon">🃏</span><span><b>JOGAR</b><small>ENTRAR EM UMA PARTIDA</small></span><i>›</i></button>
+      <button id="btnCreateRoomLobby" class="big-menu-btn blue" type="button"><span class="btn-icon">👥</span><span><b>CRIAR PARTIDA</b><small>CHAME SEUS AMIGOS</small></span><i>›</i></button>
+      <button id="btnMapsPreview" class="big-menu-btn gold" type="button"><span class="btn-icon">🗺️</span><span><b>ESCOLHER MAPA</b><small>BAR • NAVIO • CASA • TAVERNA</small></span><i>›</i></button>
+      <button id="btnShop" class="big-menu-btn purple" type="button"><span class="btn-icon">🛒</span><span><b>LOJA</b><small>COMPRE ITENS E SKINS</small></span><i>›</i></button>
+    </section>
+
+    <aside class="right-rail-v2">
+      <button id="btnOpenSettings" class="rail-btn" type="button"><span>⚙️</span><b>CONFIGURAÇÕES</b></button>
+      <button id="btnRankSmall" class="rail-btn" type="button"><span>🏆</span><b>RANK MUNDIAL</b></button>
+      <button id="btnGlobalChat" class="rail-btn chat-rail" type="button"><span>💬</span><b>CHAT GLOBAL</b><em>35</em></button>
+    </aside>
+  </div>
+
+  <div class="global-chat-v2 glass"><span class="global-dot">🌎</span><div><b>GLOBAL</b><p><strong>Joãozera:</strong> Quem quer sala? Bora jogar!</p></div><button id="btnGlobalChatOpen" type="button">💬</button></div>
+  <div class="menu-status-v2"><span>🟢 SERVIDORES ONLINE</span><span>•</span><span>🎮 JOGADORES CONECTADOS</span></div>
 </section>
 
 <section id="playView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>JOGAR</h2></div><div class="play-grid"><button id="btnSolo" class="mode-card solo" type="button"><span>🤖</span><b>JOGAR SOLO</b><small>Treine contra bots</small></button><button id="btnOnline" class="mode-card online" type="button"><span>🌎</span><b>JOGAR ONLINE</b><small>Salas de 2 a 8 jogadores</small></button><button id="btnRank" class="mode-card rank" type="button"><span>🏆</span><b>RANK MUNDIAL</b><small>Veja os melhores jogadores</small></button></div></section>
@@ -79,7 +118,7 @@
     <aside class="game-chat-left chat-panel glass">
       <div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div>
       <div class="chat-tabs"><button class="chat-tab active" data-chat="world" type="button">🌎 Mundo</button><button class="chat-tab" data-chat="room" type="button">🔒 Sala</button><button class="chat-tab" data-chat="private" type="button">👤 Privado</button></div>
-      <div id="gameChatTyping" class="chat-typing hidden"></div><div id="gameChatMessages" class="chat-messages"></div>
+      <div id="gameChatMessages" class="chat-messages"></div>
       <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem..."><button type="submit">➤</button></form>
     </aside>
 
@@ -90,24 +129,23 @@
         <div class="arena-tools"><button id="btnSound" class="icon-btn" type="button">🔊</button><button id="btnBackGame" class="icon-btn" type="button">✕</button></div>
       </header>
 
-      <div id="mapScene" class="saloon-map map-saloon">
-        <div class="map-decor" id="mapDecor" aria-hidden="true"></div><div class="map-light"></div><div class="table-shadow"></div>
+      <div class="saloon-map">
+        <div class="map-light"></div><div class="table-shadow"></div>
         <div class="wood-table">
           <div class="table-rim"></div>
           <div class="table-felt"></div>
         </div>
       </div>
 
-      <div id="opponents" class="opponents table-players"></div><div id="gameActionLayer" class="game-action-layer" aria-hidden="true"></div>
+      <div id="opponents" class="opponents table-players"></div>
       <div class="table-center-3d">
         <div class="deck-area"><button id="drawStack" class="draw-stack" type="button"><span class="uno-card back-card">UNO</span><b id="deckCount">0</b></button></div>
-        <div class="discard-area"><div id="playedCards" class="played-cards"></div><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div>
+        <div class="discard-area"><div id="discardPile" class="uno-card card-red big-card">7</div><div id="colorIndicator" class="color-indicator">VERMELHO</div></div>
       </div>
 
       <div class="turn-hint">Clique/toque em uma carta da sua mão para jogar.</div>
       <div class="player-zone">
-        <div id="emoteTray" class="emote-tray" aria-label="Emotes"><button type="button" data-emote="😀">😀</button><button type="button" data-emote="😂">😂</button><button type="button" data-emote="😡">😡</button><button type="button" data-emote="🔥">🔥</button><button type="button" data-emote="👏">👏</button><button type="button" data-emote="🎉">🎉</button></div>
-        <div class="player-self" data-player-id=""><div class="player-emote" data-emote-for="self"></div><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
+        <div class="player-self"><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerTitle">INICIANTE</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
         <div id="playerHand" class="hand-cards hand-fan-3d"></div>
         <div id="gameToast" class="game-toast"></div>
       </div>
@@ -115,6 +153,27 @@
   </div>
 </section>
 
+<section id="customizeView" class="view hidden customize-page">
+  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>EDITAR PERSONAGEM</h2><small class="subnav-subtitle">Escolha roupas, cabelo e acessórios com prévias visuais.</small></div><button id="btnSaveCharacterTop" class="btn btn-primary" type="button">💾 SALVAR</button></div>
+  <div class="custom-page-layout">
+    <aside class="custom-showcase glass">
+      <div class="showcase-badge">✨ SEU PERSONAGEM</div>
+      <div id="customCharacterPage" class="character-stage custom-page-character"></div>
+      <b id="customNamePage">Jogador</b><span id="customTitlePage" class="title-badge">INICIANTE</span>
+      <div class="equipped-list" id="equippedList"></div>
+      <button id="btnSaveCharacter" class="btn btn-primary btn-wide" type="button">SALVAR PERSONAGEM</button>
+    </aside>
+    <section class="custom-picker glass">
+      <div class="custom-picker-head"><div><span class="pill">🧥 GUARDA-ROUPA</span><h3>Escolha seu estilo</h3></div><span id="customOwnedCount" class="owned-counter">0 itens</span></div>
+      <div class="custom-category-tabs" id="customCategoryTabs">
+        <button class="custom-cat active" data-custom-cat="top" type="button">👕 Roupas</button><button class="custom-cat" data-custom-cat="hair" type="button">💇 Cabelo</button><button class="custom-cat" data-custom-cat="bottom" type="button">👖 Calças</button><button class="custom-cat" data-custom-cat="shoes" type="button">👟 Tênis</button><button class="custom-cat" data-custom-cat="accessory" type="button">🕶️ Acessórios</button><button class="custom-cat" data-custom-cat="effect" type="button">✨ Efeitos</button>
+      </div>
+      <div id="customSkinStrip" class="skin-strip"><b>🎨 Pele</b><button class="swatch" data-skin="#f1c7a7" style="background:#f1c7a7" type="button" aria-label="Pele clara"></button><button class="swatch" data-skin="#d59b76" style="background:#d59b76" type="button" aria-label="Pele média"></button><button class="swatch" data-skin="#9b684a" style="background:#9b684a" type="button" aria-label="Pele morena"></button><button class="swatch" data-skin="#6b422e" style="background:#6b422e" type="button" aria-label="Pele escura"></button></div>
+      <div id="customCatalog" class="custom-catalog"></div>
+      <div class="custom-note">🔒 Itens bloqueados podem ser comprados na loja. Itens já adquiridos podem ser equipados com um toque.</div>
+    </section>
+  </div>
+</section>
 <section id="shopView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>LOJA</h2><div class="shop-tabs"><button class="shop-tab active" data-shop="official" type="button">🏪 Oficial</button><button class="shop-tab" data-shop="market" type="button">🧑‍🤝‍🧑 Jogadores</button></div></div><div id="shopGrid" class="item-grid"></div></section>
 <section id="inventoryView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>INVENTÁRIO</h2></div><div class="profile-layout"><div class="profile-card glass"><div id="profileCharacterLarge" class="character-stage large"></div><h3 id="profileName">Jogador</h3><span id="profileTitle" class="title-badge">INICIANTE</span><div class="profile-stats"><div><b id="profileLevel">1</b><small>Nível</small></div><div><b id="profileWins">0</b><small>Vitórias</small></div><div><b id="profileGames">0</b><small>Partidas</small></div></div></div><div class="inventory-panel glass"><div class="inventory-tabs"><button class="inventory-tab active" data-inv="items" type="button">🎒 Itens</button><button class="inventory-tab" data-inv="achievements" type="button">🏆 Conquistas</button></div><div id="inventoryContent"></div></div></div></section>
 <section id="rankView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><h2>RANK MUNDIAL</h2></div><div class="rank-table glass"><div class="rank-head"><span>#</span><span>Jogador</span><span>Nível</span><span>XP</span><span>Vitórias</span></div><div id="rankRows"></div></div></section>
@@ -128,6 +187,6 @@
 <div id="colorModal" class="modal-overlay hidden"><div class="modal modal-narrow"><div class="math-icon">🌈</div><h2>Escolha a cor</h2><div class="color-picker"><button data-color="red" type="button">VERMELHO</button><button data-color="yellow" type="button">AMARELO</button><button data-color="green" type="button">VERDE</button><button data-color="blue" type="button">AZUL</button></div></div></div>
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="app.js?v=20260815-4"></script>
+<script src="app.js?v=20260815-menu-v2"></script>
 </body>
 </html>

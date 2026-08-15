@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260815-5';
+const VERSION = '20260815-6';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -134,17 +134,21 @@ function bindEvents(){
   on('#btnOpenProfile','click',()=>openInventory('items'));
   on('#btnOpenSettings','click',()=>navigate('settings'));
   on('#btnRankSmall','click',openRank);
-  on('#btnMapsPreview','click',()=>openShop('official'));
   on('#btnSolo','click',()=>navigate('solo'));
   on('#btnOnline','click',openRooms);
   on('#btnRank','click',openRank);
   on('#btnRefreshRooms','click',loadRooms);
   on('#btnCreateRoom','click',openCreateRoom);
+  on('#btnCreateRoomLobby','click',openCreateRoom);
+  on('#btnGlobalChat','click',()=>toast('💬 Chat global selecionado. A conversa ficará disponível aqui.', 'info'));
+  on('#btnGlobalChatOpen','click',()=>toast('💬 Chat global selecionado. A conversa ficará disponível aqui.', 'info'));
+  on('#btnOpenProfileMenu','click',()=>openInventory('items'));
+  on('#btnMapsPreview','click',openCreateRoom);
   on('#btnConfirmCreateRoom','click',createRoom);
   on('#btnConfirmJoinRoom','click',joinSelectedRoom);
   on('#btnStartRoom','click',()=>state.socket?.emit('room:start'));
   on('#btnLeaveRoom','click',leaveRoom);
-  on('#btnSaveCharacter','click',saveCharacter);
+  on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
   on('#btnUno','click',callUno);
   on('#btnBackGame','click',exitGame);
@@ -156,7 +160,7 @@ function bindEvents(){
   $$('.shop-tab').forEach(b=>b.addEventListener('click',()=>openShop(b.dataset.shop)));
   $$('.inventory-tab').forEach(b=>b.addEventListener('click',()=>openInventory(b.dataset.inv)));
   $$('.chat-tab').forEach(b=>b.addEventListener('click',()=>switchChat(b.dataset.chat)));
-  $$('.swatch').forEach(b=>b.addEventListener('click',()=>{state.profile.avatar.skinColor=b.dataset.skin;renderCharacter('#customCharacter',state.profile.avatar);}));
+  $$('.swatch').forEach(b=>b.addEventListener('click',()=>{state.profile.avatar.skinColor=b.dataset.skin;renderCharacter('#customCharacter',state.profile.avatar);if(state.currentView==='customize')renderCustomPage();}));
   ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>on('#'+id,'change',saveSettings));
   on('#setMusicVol','input',saveSettings);on('#setSfxVol','input',saveSettings);
   on('#roomChatForm','submit',e=>{e.preventDefault();sendChat($('#roomChatInput')?.value,'room');if($('#roomChatInput'))$('#roomChatInput').value='';});
@@ -171,6 +175,8 @@ function bindEvents(){
     const join=e.target.closest('[data-join-room]');if(join){selectRoom(join.dataset.joinRoom);return;}
     const buy=e.target.closest('[data-buy-item]');if(buy){buyItem(buy.dataset.buyItem);return;}
     const market=e.target.closest('[data-buy-market]');if(market){buyMarket(market.dataset.buyMarket);return;}
+    const custom=e.target.closest('[data-custom-item]');if(custom){equipCustomItem(custom.dataset.customItem,custom.dataset.customSlot);return;}
+    const cat=e.target.closest('[data-custom-cat]');if(cat){$$('.custom-cat').forEach(b=>b.classList.toggle('active',b===cat));renderCustomCatalog(cat.dataset.customCat);return;}
     const sell=e.target.closest('[data-sell]');if(sell){sellItem(sell.dataset.sell);return;}
     const hand=e.target.closest('#playerHand .hand-card');if(hand){playHandCard(Number(hand.dataset.index));return;}
     const back=e.target.closest('[data-color]');if(back&&$('#colorModal')&&!$('#colorModal').classList.contains('hidden')){chooseColor(back.dataset.color);return;}
@@ -275,61 +281,21 @@ async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const
 
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
-let lastOnlineFrameKey='';
-let lastOnlineMap='';
-let lastOnlineHandKey='';
-let lastOnlinePlayersKey='';
 function renderOnlineGame(game){
-  state._onlineGame=game; state.solo=null;
-  if(state.currentView!=='game') navigate('game');
-  const mine=String(game.currentPlayerId)===String(state.user.id);
-  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;
-  const mapKey=String(game.mapId||'');
-  const handKey=(game.hand||[]).map(c=>c.id).join(',');
-  const playersKey=(game.players||[]).map(p=>`${p.userId}:${p.cardCount}:${p.username}`).join('|');
-  const frameKey=`${game.top?.id||''}:${game.currentColor}:${game.currentPlayerId}:${game.deckCount}:${handKey}:${playersKey}`;
-
+  state._onlineGame=game;state.solo=null;navigate('game');
   $('#roundText')&&($('#roundText').textContent='AO VIVO');
-  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');
-  $('#turnStatus')?.classList.toggle('bot',!mine);
-
-  if(mapKey!==lastOnlineMap){
-    lastOnlineMap=mapKey;
-    state.currentMapTheme=theme.music||'saloon';
-    applyMapScene(game.mapId);
-    startMapMusic(theme.music||'saloon');
-  }
-  if(frameKey===lastOnlineFrameKey)return;
-  lastOnlineFrameKey=frameKey;
-
-  renderArenaCard(game.top,game.currentColor);
-  $('#deckCount')&&($('#deckCount').textContent=game.deckCount);
+  const mine=String(game.currentPlayerId)===String(state.user.id);
+  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');$('#turnStatus')?.classList.toggle('bot',!mine);
+  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;state.currentMapTheme=theme.music||'saloon';applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
+  renderArenaCard(game.top,game.currentColor);$('#deckCount')&&($('#deckCount').textContent=game.deckCount);
   renderPlayedCards(game.recentDiscard||[]);
-
-  if(handKey!==lastOnlineHandKey){
-    lastOnlineHandKey=handKey;
-    const hand=$('#playerHand');
-    if(hand) hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');
-  }
-
-  if(playersKey!==lastOnlinePlayersKey){
-    lastOnlinePlayersKey=playersKey;
-    const ops=$('#opponents');
-    if(ops){
-      const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));
-      ops.innerHTML=others.map((p,i)=>{
-        const seat=i%4;
-        const active=String(p.userId)===String(game.currentPlayerId);
-        const char=characterMarkup(p.avatar||DEFAULT_AVATAR);
-        return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
-      }).join('');
-    }
-  }
-  const self=$('.player-self');
-  if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
-  renderCharacter('#gameAvatar',state.profile.avatar);
-  $('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);
-  $('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
+  const hand=$('#playerHand');if(hand)hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');
+  const ops=$('#opponents');
+  if(ops){const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));ops.innerHTML=others.map((p,i)=>{
+    const seat=i%4;const active=String(p.userId)===String(game.currentPlayerId);const char=characterMarkup(p.avatar||DEFAULT_AVATAR);return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
+  }).join('');}
+  const self=$('.player-self');if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
+  renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
 }
 function characterMarkup(a){const x={...DEFAULT_AVATAR,...(a||{})};return `<div class="char-aura ${escapeHtml(x.effect)}"></div><div class="char-body" style="--skin:${escapeHtml(x.skinColor)};--eyes:${escapeHtml(x.eyes)}"><div class="char-head"><div class="char-hair ${escapeHtml(x.hair)}" style="--hair:${escapeHtml(x.hairColor)}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${escapeHtml(x.top)}"></div><div class="char-bottom ${escapeHtml(x.bottom)}"></div><div class="char-shoes ${escapeHtml(x.shoes)}"></div><div class="char-accessory ${escapeHtml(x.accessory)}"></div></div>`;}
 function renderPlayedCards(cards){const el=$('#playedCards');if(!el)return;const recent=cards.slice(-5);el.innerHTML=recent.map((c,i)=>`<div class="uno-card card-${c.color} played-mini" style="--i:${i}"><span>${escapeHtml(c.value)}</span></div>`).join('');}
@@ -355,8 +321,11 @@ function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted&&state
 // ---------------- LOJA / INVENTÁRIO ----------------
 async function openShop(mode='official'){state.shopMode=mode;navigate('shop');$$('.shop-tab').forEach(b=>b.classList.toggle('active',b.dataset.shop===mode));try{if(mode==='market'){const d=await get('/shop/market');renderMarket(d.listings||[]);}else{renderOfficialShop();}}catch(e){toast(e.message,'error');}}
 function renderOfficialShop(){const el=$('#shopGrid');if(!el)return;const owned=new Set(state.inventory.map(x=>x.id));const list=state.items.filter(i=>i.is_active!==false&&(!i.asset?.ceoOnly||state.user?.role==='CEO'));el.innerHTML=list.length?list.map(i=>itemCard(i,owned.has(i.id))).join(''):'<div class="empty-state glass"><span>🛍️</span><b>Loja vazia.</b><small>Os itens ainda não foram carregados.</small></div>';}
-function itemCard(i,owned){const icon={map:'🗺️',deck:'🎴',hair:'💇',clothing:'👕',accessory:'🕶️',effect:'✨',emote:'🎭',title:'🏷️'}[i.category]||'🧩';return `<article class="item-card glass rarity-${escapeHtml(i.rarity||'common')}"><div class="item-visual ${escapeHtml(i.asset?.theme||'')}">${icon}</div><div class="item-info"><span class="item-category">${escapeHtml(i.category||'item')}</span><b>${escapeHtml(i.name)}</b><small>${escapeHtml(i.description||'')}</small><div class="item-buy"><span>🪙 ${fmt(i.price)}</span>${owned?'<button class="btn btn-owned" disabled>POSSUÍDO</button>':`<button class="btn btn-primary" data-buy-item="${escapeHtml(i.id)}" type="button">COMPRAR</button>`}</div></div></article>`;}
-async function buyItem(id){try{const d=await post('/shop/buy',{itemId:id});toast(d.message,'success');const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);state.inventory=(await get('/inventory')).items||[];updateUserUI();renderOfficialShop();}catch(e){toast(e.message,'error');}}
+function itemCard(i,owned){const icon={map:'🗺️',deck:'🎴',hair:'💇',clothing:'👕',accessory:'🕶️',effect:'✨',emote:'🎭',title:'🏷️',top:'👕',bottom:'👖',shoes:'👟'}[i.category]||'🧩';const image=i.asset?.image||`/assets/cosmetics/${encodeURIComponent(i.id)}.svg`;return `<article class="item-card glass rarity-${escapeHtml(i.rarity||'common')}"><div class="item-visual ${escapeHtml(i.asset?.theme||'')}"><img src="${escapeHtml(image)}" alt="${escapeHtml(i.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><span class="item-fallback">${icon}</span></div><div class="item-info"><span class="item-category">${escapeHtml(i.category||'item')}</span><b>${escapeHtml(i.name)}</b><small>${escapeHtml(i.description||'')}</small><div class="item-buy"><span>🪙 ${fmt(i.price)}</span>${owned?'<button class="btn btn-owned" disabled>✓ POSSUÍDO</button>':`<button class="btn btn-primary" data-buy-item="${escapeHtml(i.id)}" type="button">COMPRAR</button>`}</div></div></article>`;}
+async function buyItem(id){
+  const btn=document.querySelector(`[data-buy-item="${CSS.escape(String(id))}"]`);if(btn)btn.disabled=true;
+  try{const d=await post('/shop/buy',{itemId:id});toast(d.message||'Compra concluída!','success');const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);state.inventory=(await get('/inventory')).items||[];updateUserUI();renderOfficialShop();if(state.currentView==='customize')renderCustomPage();Sound.ok();}catch(e){toast(e.message||'Não foi possível comprar o item.','error');if(btn)btn.disabled=false;Sound.bad();}
+}
 function renderMarket(list){const el=$('#shopGrid');if(!el)return;el.innerHTML=list.length?list.map(l=>`<article class="item-card glass"><div class="item-visual generated">🧑‍🤝‍🧑</div><div class="item-info"><span class="item-category">VENDA DE JOGADOR</span><b>${escapeHtml(l.name)}</b><small>Vendedor: ${escapeHtml(l.seller)}</small><div class="item-buy"><span>🪙 ${fmt(l.price)}</span><button class="btn btn-primary" data-buy-market="${l.listing_id}" type="button">COMPRAR</button></div></div></article>`).join(''):'<div class="empty-state glass"><span>🛍️</span><b>Nenhum anúncio.</b></div>';}
 async function buyMarket(id){try{const d=await post('/shop/market/buy',{listingId:Number(id)});toast(d.message,'success');await openShop('market');}catch(e){toast(e.message,'error');}}
 async function openInventory(mode='items'){state.inventoryMode=mode;navigate('inventory');state.inventory=(await get('/inventory')).items||[];$$('.inventory-tab').forEach(b=>b.classList.toggle('active',b.dataset.inv===mode));renderCharacter('#profileCharacterLarge',state.profile.avatar);if(mode==='items')renderInventoryItems();else renderAchievements();}
@@ -369,8 +338,53 @@ function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'custom
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
-function openCustomize(){if(!state.profile)return toast('Perfil ainda não carregado.','error');populateCustomizer();renderCharacter('#customCharacter',state.profile.avatar);show('#customizeModal');}
-async function saveCharacter(){try{const d=await put('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''});state.profile=normalizeProfile(d.profile);renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);updateUserUI();hide('#customizeModal');toast('Personagem salvo com sucesso!','success');}catch(e){toast(e.message,'error');}}
+function openCustomize(){
+  if(!state.profile)return toast('Perfil ainda não carregado.','error');
+  state.previousView=state.currentView||'lobby';
+  navigate('customize');
+  renderCharacter('#customCharacterPage',state.profile.avatar);
+  renderCustomPage();
+}
+function customImage(id){return `/assets/cosmetics/${encodeURIComponent(id)}.svg`;}
+function renderCustomPage(){
+  if(!state.profile)return;
+  renderCharacter('#customCharacterPage',state.profile.avatar);
+  const u=state.user||{};
+  if($('#customNamePage'))$('#customNamePage').textContent=u.username||'Jogador';
+  if($('#customTitlePage'))$('#customTitlePage').textContent=itemName(state.profile.avatar.title||'title_beginner').toUpperCase();
+  const owned=new Set((state.inventory||[]).map(i=>i.id));
+  if($('#customOwnedCount'))$('#customOwnedCount').textContent=`${owned.size} itens adquiridos`;
+  renderEquippedList(owned);
+  const active=document.querySelector('.custom-cat.active')?.dataset.customCat||'top';
+  renderCustomCatalog(active);
+}
+function renderEquippedList(owned){
+  const el=$('#equippedList');if(!el)return;
+  const slots=[['top','👕'],['hair','💇'],['bottom','👖'],['shoes','👟'],['accessory','🕶️']];
+  el.innerHTML=slots.map(([slot,icon])=>`<div class="equipped-chip"><span>${icon}</span><div><small>${slot}</small><b>${escapeHtml(itemName(state.profile.avatar[slot]))}</b></div></div>`).join('');
+}
+function renderCustomCatalog(category){
+  const el=$('#customCatalog');if(!el)return;
+  const owned=new Set((state.inventory||[]).map(i=>i.id));
+  const ids=COSMETICS[category]||[];
+  el.innerHTML=ids.map(id=>{
+    const item=state.items.find(x=>x.id===id); const canUse=owned.has(id)||state.user?.role==='CEO';
+    const price=Number(item?.price||0); const name=item?.name||itemName(id); const desc=item?.description||'Item cosmético';
+    return `<button class="custom-item-card ${state.profile.avatar[category]===id?'selected':''} ${canUse?'owned':'locked'}" data-custom-item="${escapeHtml(id)}" data-custom-slot="${escapeHtml(category)}" type="button">
+      <div class="custom-photo"><img src="${customImage(id)}" alt="${escapeHtml(name)}" loading="lazy"><span class="photo-badge">${canUse?'✓ USAR':`🪙 ${fmt(price)}`}</span></div>
+      <div class="custom-item-info"><b>${escapeHtml(name)}</b><small>${escapeHtml(desc)}</small>${canUse?'<em>Toque para equipar</em>':`<em>🔒 Compre na loja</em>`}</div>
+    </button>`;
+  }).join('')||'<div class="empty-state">Nenhuma opção nesta categoria.</div>';
+}
+async function equipCustomItem(id,slot){
+  const owned=new Set((state.inventory||[]).map(i=>i.id));
+  if(!owned.has(id)&&state.user?.role!=='CEO'){
+    const item=state.items.find(x=>x.id===id); if(item){toast(`Compre ${item.name} na loja por 🪙 ${fmt(item.price)}.`,'info');openShop('official');}else toast('Item bloqueado.','error');return;
+  }
+  state.profile.avatar[slot]=id;renderCustomPage();renderCharacter('#customCharacterPage',state.profile.avatar);Sound.click();
+}
+
+async function saveCharacter(){try{const d=await put('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''});state.profile=normalizeProfile(d.profile);renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);renderCharacter('#customCharacterPage',state.profile.avatar);updateUserUI();renderCustomPage();navigate('lobby');toast('Personagem salvo com sucesso!','success');}catch(e){toast(e.message,'error');}}
 function renderCharacter(selector,a){const el=$(selector);if(!el)return;const x={...DEFAULT_AVATAR,...(a||{})};el.innerHTML=`<div class="char-aura ${escapeHtml(x.effect)}"></div><div class="char-body" style="--skin:${escapeHtml(x.skinColor)};--eyes:${escapeHtml(x.eyes)}"><div class="char-head"><div class="char-hair ${escapeHtml(x.hair)}" style="--hair:${escapeHtml(x.hairColor)}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${escapeHtml(x.top)}"></div><div class="char-bottom ${escapeHtml(x.bottom)}"></div><div class="char-shoes ${escapeHtml(x.shoes)}"></div><div class="char-accessory ${escapeHtml(x.accessory)}"></div></div>`;}
 function applySettings(){const s={...defaults(),...(state.profile?.settings||{})};const ids=[['setMusic',s.music],['setSfx',s.sfx],['setAnimations',s.animations],['setReducedMotion',s.reducedMotion],['setWorldChat',s.chatWorld],['setRoomChat',s.chatRoom],['setPrivateChat',s.chatPrivate]];ids.forEach(([id,v])=>{if($('#'+id))$('#'+id).checked=!!v;});if($('#setMusicVol'))$('#setMusicVol').value=s.musicVolume;if($('#setSfxVol'))$('#setSfxVol').value=s.sfxVolume;Sound.enabled=s.sfx!==false;Sound.volume=Number(s.sfxVolume)||.7;document.documentElement.style.setProperty('--motion',s.reducedMotion?'0':'1');}
 let settingsSaveTimer=null;function saveSettings(){if(!state.profile)return;const s={music:!!$('#setMusic')?.checked,musicVolume:Number($('#setMusicVol')?.value||.35),sfx:!!$('#setSfx')?.checked,sfxVolume:Number($('#setSfxVol')?.value||.7),animations:!!$('#setAnimations')?.checked,reducedMotion:!!$('#setReducedMotion')?.checked,chatWorld:!!$('#setWorldChat')?.checked,chatRoom:!!$('#setRoomChat')?.checked,chatPrivate:!!$('#setPrivateChat')?.checked};state.profile.settings=s;applySettings();clearTimeout(settingsSaveTimer);settingsSaveTimer=setTimeout(async()=>{try{await put('/profile',{avatar:state.profile.avatar,settings:s,bio:state.profile.bio||''});}catch{}},400);}

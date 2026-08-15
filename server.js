@@ -80,6 +80,7 @@ async function initDatabase() {
       if (seed.trim()) await pool.query(seed);
     }
     await repairLegacySchema();
+    await ensureDefaultItems();
     usePostgres = true;
     await ensureCeo();
     console.log('✅ PostgreSQL conectado e schema aplicado.');
@@ -93,6 +94,59 @@ async function initDatabase() {
   }
 }
 
+
+
+async function ensureDefaultItems() {
+  if (!pool) return;
+  const items = [
+    ['hair_basic','Cabelo Básico','hair','Visual padrão','0','0','common','hair_basic',false],
+    ['hair_curl','Cabelo Cacheado','hair','Cachos marcantes','900','0','common','hair_curl',false],
+    ['hair_long','Cabelo Longo','hair','Estilo longo','1200','0','common','hair_long',false],
+    ['hair_mohawk','Moicano','hair','Visual radical','1800','0','rare','hair_mohawk',false],
+    ['hair_afro','Afro','hair','Volume e estilo','1500','0','rare','hair_afro',false],
+    ['hair_braids','Tranças','hair','Tranças modernas','2200','0','rare','hair_braids',false],
+    ['hair_ice','Cabelo Gelo','hair','Visual congelante','3500','0','epic','hair_ice',false],
+    ['hair_ceo','Cabelo CEO','hair','Visual exclusivo do CEO','0','0','legendary','hair_ceo',true],
+    ['shirt_basic','Camiseta Azul','top','Roupa inicial','0','0','common','shirt_basic',false],
+    ['shirt_red','Camiseta Vermelha','top','Clássica e vibrante','700','0','common','shirt_red',false],
+    ['shirt_neon','Camiseta Neon','top','Brilha na noite','1600','0','rare','shirt_neon',false],
+    ['shirt_gold','Jaqueta Dourada','top','Estilo de campeão','3000','0','epic','shirt_gold',false],
+    ['shirt_space','Jaqueta Espacial','top','Explorador das estrelas','4200','0','epic','shirt_space',false],
+    ['pants_basic','Calça Azul','bottom','Roupa inicial','0','0','common','pants_basic',false],
+    ['pants_black','Calça Preta','bottom','Combina com tudo','600','0','common','pants_black',false],
+    ['pants_neon','Calça Neon','bottom','Estilo futurista','1500','0','rare','pants_neon',false],
+    ['shoes_basic','Tênis Básico','shoes','Tênis inicial','0','0','common','shoes_basic',false],
+    ['shoes_red','Tênis Vermelho','shoes','Tênis veloz','900','0','common','shoes_red',false],
+    ['shoes_gold','Tênis Dourado','shoes','Pisando como campeão','2800','0','epic','shoes_gold',false],
+    ['glasses_basic','Óculos','accessory','Óculos clássico','500','0','common','glasses_basic',false],
+    ['glasses_cyan','Óculos Neon','accessory','Lentes brilhantes','1400','0','rare','glasses_cyan',false],
+    ['glasses_gold','Óculos Dourado','accessory','Brilho de campeão','2600','0','epic','glasses_gold',false],
+    ['hat_cap','Boné','accessory','Boné casual','800','0','common','hat_cap',false],
+    ['hat_cowboy','Chapéu Cowboy','accessory','Para mapas de saloon','1700','0','rare','hat_cowboy',false],
+    ['hat_crown','Coroa','accessory','Item exclusivo do CEO','0','0','legendary','hat_crown',true],
+    ['mask_math','Máscara Matematixa','accessory','Máscara temática','2400','0','epic','mask_math',false],
+    ['backpack_blue','Mochila Azul','accessory','Mochila de aventura','1300','0','rare','backpack_blue',false],
+    ['backpack_space','Mochila Espacial','accessory','Mochila futurista','3200','0','epic','backpack_space',false],
+    ['aura_blue','Aura Azul','effect','Brilho azul ao redor do personagem','1900','0','rare','aura_blue',false],
+    ['aura_gold','Aura Dourada','effect','Aura de campeão','3500','0','epic','aura_gold',false],
+    ['aura_rainbow','Aura Arco-íris','effect','Aura colorida','5000','0','legendary','aura_rainbow',false],
+    ['emote_wave','Emote Oi','emote','Acene para a mesa','300','0','common','emote_wave',false],
+    ['emote_math','Emote Matemática','emote','Comemore uma jogada','900','0','rare','emote_math',false],
+    ['emote_fire','Emote Fogo','emote','Fogo na mesa!','1200','0','rare','emote_fire',false],
+    ['title_beginner','Iniciante','title','Título padrão','0','0','common','title_beginner',false],
+    ['title_calculator','Calculista','title','Título para quem joga bem','1800','0','rare','title_calculator',false],
+    ['title_master','Mestre Matematixa','title','Título de mestre','4000','0','epic','title_master',false],
+    ['title_ceo','CEO','title','Título exclusivo do CEO','0','0','legendary','title_ceo',true],
+    ['deck_classic','Baralho Clássico','deck','Baralho padrão','0','0','common','deck_classic',false],
+    ['map_classroom','Sala de Aula','map','Mapa inicial','0','0','common','map_classroom',false]
+  ];
+  for (const [id,name,category,description,price,xp,rarity,assetId,ceoOnly] of items) {
+    await pool.query(`INSERT INTO items(id,name,category,description,price,xp_required,rarity,asset,is_active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,true) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,category=EXCLUDED.category,description=EXCLUDED.description,price=EXCLUDED.price,xp_required=EXCLUDED.xp_required,rarity=EXCLUDED.rarity,asset=EXCLUDED.asset,is_active=true`,[
+      id,name,category,description,Number(price),Number(xp),rarity,JSON.stringify({image:`/assets/cosmetics/${assetId}.svg`,ceoOnly})
+    ]);
+  }
+  console.log(`🛍️ Loja preparada com ${items.length} itens visuais.`);
+}
 
 async function repairLegacySchema() {
   if (!pool) return;
