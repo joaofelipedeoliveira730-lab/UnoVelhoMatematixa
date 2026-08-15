@@ -1,28 +1,82 @@
-# UnoVelho
+# UnoVelho — versão completa
 
-Jogo online UnoVelho com frontend responsivo, backend Node.js/Express, Socket.IO e PostgreSQL.
+Projeto full-stack de um jogo de cartas estilo UNO com:
 
-## Segurança
+- Node.js + Express
+- Socket.IO para partidas em tempo real
+- PostgreSQL
+- JWT + bcryptjs
+- Loja de itens cosméticos usando BrutoCoins virtuais
+- Mapas de mesa selecionáveis
+- Salas públicas/privadas
+- Ranking, XP, vitórias e pontos
+- Recompensa diária
+- Perfil e coleção de skins
+- Painel administrativo
+- Chat de sala e chat global
+- Responsividade para celular e computador
+- Persistência do estado da partida no PostgreSQL
 
-Segredos ficam somente nas variáveis de ambiente do Render. Nunca publique `.env`, `DATABASE_URL`, `JWT_SECRET` ou a senha inicial do administrador.
+## 1. Instalação
 
-## Banco
+```bash
+npm install
+```
 
-O arquivo `schema.sql` contém a estrutura inicial compatível com o backend. Ele usa `CREATE TABLE IF NOT EXISTS` e índices não destrutivos.
+Copie `.env.example` para `.env` e preencha:
 
-## Execução local
+```env
+PORT=3000
+DATABASE_URL=sua_url_do_postgresql
+JWT_SECRET=uma_chave_com_mais_de_32_caracteres
+FRONTEND_ORIGIN=
+ADMIN_INITIAL_USERNAME=Velho
+ADMIN_INITIAL_PASSWORD=uma_senha_forte
+NODE_ENV=production
+```
 
-1. Copie `.env.example` para `.env`.
-2. Preencha `DATABASE_URL` e `JWT_SECRET`.
-3. Instale as dependências com `npm install`.
-4. Execute `npm run migrate` no ambiente que possui acesso ao PostgreSQL.
-5. Opcionalmente execute `psql "$DATABASE_URL" -f seed.sql` para inserir os 10 mapas iniciais.
-6. Inicie com `npm start`.
+## 2. Banco
+
+```bash
+npm run migrate
+```
+
+O `schema.sql` cria as tabelas e insere os itens iniciais da loja.
+
+## 3. Rodar
+
+```bash
+npm start
+```
+
+Depois abra a URL do serviço.
 
 ## Render
 
-O serviço precisa das variáveis `DATABASE_URL` e `JWT_SECRET`. `FRONTEND_ORIGIN` pode ser definido com a origem pública do frontend; se o frontend for servido pelo próprio backend, pode ficar vazio.
+Use um serviço Web Service com:
 
-## Arquivos removidos
+- Build Command: `npm install`
+- Start Command: `npm start`
 
-`script.js` não faz parte da versão atual: ele era uma segunda implementação de servidor/socket e conflitava conceitualmente com `server.js`.
+Configure `DATABASE_URL`, `JWT_SECRET`, `ADMIN_INITIAL_USERNAME` e `ADMIN_INITIAL_PASSWORD` como variáveis secretas do Render.
+
+## Estrutura
+
+```text
+unovelho_complete/
+├── app.js
+├── config.js
+├── index.html
+├── migrate.js
+├── package.json
+├── schema.sql
+├── server.js
+├── style.css
+└── .env.example
+```
+
+## Observação de segurança
+
+BrutoCoins são somente moeda virtual interna para itens cosméticos. O projeto não implementa apostas, dinheiro real ou mecânicas de jogo de azar.
+
+As mesas são apenas temas visuais para o jogo de cartas.
