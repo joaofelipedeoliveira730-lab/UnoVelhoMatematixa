@@ -197,10 +197,16 @@ async function enterApp(forceCustomize=false){
   try{state.inventory=(await getJSON('/inventory')).items||[];}catch(e){state.inventory=[];toast('Inventário ainda não pôde ser carregado.','error',3500);}
   updateUserUI();
   connectSocket();
-  renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);
-  loadMiniRank();renderMapPreview();loadAchievementsPreview();populateCustomizer();applySettings();
-  if(forceCustomize||!state.profile.avatar?.hair)openCustomize();
+  try{renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);}catch(e){console.error('Erro ao renderizar personagem:',e);}
+  try{loadMiniRank();}catch(e){console.error('Erro no ranking:',e);}
+  try{renderMapPreview();}catch(e){console.error('Erro nos mapas:',e);}
+  try{loadAchievementsPreview();}catch(e){console.error('Erro nas conquistas:',e);}
+  try{populateCustomizer();}catch(e){console.error('Erro no personalizador:',e);}
+  try{applySettings();}catch(e){console.error('Erro nas configurações:',e);}
+  show('#appScreen');
+  hide('#authScreen');
   navigate('lobby');
+  if(forceCustomize||!state.profile.avatar?.hair)openCustomize();
   startBackgroundMusic();
 }
 function defaultClientSettings(){return {music:true,musicVolume:.45,sfx:true,sfxVolume:.75,animations:true,chatWorld:true,chatRoom:true,chatPrivate:true,reducedMotion:false};}
@@ -211,8 +217,25 @@ function xpForLevelClient(level){return Math.floor(100*Math.pow(Math.max(0,level
 function itemName(id){return state.items.find(x=>x.id===id)?.name||({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'');}
 
 function navigate(view){
-  if(view==='lobby'&&!state.user)return;
-  $$('.view').forEach(v=>v.classList.add('hidden'));const target=$(`#${view}View`);if(target)target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;window.scrollTo({top:0,behavior:'smooth'});
+  if(view==='lobby'&&!state.user)return false;
+  const views=$$('.view');
+  views.forEach(v=>{
+    v.classList.add('hidden');
+    v.style.removeProperty('display');
+    v.setAttribute('aria-hidden','true');
+  });
+  const target=document.getElementById(`${view}View`);
+  if(!target){
+    console.error('View não encontrada:',view);
+    return false;
+  }
+  target.classList.remove('hidden');
+  target.style.removeProperty('display');
+  target.setAttribute('aria-hidden','false');
+  state.previousView=state.currentView;
+  state.currentView=view;
+  window.scrollTo({top:0,behavior:'auto'});
+  return true;
 }
 
 function connectSocket(){
@@ -335,3 +358,18 @@ document.addEventListener('click',e=>{
 });
 
 window.addEventListener('DOMContentLoaded',init);
+
+
+// Proteção do frontend: um erro visual não pode deixar o lobby vazio.
+window.addEventListener('error',e=>{
+  console.error('UnoVelho frontend:',e.error||e.message);
+  if(state.user){
+    const lobby=document.getElementById('lobbyView');
+    const app=document.getElementById('appScreen');
+    if(app)app.classList.remove('hidden');
+    if(lobby){
+      lobby.classList.remove('hidden');
+      lobby.style.removeProperty('display');
+    }
+  }
+});
