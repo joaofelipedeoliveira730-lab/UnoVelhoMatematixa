@@ -1,9 +1,9 @@
-/* UnoVelho Matematixa - frontend completo */
+/* UnoVelho Matematixa 3.0 - frontend completo */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
-const RESOURCE_VERSION = 'unovelho-matx-v6';
-const LOCAL_RESOURCE_STATE = 'unovelho.resources.v6';
+const RESOURCE_VERSION = 'unovelho-matx-v8';
+const LOCAL_RESOURCE_STATE = 'unovelho.resources.v8';
 
 const refs = {
   maps: [
@@ -321,4 +321,4 @@ function setupShopTabs(){/* reservado */}
 // Seleção de uma carta online: servidor gera o desafio e só então a carta pode ser enviada.
 // O cliente nunca recebe a resposta correta do desafio.
 
-window.addEventListener('DOMContentLoaded',init);
+window.addEventListener('DOMContentLoaded',()=>{try{init();}catch(err){console.error('UnoVelho init:',err);try{hide('#bootScreen');}catch{};try{toast('Erro ao iniciar o jogo: '+(err?.message||err),'error',8000);}catch{}}});
