@@ -1,12 +1,9 @@
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-
+/* UnoVelho Matematixa - frontend completo */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
-const RESOURCE_VERSION = 'unovelho-matx-v7';
-const LOCAL_RESOURCE_STATE = 'unovelho.resources.v7';
+const RESOURCE_VERSION = 'unovelho-matx-v6';
+const LOCAL_RESOURCE_STATE = 'unovelho.resources.v6';
 
 const refs = {
   maps: [
