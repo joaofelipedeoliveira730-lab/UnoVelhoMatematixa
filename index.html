@@ -1,171 +1,81 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#101019">
-  <title>UnoVelho — Jogo de Cartas</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uno Velho Matematixa</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="toast" class="toast"></div>
 
-  <div id="platformGate" class="platform-gate">
-    <div class="gate-card">
-      <div class="brand-mark">U</div>
-      <h1>UnoVelho</h1>
-      <p>Escolha a interface que combina com seu dispositivo.</p>
-      <div class="gate-actions">
-        <button data-platform="desktop" class="btn btn-blue">🖥️ Computador</button>
-        <button data-platform="mobile" class="btn btn-green">📱 Celular</button>
-        <button id="autoPlatform" class="btn btn-dark">⚡ Detectar automaticamente</button>
-      </div>
+  <!-- MODAL DE TERMOS DE ARMAZENAMENTO LOCAL -->
+  <div id="termsModal" class="modal-overlay">
+    <div class="modal-content">
+      <h2> Termos de Desempenho e Armazenamento</h2>
+      <p>
+        Para garantir partidas rápidas e não sobrecarregar o servidor do jogo, os recursos visuais (Skins, Personagens e Mapas) serão baixados e armazenados com segurança diretamente na memória do seu navegador (IndexedDB).
+      </p>
+      <button id="btnAcceptTerms" class="btn-primary">Aceitar e Baixar Recursos</button>
     </div>
   </div>
 
-  <header class="topbar">
-    <button id="brandButton" class="brand" aria-label="Voltar ao início">
-      <span class="brand-icon">U</span>
-      <span>UNO<span>VELHO</span></span>
-    </button>
+  <div class="container">
+    <h1>Uno Velho Matematixa 🧮</h1>
 
-    <div class="top-stats">
-      <div class="stat-chip"><span>⭐</span><strong id="hudXp">0</strong><small>XP</small></div>
-      <div class="stat-chip coins"><span>🪙</span><strong id="hudCoins">0</strong><small>BrutoCoins</small></div>
-      <div class="connection"><i id="connectionDot"></i><span id="connectionText">offline</span></div>
+    <!-- SEÇÃO DE AUTENTICAÇÃO -->
+    <div id="authSection" class="card">
+      <div class="auth-tabs">
+        <h2>Acessar a Conta</h2>
+      </div>
+
+      <div id="authMessage" class="message"></div>
+
+      <form id="formLogin" class="form">
+        <h3>Login</h3>
+        <input type="text" name="username" placeholder="Nome de usuário" required>
+        <input type="password" name="password" placeholder="Senha" required>
+        <button type="submit" class="btn-primary">Entrar</button>
+      </form>
+
+      <hr>
+
+      <form id="formRegister" class="form">
+        <h3>Criar Nova Conta</h3>
+        <input type="text" name="regUsername" placeholder="Escolha um usuário" required>
+        <input type="password" name="regPassword" placeholder="Escolha uma senha" required>
+        <button type="submit" class="btn-secondary">Cadastrar Conta</button>
+      </form>
     </div>
 
-    <div class="top-actions">
-      <button id="btnProfile" class="icon-button" title="Perfil">👤</button>
-      <button id="btnSettings" class="icon-button" title="Configurações">⚙️</button>
+    <!-- PAINEL DO JOGO -->
+    <div id="gameDashboard" class="card" style="display: none;">
+      <div class="header-user">
+        <span id="userInfo"></span>
+        <span id="ceoBadge" class="badge-ceo" style="display: none;">👑 ACESSO CEO</span>
+      </div>
+
+      <p id="assetLoadingStatus" class="status-text"></p>
+
+      <h3> Personalize sua Partida</h3>
+      <div class="selectors-grid">
+        <div>
+          <label>Personagem:</label>
+          <select id="characterSelect"></select>
+        </div>
+        <div>
+          <label>Skin do Baralho:</label>
+          <select id="skinSelect"></select>
+        </div>
+        <div>
+          <label>Mapa / Arena:</label>
+          <select id="mapSelect"></select>
+        </div>
+      </div>
+
+      <button id="btnStartGame" class="btn-primary btn-large">Iniciar Partida Matematixa</button>
     </div>
-  </header>
+  </div>
 
-  <main id="app" class="app-shell">
-    <section id="viewAuth" class="view view-auth">
-      <div class="auth-hero">
-        <div class="hero-logo">UNO<span>VELHO</span></div>
-        <p>Partidas online, salas personalizadas, mapas e uma coleção de skins.</p>
-        <div class="hero-cards" aria-hidden="true">
-          <div class="hero-card red-card">9</div>
-          <div class="hero-card blue-card">8</div>
-          <div class="hero-card wild-card">★</div>
-          <div class="hero-card green-card">2</div>
-        </div>
-      </div>
-
-      <div class="auth-card panel">
-        <div class="tabs">
-          <button class="tab active" data-auth-tab="login">Entrar</button>
-          <button class="tab" data-auth-tab="register">Criar conta</button>
-        </div>
-
-        <form id="loginForm" class="auth-form">
-          <label>Usuário<input id="loginUsername" autocomplete="username" required maxlength="24"></label>
-          <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required minlength="6"></label>
-          <button class="btn btn-green full" type="submit">ENTRAR</button>
-        </form>
-
-        <form id="registerForm" class="auth-form hidden">
-          <label>Usuário<input id="registerUsername" autocomplete="username" required minlength="3" maxlength="24"></label>
-          <label>Nome de exibição<input id="registerDisplayName" required minlength="2" maxlength="32"></label>
-          <label>Senha<input id="registerPassword" type="password" autocomplete="new-password" required minlength="6"></label>
-          <button class="btn btn-blue full" type="submit">CRIAR CONTA</button>
-        </form>
-
-        <div class="small-note">Ao jogar, use apenas moedas virtuais do próprio jogo. Elas não têm valor monetário.</div>
-      </div>
-    </section>
-
-    <section id="viewMenu" class="view hidden">
-      <div class="menu-grid">
-        <div class="menu-main">
-          <div class="welcome-line"><span id="welcomeText">Olá!</span><span id="adminBadge" class="admin-badge hidden">ADMIN</span></div>
-          <h1 class="game-title">UNO <span>VELHO</span></h1>
-          <p class="game-subtitle">Escolha uma ação e entre na mesa.</p>
-
-          <div class="primary-buttons">
-            <button id="btnPlay" class="big-btn green"><span>▶</span><div><strong>JOGAR</strong><small>Encontrar uma sala</small></div></button>
-            <button id="btnCreate" class="big-btn blue"><span>＋</span><div><strong>CRIAR PARTIDA</strong><small>Monte sua própria mesa</small></div></button>
-            <button id="btnShop" class="big-btn orange"><span>🛒</span><div><strong>LOJA</strong><small>Skins, mapas e efeitos</small></div></button>
-            <button id="btnCharacter" class="big-btn purple"><span>🎭</span><div><strong>PERSONAGEM</strong><small>Seu perfil e coleção</small></div></button>
-          </div>
-
-          <div class="menu-mini-grid">
-            <button id="btnDaily" class="mini-card"><span>🎁</span><strong>Recompensa diária</strong><small>+75 BrutoCoins</small></button>
-            <button id="btnRanking" class="mini-card"><span>🏆</span><strong>Ranking</strong><small>Veja os melhores</small></button>
-            <button id="btnRules" class="mini-card"><span>📘</span><strong>Como jogar</strong><small>Regras rápidas</small></button>
-          </div>
-        </div>
-
-        <aside class="podium-card">
-          <div class="podium-header"><span>SEU DESTAQUE</span><span>🏆</span></div>
-          <div class="podium-avatar-wrap"><img id="podiumAvatar" src="https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Velho" alt="Avatar"></div>
-          <h2 id="podiumName">Velho</h2>
-          <div class="podium-position">1º lugar</div>
-          <div class="podium-stats"><div><strong id="podiumWins">0</strong><small>Vitórias</small></div><div><strong id="podiumPoints">0</strong><small>Pontos</small></div></div>
-          <div class="podium-base"><span>★</span><span>★</span><span>★</span></div>
-        </aside>
-      </div>
-
-      <div class="online-strip panel"><span class="pulse"></span><strong id="onlineRooms">0</strong> salas disponíveis <span class="sep">•</span> mapa favorito: <strong id="favoriteMap">Mesa de Madeira</strong></div>
-    </section>
-
-    <section id="viewRooms" class="view hidden">
-      <div class="section-heading"><div><span class="eyebrow">ONLINE</span><h2>Salas disponíveis</h2><p>Entre em uma mesa ou crie uma nova partida.</p></div><button id="btnRefreshRooms" class="btn btn-dark">↻ Atualizar</button></div>
-      <div id="roomsList" class="rooms-grid"></div>
-    </section>
-
-    <section id="viewLobby" class="view hidden">
-      <div id="lobbyMapPreview" class="lobby-map madeira">
-        <div class="lobby-map-overlay"><span id="lobbyMapName">Mesa de Madeira</span><span id="lobbyRoomCode">------</span></div>
-      </div>
-      <div class="lobby-layout">
-        <div class="panel lobby-panel">
-          <div class="section-heading compact"><div><span class="eyebrow">SALA</span><h2 id="lobbyTitle">Mesa do Velho</h2><p id="lobbyMeta">Aguardando jogadores...</p></div><button id="btnLeaveLobby" class="btn btn-red">Sair</button></div>
-          <div id="lobbyPlayers" class="players-list"></div>
-          <div class="lobby-actions"><button id="btnStartGame" class="btn btn-green">▶ INICIAR PARTIDA</button><button id="btnLobbySettings" class="btn btn-blue">⚙ Opções</button></div>
-        </div>
-        <div class="panel chat-panel"><div class="chat-head"><strong>💬 Chat da sala</strong><span id="chatStatus">online</span></div><div id="chatMessages" class="chat-messages"></div><form id="chatForm" class="chat-form"><input id="chatInput" maxlength="240" placeholder="Escreva uma mensagem..."><button class="btn btn-blue" type="submit">Enviar</button></form></div>
-      </div>
-    </section>
-
-    <section id="viewGame" class="view hidden">
-      <div id="gameTable" class="game-table madeira">
-        <div class="game-topbar"><button id="btnGameBack" class="round-btn">←</button><div class="game-room-info"><strong id="gameRoomName">Mesa</strong><small id="gameMapName">Mesa de Madeira</small></div><div class="game-room-code" id="gameCode">------</div><button id="btnGameMenu" class="round-btn">☰</button></div>
-        <div id="opponents" class="opponents"></div>
-        <div class="table-center"><div id="directionBadge" class="direction-badge">↻</div><div id="drawPile" class="draw-pile"><div class="card back"><span>UNO</span></div><small id="deckCount">0</small></div><div id="topCard" class="top-card"></div><div id="turnBanner" class="turn-banner">Aguardando...</div></div>
-        <div id="gameActions" class="game-actions"><button id="btnDraw" class="action-btn blue">COMPRAR</button><button id="btnUno" class="action-btn orange">UNO!</button></div>
-        <div class="my-player"><div class="my-player-info"><img id="myAvatar" src="https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Velho" alt="Avatar"><div><strong id="myName">Você</strong><small id="myHandCount">0 cartas</small></div></div><div id="myHand" class="hand"></div></div>
-        <div id="gameChat" class="game-chat"><button id="btnGameChat" class="round-btn">💬</button><div id="gameChatMessages" class="chat-messages compact-chat"></div></div>
-      </div>
-    </section>
-
-    <section id="viewShop" class="view hidden">
-      <div class="section-heading"><div><span class="eyebrow">ECONOMIA VIRTUAL</span><h2>Loja do UnoVelho</h2><p>Compre itens cosméticos usando BrutoCoins virtuais.</p></div><button id="btnShopBack" class="btn btn-dark">← Voltar</button></div>
-      <div class="shop-tabs"><button class="shop-filter active" data-shop-filter="all">Tudo</button><button class="shop-filter" data-shop-filter="skin">Skins</button><button class="shop-filter" data-shop-filter="mapa">Mapas</button><button class="shop-filter" data-shop-filter="efeito">Efeitos</button></div>
-      <div id="shopGrid" class="shop-grid"></div>
-    </section>
-
-    <section id="viewProfile" class="view hidden">
-      <div class="section-heading"><div><span class="eyebrow">PERSONAGEM</span><h2>Seu personagem</h2><p>Veja suas estatísticas e equipe uma skin.</p></div><button id="btnProfileBack" class="btn btn-dark">← Voltar</button></div>
-      <div class="profile-grid"><div class="profile-card panel"><img id="profileAvatar" class="profile-avatar" src="https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Velho" alt="Avatar"><h2 id="profileName">Velho</h2><p id="profileUsername">@velho</p><div class="profile-stat-grid"><div><strong id="profileXp">0</strong><small>XP</small></div><div><strong id="profileWins">0</strong><small>Vitórias</small></div><div><strong id="profilePoints">0</strong><small>Pontos</small></div><div><strong id="profileCoins">0</strong><small>Coins</small></div></div></div><div class="panel collection-panel"><h3>🎭 Minhas skins</h3><div id="skinCollection" class="collection-grid"></div></div></div>
-    </section>
-
-    <section id="viewRanking" class="view hidden"><div class="section-heading"><div><span class="eyebrow">COMPETIÇÃO</span><h2>Ranking</h2><p>Os jogadores com mais pontos.</p></div><button id="btnRankingBack" class="btn btn-dark">← Voltar</button></div><div class="panel ranking-panel"><div id="rankingList"></div></div></section>
-
-    <section id="viewAdmin" class="view hidden"><div class="section-heading"><div><span class="eyebrow">CONTROLE</span><h2>Painel administrativo</h2><p>Ferramentas de moderação e monitoramento.</p></div><button id="btnAdminBack" class="btn btn-dark">← Voltar</button></div><div class="admin-grid"><div class="panel admin-stat-grid"><div><strong id="adminUsers">0</strong><small>Usuários</small></div><div><strong id="adminRooms">0</strong><small>Salas</small></div><div><strong id="adminGames">0</strong><small>Partidas</small></div><div><strong id="adminCoins">0</strong><small>BrutoCoins</small></div></div><div class="panel admin-command"><h3>Comandos</h3><div class="command-buttons"><button data-command="/congelar" class="btn btn-orange">Congelar</button><button data-command="/descongelar" class="btn btn-green">Descongelar</button><button data-command="/chatglobal off" class="btn btn-dark">Chat global OFF</button><button data-command="/chatglobal on" class="btn btn-blue">Chat global ON</button></div><div class="admin-command-form"><input id="adminCommandInput" placeholder="/banir 123"><button id="btnAdminCommand" class="btn btn-red">Executar</button></div></div></div></section>
-  </main>
-
-  <div id="modal" class="modal hidden"><div class="modal-backdrop" data-close-modal></div><div class="modal-card"><button class="modal-close" data-close-modal>×</button><div id="modalContent"></div></div></div>
-
-  <div id="colorPicker" class="color-picker hidden"><div class="color-card"><h3>Escolha a cor</h3><div class="color-options"><button data-color="red" class="red">Vermelho</button><button data-color="yellow" class="yellow">Amarelo</button><button data-color="green" class="green">Verde</button><button data-color="blue" class="blue">Azul</button></div></div></div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
