@@ -31,6 +31,9 @@ app.use(express.static(path.join(__dirname)));
 
 let pool = null;
 let usePostgres = false;
+let databaseReady = false;
+let databaseReadyError = null;
+let databaseReadyPromise = null;
 const rooms = new Map();
 const socketUsers = new Map();
 const loginAttempts = new Map();
@@ -55,7 +58,18 @@ async function initDatabase() {
     localDb();
     return;
   }
-  pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 8, idleTimeoutMillis: 30000 });
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 8,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+    statement_timeout: 15000,
+    query_timeout: 20000
+  });
+  pool.on('error', err => console.error('❌ PostgreSQL pool:', err.message));
   try {
     await pool.query('SELECT 1');
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
@@ -199,17 +213,41 @@ async function geminiModerate(text){
 }
 function rateLimit(map,key,windowMs,max){const now=Date.now();const arr=(map.get(key)||[]).filter(t=>now-t<windowMs);if(arr.length>=max){map.set(key,arr);return false;}arr.push(now);map.set(key,arr);return true;}
 
-app.get('/api/health',(req,res)=>res.json({ok:true,postgres:usePostgres,rooms:rooms.size,paused:globalState.paused}));
+async function dbQuery(text,params=[]){
+  if(!pool) throw new Error('PostgreSQL não está disponível.');
+  try{return await pool.query(text,params);}catch(err){
+    if(!['ECONNRESET','ECONNREFUSED','ETIMEDOUT','57P01','57P02','57P03','08000','08001','08003','08004','08006','08007','08009'].includes(String(err?.code||''))) throw err;
+    await new Promise(r=>setTimeout(r,250));
+    return pool.query(text,params);
+  }
+}
+
+app.get('/api/health',async(req,res)=>{
+  const ready=databaseReady || (!process.env.DATABASE_URL && databaseReady);
+  res.status(ready?200:503).json({ok:ready,postgres:usePostgres,ready,rooms:rooms.size,paused:globalState.paused,error:ready?undefined:'Banco de dados ainda inicializando.'});
+});
+
+async function requireDatabase(req,res,next){
+  try{
+    if(databaseReady)return next();
+    if(databaseReadyPromise)await databaseReadyPromise;
+    if(databaseReady)return next();
+    return res.status(503).json({success:false,message:'Servidor ainda está inicializando. Tente novamente em alguns segundos.'});
+  }catch(err){
+    console.error('❌ Banco não pronto:',err.message);
+    return res.status(503).json({success:false,message:'Banco de dados temporariamente indisponível.'});
+  }
+}
 app.get('/api/me',auth,async(req,res)=>{const profile=await getProfile(req.user.id);res.json({success:true,user:publicUser(req.user),profile});});
 app.post('/api/logout',(req,res)=>{clearAuthCookie(res);res.json({success:true});});
 
-app.post('/api/register',async(req,res)=>{
+app.post('/api/register',requireDatabase,async(req,res)=>{
   const username=cleanText(req.body.username,24); const password=String(req.body.password||'');
   if(!validUsername(username)||password.length<6||password.length>100) return res.status(400).json({success:false,message:'Usuário deve ter 3-24 caracteres (letras, números ou _), e a senha deve ter 6-100 caracteres.'});
   if(!rateLimit(loginAttempts,req.ip,60000,8)) return res.status(429).json({success:false,message:'Muitas tentativas. Aguarde um minuto.'});
   try {
     const hash=await bcrypt.hash(password,12); let user;
-    if(usePostgres){const exists=await pool.query('SELECT id FROM users WHERE LOWER(username)=LOWER($1)',[username]);if(exists.rows.length)return res.status(409).json({success:false,message:'Usuário já existe.'});const r=await pool.query(`INSERT INTO users(username,password_hash,role,coins,xp,level,games_played) VALUES($1,$2,'user',500,0,1,0) RETURNING *`,[username,hash]);user=r.rows[0];}
+    if(usePostgres){const exists=await dbQuery('SELECT id FROM users WHERE LOWER(username)=LOWER($1)',[username]);if(exists.rows.length)return res.status(409).json({success:false,message:'Usuário já existe.'});const r=await dbQuery(`INSERT INTO users(username,password_hash,role,coins,xp,level,games_played) VALUES($1,$2,'user',500,0,1,0) RETURNING *`,[username,hash]);user=r.rows[0];}
     else {const db=localDb();if(db.users.some(u=>u.username.toLowerCase()===username.toLowerCase()))return res.status(409).json({success:false,message:'Usuário já existe.'});user={id:(db.users.reduce((m,u)=>Math.max(m,u.id||0),0)+1),username,password_hash:hash,role:'user',coins:500,xp:0,level:1,wins:0,losses:0,games_played:0,created_at:new Date().toISOString()};db.users.push(user);saveLocalDb(db);}
     const token=signToken(user);setAuthCookie(res,token);
     let profile={avatar:defaultAvatar(),settings:defaultSettings(),bio:''};
@@ -219,13 +257,13 @@ app.post('/api/register',async(req,res)=>{
   } catch(e){console.error(e);res.status(500).json({success:false,message:'Erro ao criar conta.'});}
 });
 
-app.post('/api/login',async(req,res)=>{
+app.post('/api/login',requireDatabase,async(req,res)=>{
   const username=cleanText(req.body.username,24);const password=String(req.body.password||'');
   if(!username||!password)return res.status(400).json({success:false,message:'Informe usuário e senha.'});
   if(!rateLimit(loginAttempts,req.ip,60000,10))return res.status(429).json({success:false,message:'Muitas tentativas de login. Aguarde um minuto.'});
-  try {let user=null;if(usePostgres){const r=await pool.query('SELECT * FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1',[username]);user=r.rows[0]||null;}else{const db=localDb();user=db.users.find(u=>u.username.toLowerCase()===username.toLowerCase())||null;}if(!user||!(await bcrypt.compare(password,user.password_hash)))return res.status(401).json({success:false,message:'Usuário ou senha incorretos.'});
+  try {let user=null;if(usePostgres){const r=await dbQuery('SELECT * FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1',[username]);user=r.rows[0]||null;}else{const db=localDb();user=db.users.find(u=>u.username.toLowerCase()===username.toLowerCase())||null;}if(!user||!(await bcrypt.compare(password,user.password_hash)))return res.status(401).json({success:false,message:'Usuário ou senha incorretos.'});
     const mod=await activeModeration(user.id);if(mod?.action==='ban')return res.status(403).json({success:false,message:'Conta suspensa.',ban:mod});
-    if(usePostgres)await pool.query('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=$1',[user.id]);
+    if(usePostgres)await dbQuery('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=$1',[user.id]);
     const token=signToken(user);setAuthCookie(res,token);
     for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres){try{await grantItem(user.id,id);}catch(itemErr){console.error('starter item login:',itemErr.message);}}
     let profile;try{profile=await getProfile(user.id);}catch(profileErr){console.error('profile login:',profileErr.message);profile={avatar:defaultAvatar(),settings:defaultSettings(),bio:''};}
@@ -335,5 +373,18 @@ async function executeAdminCommand(me,text){const parts=text.trim().split(/\s+/)
 
 app.use((req,res,next)=>{if(req.path.startsWith('/api/')&&!res.headersSent&&req.method==='GET'&&req.path==='/api/unknown')return res.status(404).json({success:false});next();});
 
-(async()=>{await initDatabase();globalState=await getGlobalState();server.listen(PORT,()=>console.log(`🚀 UnoVelho Matematixa ativo na porta ${PORT}`));})();
+server.listen(PORT,'0.0.0.0',()=>{
+  console.log(`🚀 UnoVelho Matematixa ativo na porta ${PORT}`);
+  databaseReadyPromise=(async()=>{
+    try{
+      await initDatabase();
+      globalState=await getGlobalState();
+      databaseReady=true;
+      console.log('✅ Banco de dados pronto para as requisições.');
+    }catch(err){
+      databaseReadyError=err;
+      console.error('❌ Falha ao finalizar inicialização do banco:',err.message);
+    }
+  })();
+});
 process.on('SIGTERM',async()=>{try{await pool?.end()}finally{process.exit(0)}});
