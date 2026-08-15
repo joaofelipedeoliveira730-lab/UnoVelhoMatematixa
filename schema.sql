@@ -233,6 +233,13 @@ CREATE TABLE IF NOT EXISTS inventario (
     PRIMARY KEY (user_id, item_id)
 );
 
+-- Garante que a coluna is_admin exista na tabela de perfis/usuários
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+
+-- Garante as colunas de economia que você pediu
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bruto_coins INT DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS skin_atual VARCHAR(255) DEFAULT 'default_skin.png';
 
 
 
