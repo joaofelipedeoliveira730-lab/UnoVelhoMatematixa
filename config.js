@@ -1,3 +1,5 @@
 window.VELHO_CONFIG = {
-    API_URL: ""
+  // Deixe vazio se a API estiver no mesmo domínio do site.
+  // Exemplo externo: "https://api.seudominio.com"
+  API_URL: ""
 };
