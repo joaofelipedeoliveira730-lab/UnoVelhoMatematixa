@@ -1,38 +1,177 @@
--- schema.sql
+-- UnoVelho Matematixa - PostgreSQL schema (não destrutivo)
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'user',
-    coins INT DEFAULT 500,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
+  coins BIGINT NOT NULL DEFAULT 500 CHECK (coins >= 0),
+  xp BIGINT NOT NULL DEFAULT 0 CHECK (xp >= 0),
+  level INT NOT NULL DEFAULT 1 CHECK (level >= 1),
+  wins INT NOT NULL DEFAULT 0,
+  losses INT NOT NULL DEFAULT 0,
+  games_played INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_login_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS characters (
-    id VARCHAR(50) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    perk VARCHAR(255) NOT NULL,
-    price INT DEFAULT 0
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 500;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS xp BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS wins INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS losses INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS games_played INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  avatar JSONB NOT NULL DEFAULT '{}'::jsonb,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  bio VARCHAR(180) NOT NULL DEFAULT '',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS skins (
-    id VARCHAR(50) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    theme_class VARCHAR(50) NOT NULL,
-    price INT DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS maps (
-    id VARCHAR(50) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    bg_class VARCHAR(50) NOT NULL,
-    price INT DEFAULT 0
+CREATE TABLE IF NOT EXISTS items (
+  id VARCHAR(80) PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  category VARCHAR(40) NOT NULL,
+  description VARCHAR(255) NOT NULL DEFAULT '',
+  price BIGINT NOT NULL DEFAULT 0 CHECK (price >= 0),
+  xp_required BIGINT NOT NULL DEFAULT 0 CHECK (xp_required >= 0),
+  rarity VARCHAR(20) NOT NULL DEFAULT 'common',
+  asset JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS user_inventory (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    item_type VARCHAR(20) NOT NULL, -- 'character', 'skin', 'map'
-    item_id VARCHAR(50) NOT NULL,
-    UNIQUE(user_id, item_type, item_id)
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id VARCHAR(80) NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, item_id)
 );
+
+CREATE TABLE IF NOT EXISTS player_market (
+  listing_id SERIAL PRIMARY KEY,
+  seller_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id VARCHAR(80) NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  price BIGINT NOT NULL CHECK (price > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sold_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+  id VARCHAR(80) PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  icon VARCHAR(20) NOT NULL DEFAULT '🏆',
+  xp_reward BIGINT NOT NULL DEFAULT 0,
+  coin_reward BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  achievement_id VARCHAR(80) NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
+  unlocked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, achievement_id)
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+  id UUID PRIMARY KEY,
+  mode VARCHAR(20) NOT NULL,
+  difficulty VARCHAR(20),
+  map_id VARCHAR(80),
+  room_code VARCHAR(30),
+  winner_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ended_at TIMESTAMP,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS match_players (
+  match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  username_snapshot VARCHAR(50) NOT NULL,
+  position INT,
+  result VARCHAR(20),
+  coins_earned BIGINT NOT NULL DEFAULT 0,
+  xp_earned BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (match_id, username_snapshot)
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id BIGSERIAL PRIMARY KEY,
+  channel VARCHAR(20) NOT NULL,
+  room_code VARCHAR(30),
+  sender_id INT REFERENCES users(id) ON DELETE SET NULL,
+  receiver_id INT REFERENCES users(id) ON DELETE SET NULL,
+  sender_name VARCHAR(50) NOT NULL,
+  body VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS moderation_actions (
+  id BIGSERIAL PRIMARY KEY,
+  actor_id INT REFERENCES users(id) ON DELETE SET NULL,
+  target_id INT REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(40) NOT NULL,
+  reason VARCHAR(255) NOT NULL DEFAULT '',
+  expires_at TIMESTAMP,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS global_game_state (
+  id INT PRIMARY KEY CHECK (id = 1),
+  paused BOOLEAN NOT NULL DEFAULT FALSE,
+  message VARCHAR(500) NOT NULL DEFAULT '',
+  updated_by INT REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admin_logs (
+  id BIGSERIAL PRIMARY KEY,
+  actor_id INT REFERENCES users(id) ON DELETE SET NULL,
+  command VARCHAR(80) NOT NULL,
+  arguments VARCHAR(500) NOT NULL DEFAULT '',
+  result VARCHAR(40) NOT NULL DEFAULT 'ok',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id BIGSERIAL PRIMARY KEY,
+  reporter_id INT REFERENCES users(id) ON DELETE SET NULL,
+  target_id INT REFERENCES users(id) ON DELETE SET NULL,
+  reason VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_level ON users(level DESC, xp DESC);
+CREATE INDEX IF NOT EXISTS idx_users_coins ON users(coins DESC);
+CREATE INDEX IF NOT EXISTS idx_inventory_user ON user_inventory(user_id);
+CREATE INDEX IF NOT EXISTS idx_market_status ON player_market(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_channel_room ON chat_messages(channel, room_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_receiver ON chat_messages(receiver_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_matches_started ON matches(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_logs_created ON admin_logs(created_at DESC);
+
+INSERT INTO global_game_state(id, paused, message)
+VALUES (1, FALSE, '')
+ON CONFLICT (id) DO NOTHING;
+
+-- Compatibilidade com instalações antigas: migração de nomes usados em versões anteriores.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='bruto_coins') THEN
+    EXECUTE 'UPDATE users SET coins = GREATEST(coins, bruto_coins) WHERE bruto_coins IS NOT NULL';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='xp') THEN
+    EXECUTE 'UPDATE users SET level = GREATEST(1, FLOOR(xp / 250)::int + 1)';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;

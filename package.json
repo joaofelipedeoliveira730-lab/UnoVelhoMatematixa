@@ -1,20 +1,17 @@
 {
-  "name": "unovelho-complete",
-  "version": "2.0.0",
+  "name": "unovelho-matematixa-complete",
+  "version": "3.0.0",
   "private": true,
-  "description": "UnoVelho - jogo de cartas online com Node.js, Express, Socket.IO e PostgreSQL",
+  "description": "UnoVelho Matematixa - multiplayer UNO matemático com PostgreSQL, Socket.IO, loja, inventário, XP, chat e painel CEO.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node migrate.js"
   },
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=20" },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
