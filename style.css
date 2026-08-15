@@ -220,3 +220,50 @@ body.in-game{overflow:hidden}.game-view{position:fixed!important;inset:0;z-index
 /* v9 — modos solo e personagens 100% em código */
 .solo-mode-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:22px 0}.solo-mode-card{min-height:170px;border:1px solid #ffffff1c;border-radius:22px;background:linear-gradient(145deg,#ffffff10,#ffffff03);color:#fff;padding:18px;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:.2s transform,.2s border-color,.2s box-shadow}.solo-mode-card:hover,.solo-mode-card.active{transform:translateY(-7px);border-color:#ffffff55;box-shadow:0 18px 45px #0008}.solo-mode-card>span{font-size:50px;margin-bottom:auto}.solo-mode-card>b{font-size:22px}.solo-mode-card small{color:#aebed0;margin-top:4px}.solo-mode-card.mode-uno{background:linear-gradient(145deg,#064e3b,#071218)}.solo-mode-card.mode-draw{background:linear-gradient(145deg,#4a194f,#111020)}.solo-mode-card.mode-truco{background:linear-gradient(145deg,#551515,#160909)}.solo-mode-card.mode-damas{background:linear-gradient(145deg,#3c1a57,#11101b)}.solo-mode-card.mode-xadrez{background:linear-gradient(145deg,#173d66,#09111c)}.solo-difficulty-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.solo-difficulty-row .difficulty{border:1px solid #ffffff1a;background:#ffffff0a;color:#fff;border-radius:999px;padding:9px 13px;cursor:pointer}.solo-difficulty-row .difficulty.active{background:#2563eb;border-color:#60a5fa}.mode-game-shell{min-height:100%;padding:18px}.mode-game-top{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 18px;border-radius:20px}.mode-turn{font-weight:1000;color:#fbbf24}.mode-game-body{max-width:1050px;margin:20px auto;min-height:550px;display:grid;place-items:center}.mode-game-message{max-width:900px;margin:0 auto;padding:12px 16px;border-radius:14px;text-align:center}.local-draw-board{width:min(1000px,100%);padding:14px;border-radius:20px}.local-draw-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}.local-draw-toolbar span{font-weight:900;margin-right:auto}.local-draw-board canvas{width:100%;border-radius:14px;background:#fff;touch-action:none}.local-reveal{margin-top:10px;padding:15px;border-radius:14px;background:#16a34a;color:#fff;text-align:center;font-size:20px;font-weight:1000}.truco-solo-board{width:min(850px,100%);min-height:520px;border-radius:30px;padding:28px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;background:radial-gradient(circle,#185c3d,#071b15)}.table-opponent{display:flex;flex-direction:column;align-items:center;gap:5px}.solo-code-character{font-size:70px;animation:codeWobble 2.8s ease-in-out infinite}.truco-center{display:flex;flex-direction:column;align-items:center;font-size:70px}.truco-center strong{font-size:28px;color:#fbbf24}.truco-center small{font-size:12px;color:#b7c8d8}.truco-hand{display:flex;gap:10px;justify-content:center}.playing-card-mini{width:90px;height:125px;border-radius:12px;border:2px solid #fff;background:linear-gradient(145deg,#fff,#dbeafe);color:#111827;font-size:24px;font-weight:1000;cursor:pointer;box-shadow:0 12px 25px #0008;transform:rotate(var(--r,0deg));transition:.2s}.playing-card-mini:hover{transform:translateY(-12px) rotate(var(--r,0deg))}.board-solo{padding:16px;border-radius:24px}.board-grid{display:grid;grid-template-columns:repeat(8,1fr);width:min(640px,85vw);aspect-ratio:1;border:8px solid #5b3b22;border-radius:10px;overflow:hidden}.board-cell{border:0;font-size:clamp(20px,5vw,46px);display:grid;place-items:center;cursor:pointer}.board-cell.light{background:#e6c99a}.board-cell.dark{background:#7b4f2c}.board-cell:hover{filter:brightness(1.25)}.board-grid.chess .board-cell{font-size:clamp(20px,5vw,43px)}.code-character svg{width:100%;height:100%;filter:drop-shadow(0 12px 8px #0008)}.code-character{animation:codeBreathe 3.2s ease-in-out infinite;transform-origin:bottom center}.code-character:hover{animation:codeWobble .65s ease-in-out infinite}@keyframes codeBreathe{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}@keyframes codeWobble{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
 @media(max-width:900px){.solo-mode-grid{grid-template-columns:repeat(2,1fr)}.mode-game-top{flex-wrap:wrap}.mode-game-body{min-height:460px}}
+
+
+/* ===== POLIMENTO FINAL — MESA / MÃO / PERSONAGEM ===== */
+:root{--safe-bottom:max(14px,env(safe-area-inset-bottom));}
+.menu-main-v2{align-items:center}
+.menu-character-column{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:190px}
+.character-platform-v2{position:relative;width:210px;height:265px;display:grid;place-items:end center;isolation:isolate}
+.character-platform-v2:before{content:"";position:absolute;bottom:22px;width:170px;height:38px;border-radius:50%;background:radial-gradient(ellipse,rgba(61,231,255,.42),rgba(61,231,255,.04) 60%,transparent 72%);filter:blur(7px);z-index:-1;animation:platformPulse 2.8s ease-in-out infinite}
+.platform-ring{position:absolute;bottom:16px;width:170px;height:36px;border:1px solid rgba(97,234,255,.5);border-radius:50%;box-shadow:0 0 35px rgba(53,208,255,.18),inset 0 0 22px rgba(53,208,255,.12);transform:rotateX(65deg);animation:ringSpin 7s linear infinite}
+.menu-character{transform:translateY(-8px) scale(1.08);filter:drop-shadow(0 18px 18px rgba(0,0,0,.45));animation:heroFloat 3.6s ease-in-out infinite}
+.edit-skin-v2{position:relative;z-index:5;margin-top:-4px}
+@keyframes heroFloat{50%{transform:translateY(-17px) scale(1.1)}}
+@keyframes platformPulse{50%{transform:scale(1.12);opacity:.72}}
+@keyframes ringSpin{to{transform:rotateX(65deg) rotateZ(360deg)}}
+
+/* Mão: sempre baixa, centro da mesa livre. */
+.first-person-player-zone{min-height:132px!important;height:clamp(126px,18vh,172px);padding:0 2% calc(var(--safe-bottom) + 2px)!important;background:linear-gradient(0deg,rgba(0,0,0,.76),rgba(0,0,0,.18) 54%,transparent)!important}
+.player-self{position:relative;z-index:110;gap:12px;min-height:44px}
+.hand-fan-3d{height:clamp(72px,10vh,105px)!important;max-width:min(980px,92vw);margin:0 auto;align-items:flex-end;padding:0!important;transform:translateY(7px)}
+.hand-fan-3d .hand-card{width:clamp(45px,4.4vw,67px);height:clamp(68px,7.4vw,98px);margin-left:clamp(-27px,-2.1vw,-13px);border-width:3px;box-shadow:0 10px 18px rgba(0,0,0,.45)}
+.hand-fan-3d .hand-card:hover,.hand-fan-3d .hand-card:focus-visible{transform:translateY(-30px) rotate(0deg) scale(1.08);z-index:300}
+.turn-hint{top:auto!important;bottom:clamp(135px,19vh,182px)!important}
+.game-toast{bottom:clamp(135px,19vh,182px)!important}
+.first-person-hands{opacity:.35;transform:scale(.8) translateY(25px);pointer-events:none}
+
+/* Personagens sempre no quadro, nunca cortados. */
+.avatar-game,.character-stage{overflow:visible;display:grid;place-items:end center}
+.player-character{contain:layout paint;}
+.player-character .char-body{filter:drop-shadow(0 7px 8px rgba(0,0,0,.35))}
+.player-nameplate{box-shadow:0 5px 18px rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.12)}
+
+/* Chat global realmente discreto/transparente. */
+.global-chat-v2{background:rgba(4,11,23,.22)!important;border-color:rgba(255,255,255,.1)!important;backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(0,0,0,.16)}
+.global-chat-v2 p{opacity:.72}
+
+/* Hub de modos mais claro: cada modo mostra Solo + Online. */
+.mode-showcase.compact{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.game-mode-card{position:relative;overflow:hidden;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.game-mode-card:hover{transform:translateY(-6px) rotateX(2deg);border-color:rgba(89,231,255,.38);box-shadow:0 20px 50px rgba(0,0,0,.28)}
+.game-mode-card:after{content:"SOLO  •  ONLINE";display:block;margin-top:10px;font-size:9px;font-weight:1000;letter-spacing:1px;color:#8cecff;opacity:.8}
+.mode-hub-actions{position:relative;z-index:4}
+
+/* Salas: capa visual do modo, sem fotos. */
+.room-cover{background-image:radial-gradient(circle at 30% 20%,rgba(255,255,255,.18),transparent 30%),linear-gradient(145deg,rgba(5,12,28,.35),rgba(5,12,28,.9));background-size:auto}
+
+@media(max-width:1100px){.mode-showcase.compact{grid-template-columns:repeat(2,minmax(0,1fr))}.menu-main-v2{grid-template-columns:180px minmax(0,1fr)}.right-rail-v2{display:none}}
+@media(max-width:700px){.mode-showcase.compact{grid-template-columns:1fr}.menu-character-column{min-width:0}.character-platform-v2{height:220px;width:170px}.hand-fan-3d{max-width:96vw}.hand-fan-3d .hand-card{width:48px;height:71px;margin-left:-18px}.first-person-player-zone{height:126px;min-height:126px!important}.self-profile{padding:5px 8px}.uno-call{width:48px;height:48px;font-size:9px}.game-toast{bottom:132px!important}.turn-hint{bottom:132px!important}}
