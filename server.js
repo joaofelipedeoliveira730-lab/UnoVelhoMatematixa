@@ -74,8 +74,12 @@ async function initDatabase() {
     await pool.query('SELECT 1');
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     await pool.query(schema);
-    const seed = fs.readFileSync(path.join(__dirname, 'seed.sql'), 'utf8');
-    await pool.query(seed);
+    const seedPath = path.join(__dirname, 'seed.sql');
+    if (fs.existsSync(seedPath)) {
+      const seed = fs.readFileSync(seedPath, 'utf8');
+      if (seed.trim()) await pool.query(seed);
+    }
+    await repairLegacySchema();
     usePostgres = true;
     await ensureCeo();
     console.log('✅ PostgreSQL conectado e schema aplicado.');
@@ -87,6 +91,72 @@ async function initDatabase() {
     if (isProduction || process.env.DATABASE_URL) throw err;
     localDb();
   }
+}
+
+
+async function repairLegacySchema() {
+  if (!pool) return;
+
+  // Compatibilidade com bancos antigos que possuíam uma tabela "profiles"
+  // independente da tabela "users". O servidor atual usa users.id como
+  // identidade principal e profiles.user_id como ligação.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_bootstrap (
+      key VARCHAR(120) PRIMARY KEY,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    ALTER TABLE profiles
+      ADD COLUMN IF NOT EXISTS user_id INTEGER,
+      ADD COLUMN IF NOT EXISTS avatar JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS bio VARCHAR(180) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+    ALTER TABLE user_inventory
+      ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+    ALTER TABLE items
+      ADD COLUMN IF NOT EXISTS name VARCHAR(120) NOT NULL DEFAULT 'Item',
+      ADD COLUMN IF NOT EXISTS category VARCHAR(40) NOT NULL DEFAULT 'cosmetic',
+      ADD COLUMN IF NOT EXISTS description VARCHAR(255) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS price BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS xp_required BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS rarity VARCHAR(20) NOT NULL DEFAULT 'common',
+      ADD COLUMN IF NOT EXISTS asset JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+    ALTER TABLE player_market
+      ADD COLUMN IF NOT EXISTS sold_at TIMESTAMP;
+
+    UPDATE profiles p
+       SET user_id = u.id
+      FROM users u
+     WHERE p.user_id IS NULL
+       AND lower(p.username) = lower(u.username);
+
+    UPDATE profiles p
+       SET avatar = COALESCE(p.avatar, '{}'::jsonb),
+           settings = COALESCE(p.settings, '{}'::jsonb),
+           bio = COALESCE(p.bio, ''),
+           updated_at = COALESCE(p.updated_at, CURRENT_TIMESTAMP)
+     WHERE p.user_id IS NOT NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_user_id_unique
+      ON profiles(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_profiles_username
+      ON profiles(username);
+
+    CREATE INDEX IF NOT EXISTS idx_inventory_user
+      ON user_inventory(user_id);
+  `);
+
+  // Perfis novos não dependem de uma linha pré-existente. O registro/login
+  // cria o perfil automaticamente.
+  console.log('🛠️ Compatibilidade do PostgreSQL verificada/corrigida.');
 }
 
 async function ensureCeo() {
@@ -139,8 +209,13 @@ async function ensureCeo() {
     const hash = await bcrypt.hash(password, 12);
     await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)", [hash]);
     console.log('👑 Conta CeoVelho recriada.');
-  } else if (found.rows[0].role !== 'CEO') {
-    await pool.query("UPDATE users SET role='CEO' WHERE id=$1", [found.rows[0].id]);
+  } else {
+    if (password) {
+      const hash = await bcrypt.hash(password, 12);
+      await pool.query("UPDATE users SET username='CeoVelho',password_hash=$1,role='CEO' WHERE id=$2", [hash, found.rows[0].id]);
+    } else if (found.rows[0].role !== 'CEO') {
+      await pool.query("UPDATE users SET role='CEO' WHERE id=$1", [found.rows[0].id]);
+    }
   }
 }
 function parseCookies(req) {
@@ -280,9 +355,9 @@ app.get('/api/me',auth,async(req,res)=>{const profile=await getProfile(req.user.
 app.post('/api/logout',(req,res)=>{clearAuthCookie(res);res.json({success:true});});
 
 app.post('/api/register',requireDatabase,async(req,res)=>{
-  return res.status(403).json({success:false,message:'Cadastro temporariamente desativado. Use a conta CeoVelho para o teste inicial.'});
   const username=cleanText(req.body.username,24); const password=String(req.body.password||'');
   if(!validUsername(username)||password.length<6||password.length>100) return res.status(400).json({success:false,message:'Usuário deve ter 3-24 caracteres (letras, números ou _), e a senha deve ter 6-100 caracteres.'});
+  if (/^(ceovelho|ceo|admin|administrador|staff|sistema|system)$/i.test(username)) return res.status(403).json({success:false,message:'Esse nome de usuário é reservado.'});
   if(!rateLimit(loginAttempts,req.ip,60000,8)) return res.status(429).json({success:false,message:'Muitas tentativas. Aguarde um minuto.'});
   try {
     const hash=await bcrypt.hash(password,12); let user;
@@ -290,7 +365,18 @@ app.post('/api/register',requireDatabase,async(req,res)=>{
     else {const db=localDb();if(db.users.some(u=>u.username.toLowerCase()===username.toLowerCase()))return res.status(409).json({success:false,message:'Usuário já existe.'});user={id:(db.users.reduce((m,u)=>Math.max(m,u.id||0),0)+1),username,password_hash:hash,role:'user',coins:500,xp:0,level:1,wins:0,losses:0,games_played:0,created_at:new Date().toISOString()};db.users.push(user);saveLocalDb(db);}
     const token=signToken(user);setAuthCookie(res,token);
     let profile={avatar:defaultAvatar(),settings:defaultSettings(),bio:''};
-    try{profile=await saveProfile(user.id,profile);}catch(profileErr){console.error('profile register:',profileErr.message);}
+    try{
+      profile=await saveProfile(user.id,profile);
+    }catch(profileErr){
+      console.error('profile register:',profileErr.message);
+      try{
+        await dbQuery(`INSERT INTO profiles(user_id,avatar,settings,bio) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO NOTHING`,
+          [user.id,JSON.stringify(defaultAvatar()),JSON.stringify(defaultSettings()),'']);
+        profile=await getProfile(user.id);
+      }catch(repairProfileErr){
+        console.error('profile repair:',repairProfileErr.message);
+      }
+    }
     for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres){try{await grantItem(user.id,id);}catch(itemErr){console.error('starter item:',itemErr.message);}}
     res.json({success:true,message:'Conta criada! Monte seu personagem para continuar.',token,user:publicUser(user),profile,needsCustomization:true});
   } catch(e){console.error(e);res.status(500).json({success:false,message:'Erro ao criar conta.'});}
