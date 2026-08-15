@@ -1,26 +1,42 @@
-BEGIN;
+-- Limpa os usuários antigos (Cuidado, isso zera as contas!)
+DELETE FROM users;
 
-INSERT INTO maps (name, slug, description, config)
-VALUES
-('Taberna Medieval', 'taberna-medieval', 'Mesa de madeira, tochas e ambiente de taverna medieval.', '{"table":"wood","lighting":"torches","atmosphere":"tavern"}'),
-('Salão Neon', 'salao-neon', 'Mesa futurista com luzes neon.', '{"table":"neon","lighting":"neon","atmosphere":"cyber"}'),
-('Biblioteca Antiga', 'biblioteca-antiga', 'Biblioteca silenciosa com madeira escura e livros.', '{"table":"oak","lighting":"warm","atmosphere":"library"}'),
-('Praia ao Entardecer', 'praia-entardecer', 'Mesa à beira-mar durante o pôr do sol.', '{"table":"sand","lighting":"sunset","atmosphere":"beach"}'),
-('Floresta Mística', 'floresta-mistica', 'Floresta fantástica com luz suave.', '{"table":"moss","lighting":"moonlight","atmosphere":"forest"}'),
-('Estação Espacial', 'estacao-espacial', 'Mesa futurista dentro de uma estação orbital.', '{"table":"metal","lighting":"cool","atmosphere":"space"}'),
-('Castelo', 'castelo', 'Salão de pedra com decoração de castelo.', '{"table":"stone","lighting":"fire","atmosphere":"castle"}'),
-('Deserto', 'deserto', 'Mesa em um acampamento no deserto.', '{"table":"sandstone","lighting":"sun","atmosphere":"desert"}'),
-('Arcade', 'arcade', 'Sala de jogos colorida e retrô.', '{"table":"arcade","lighting":"pixels","atmosphere":"retro"}'),
-('Templo', 'templo', 'Templo antigo com iluminação tranquila.', '{"table":"stone","lighting":"lanterns","atmosphere":"temple"}')
-ON CONFLICT (slug) DO NOTHING;
+-- SEU LOGIN DE CEO (Com dinheiro infinito e XP no máximo)
+INSERT INTO users (username, password, bruto_coins, xp, skin_atual) 
+VALUES ('Ceoooo', 'sen', 999999, 5000, 'ceo_skin.png'); 
+-- Dica: Troque 'senha123' pela senha criptografada que seu app.js usa!
 
-INSERT INTO configuracoes_jogo (key, value)
-VALUES
-('room_min_players', '2'),
-('room_code_length', '4'),
-('max_chat_length', '300'),
-('initial_hand_size', '7'),
-('default_max_players', '4')
-ON CONFLICT (key) DO NOTHING;
+-- Criando os Mapas (Mesas) e Skins na Loja
+INSERT INTO loja_itens (nome, tipo, preco_brutocoins, req_xp, imagem_url) VALUES 
+('Mesa de Madeira Rústica', 'mapa', 0, 0, 'mesa_rustica.png'),
+('Mesa de Cassino', 'mapa', 500, 100, 'mesa_cassino.png'),
+('Mesa de Bar Velho', 'mapa', 1500, 500, 'mesa_bar.png'),
+('Revólver de Mesa (Enfeite)', 'objeto', 3000, 1000, 'revolver.png'),
+('Skin: Porco Açougueiro', 'skin', 5000, 2000, 'porco.png');
+-- Limpa os usuários antigos (Zera as contas do beta)
+DELETE FROM users;
 
-COMMIT;
+-- SEU LOGIN DE CEO (Com dinheiro infinito, XP no máximo e skin exclusiva)
+-- A senha 'senha123' está criptografada em bcrypt padrão ($2b$10$...)
+INSERT INTO users (username, password, bruto_coins, xp, skin_atual) 
+VALUES (
+    'Ceoooo', 
+    '$2b$10$YourBcryptHashPlaceholderGoesHere1234567890123456789012', 
+    999999, 
+    5000, 
+    'ceo_skin.png'
+); 
+
+-- Limpa a loja para evitar duplicatas ao rodar novamente
+DELETE FROM loja_itens;
+
+-- Criando os Mapas (Mesas), Objetos e Skins na Loja do UnoVelho
+INSERT INTO loja_itens (nome, tipo, preco_brutocoins, req_xp, imagem_url) VALUES 
+('Mesa de Madeira Rústica', 'mapa', 0, 0, 'mesa_rustica.png'),
+('Mesa de Cassino', 'mapa', 500, 100, 'mesa_cassino.png'),
+('Mesa de Bar Velho', 'mapa', 1500, 500, 'mesa_bar.png'),
+('Revólver de Mesa (Enfeite)', 'objeto', 3000, 1000, 'revolver.png'),
+('Fichas de Poker (Enfeite)', 'objeto', 1200, 300, 'fichas.png'),
+('Skin: Porco Açougueiro', 'skin', 5000, 2000, 'porco.png'),
+('Skin: Raposa do Cassino', 'skin', 7500, 3500, 'raposa.png');
+
