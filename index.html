@@ -128,7 +128,14 @@
     <button class="online-mode-card mode-xadrez" data-online-mode="chess" type="button"><span>♟️</span><b>XADREZ</b><small>Xeque-mate do bar</small><em>SALAS</em></button>
   </div>
 </section>
-<section id="soloView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><h2>JOGAR SOLO</h2></div><div class="difficulty-grid"><button class="difficulty" data-difficulty="easy" type="button"><span>🟢</span><b>FÁCIL</b><small>Bot simples</small></button><button class="difficulty" data-difficulty="medium" type="button"><span>🟡</span><b>MÉDIO</b><small>Bot estratégico</small></button><button class="difficulty" data-difficulty="hard" type="button"><span>🔴</span><b>DIFÍCIL</b><small>Bot agressivo</small></button></div></section>
+<section id="soloView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><h2>JOGAR SOLO</h2></div><div class="solo-mode-grid">
+<button class="solo-mode-card mode-uno" data-solo-mode="uno" type="button"><span>🃏</span><b>UNO</b><small>Contra bot</small></button>
+<button class="solo-mode-card mode-draw" data-solo-mode="draw" type="button"><span>🎨</span><b>GARTIC</b><small>Desenhe e adivinhe</small></button>
+<button class="solo-mode-card mode-truco" data-solo-mode="truco" type="button"><span>🂡</span><b>TRUCO</b><small>Duelo contra bot</small></button>
+<button class="solo-mode-card mode-damas" data-solo-mode="checkers" type="button"><span>⚫</span><b>DAMAS</b><small>Jogue contra o bot</small></button>
+<button class="solo-mode-card mode-xadrez" data-solo-mode="chess" type="button"><span>♟️</span><b>XADREZ</b><small>Xeque-mate contra bot</small></button>
+</div>
+<div class="solo-difficulty-row"><b>Dificuldade:</b><button class="difficulty" data-difficulty="easy" type="button">🟢 Fácil</button><button class="difficulty" data-difficulty="medium" type="button">🟡 Médio</button><button class="difficulty" data-difficulty="hard" type="button">🔴 Difícil</button></div></section>
 <section id="roomsView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="onlineModeView" type="button">← Modos</button><div><h2 id="roomsHeading">SALAS ONLINE</h2><small id="roomsModeSubtitle" class="subnav-subtitle">Escolha uma sala para entrar.</small></div><div class="subnav-actions"><button id="btnRefreshRooms" class="btn btn-secondary" type="button">↻ Atualizar</button><button id="btnCreateRoom" class="btn btn-primary" type="button">＋ CRIAR SALA</button></div></div><div id="roomsList" class="rooms-list"></div></section>
 <section id="roomView" class="view hidden"><div class="subnav"><button id="btnLeaveRoom" class="back-btn" type="button">← Sair da sala</button><h2 id="roomTitle">SALA</h2><span id="roomCodeBadge" class="code-badge">MATX-0000</span></div><div class="room-layout"><div class="room-main glass"><div class="room-options-bar"><span id="roomOptionsText">Sala</span><button id="btnStartRoom" class="btn btn-primary" type="button">▶ COMEÇAR</button></div><div id="roomPlayers" class="room-players"></div><div id="roomMapBanner" class="room-map-banner"></div></div><aside class="chat-panel glass"><div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div><div id="roomChatMessages" class="chat-messages"></div><form id="roomChatForm" class="chat-form"><input id="roomChatInput" maxlength="500" placeholder="Digite uma mensagem..."><button type="submit">➤</button></form></aside></div></section>
 
@@ -188,6 +195,8 @@
     </div>
   </div>
 </section>
+
+<section id="modeGameView" class="view hidden mode-game-view"><div class="mode-game-shell"><header class="mode-game-top glass"><button id="btnBackModeGame" class="back-btn" type="button">← Sair</button><div><span id="modeGameBadge" class="mode-pill live">MODO</span><h2 id="modeGameTitle">JOGO</h2></div><div id="modeGameTurn" class="mode-turn">SUA VEZ</div></header><main id="modeGameBody" class="mode-game-body"></main><div id="modeGameMessage" class="mode-game-message glass"></div></div></section>
 
 <section id="drawView" class="view hidden draw-view">
   <div class="draw-shell">
