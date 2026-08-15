@@ -29,6 +29,7 @@ const refs = {
 const state = {
   user:null,
   profile:null,
+  token:null,
   items:[],
   inventory:[],
   socket:null,
@@ -68,13 +69,29 @@ const SoundFX = {
   lose(){[260,200,140].forEach((f,i)=>setTimeout(()=>this.tone(f,.22,'triangle'),i*120))}
 };
 
+const BackgroundMusic={ctx:null,master:null,timer:null,step:0,enabled:true,volume:.45,started:false,init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.volume*.08;this.master.connect(this.ctx.destination);}}catch{}},start(){if(this.started)return;this.init();if(!this.ctx||!this.master)return;this.started=true;this.schedule();},schedule(){if(!this.started||!this.ctx)return;const notes=[261.63,329.63,392,523.25,392,329.63,293.66,349.23,440,587.33,440,349.23];const n=notes[this.step%notes.length];const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='triangle';o.frequency.value=n;g.gain.setValueAtTime(.0001,this.ctx.currentTime);g.gain.exponentialRampToValueAtTime(.055,this.ctx.currentTime+.025);g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+.30);o.connect(g);g.connect(this.master);o.start();o.stop(this.ctx.currentTime+.32);this.step++;this.timer=setTimeout(()=>this.schedule(),330);},stop(){this.started=false;if(this.timer)clearTimeout(this.timer);this.timer=null;},setEnabled(v){this.enabled=v;if(v)this.start();else this.stop();},setVolume(v){this.volume=Number(v)||0;if(this.master)this.master.gain.value=this.volume*.08;}};
+function startBackgroundMusic(){if(state.profile?.settings?.music!==false){BackgroundMusic.setVolume(state.profile?.settings?.musicVolume??.45);BackgroundMusic.start();}}
+
 function toast(message,type='info',duration=2800){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${type==='error'?'⚠️':type==='success'?'✓':'ℹ️'}</span><div>${escapeHtml(message).replace(/\n/g,'<br>')}</div>`;$('#toastContainer').appendChild(el);setTimeout(()=>el.classList.add('out'),duration-350);setTimeout(()=>el.remove(),duration);}
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));}
 function show(id){$(id)?.classList.remove('hidden')}
 function hide(id){$(id)?.classList.add('hidden')}
 function setMessage(id,msg,type='info'){const el=$(id);if(!el)return;el.textContent=msg;el.className=`form-message ${type}`;}
-function postJSON(url,body,opts={}){return fetch(API+url,{method:opts.method||'POST',headers:{'Content-Type':'application/json',...(opts.headers||{})},body:body===undefined?undefined:JSON.stringify(body),credentials:'include'}).then(async r=>{let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||'Erro de comunicação.'),{data:d,status:r.status});return d;});}
-async function getJSON(url){const r=await fetch(API+url,{credentials:'include'});const d=await r.json();if(!r.ok)throw Object.assign(new Error(d.message||'Erro'),{data:d,status:r.status});return d;}
+function authHeaders(extra={}){const h={...(extra||{})};if(state.token)h.Authorization=`Bearer ${state.token}`;return h;}
+function postJSON(url,body,opts={}){return fetch(API+url,{method:opts.method||'POST',headers:authHeaders({'Content-Type':'application/json',...(opts.headers||{})}),body:body===undefined?undefined:JSON.stringify(body),credentials:'include'}).then(async r=>{let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} de comunicação com o servidor.`),{data:d,status:r.status});return d;});}
+async function getJSON(url){const r=await fetch(API+url,{credentials:'include',headers:authHeaders()});let d={};try{d=await r.json()}catch{};if(!r.ok)throw Object.assign(new Error(d.message||`Erro ${r.status} ao carregar o jogo.`),{data:d,status:r.status});return d;}
+async function cacheGameResources(){
+  const progress=$('#downloadProgress');
+  const urls=['/','/index.html','/style.css','/app.js','/assets/reference-arena.jpg','/assets/reference-cards.jpg','/assets/reference-lobby.jpg'];
+  try{
+    if(!('caches' in window)){if(progress)progress.textContent='NAVEGADOR OK';return;}
+    const cache=await caches.open('unovelho-matx-v4');
+    let done=0;
+    for(const url of urls){try{await cache.add(url);}catch{}done++;if(progress)progress.textContent=`${Math.round(done/urls.length*100)}%`; }
+    if(progress)progress.textContent='BAIXADO';
+  }catch{if(progress)progress.textContent='PRONTO';}
+}
+
 
 function init(){
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
@@ -92,7 +109,15 @@ async function bootAuth(){
 
 function bindStaticEvents(){
   $('#termsCheck').addEventListener('change',e=>$('#btnAcceptTerms').disabled=!e.target.checked);
-  $('#btnAcceptTerms').onclick=()=>{localStorage.setItem('uno_terms_accepted','1');state.terms=true;hide('#termsModal');bootAuth();};
+  $('#btnAcceptTerms').onclick=async()=>{
+    if(!$('#termsCheck').checked)return;
+    const btn=$('#btnAcceptTerms');btn.disabled=true;btn.textContent='⏳ BAIXANDO RECURSOS...';
+    await cacheGameResources();
+    localStorage.setItem('uno_terms_accepted','1');state.terms=true;
+    hide('#termsModal');
+    startBackgroundMusic();
+    await bootAuth();
+  };
   $('#formLogin').onsubmit=login;
   $('#formRegister').onsubmit=register;
   $('#brandHome').onclick=()=>navigate('lobby');
@@ -139,20 +164,26 @@ function bindStaticEvents(){
   window.addEventListener('beforeunload',()=>{try{state.socket?.disconnect()}catch{}});
 }
 
-async function login(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#loginMessage','Entrando...');const d=await postJSON('/login',{username:fd.get('username'),password:fd.get('password')});state.user=d.user;state.profile=d.profile;state.settings=d.profile.settings;setMessage('#loginMessage',d.message,'success');await enterApp();}catch(err){setMessage('#loginMessage',err.message,'error');}}
-async function register(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#registerMessage','Criando conta...');const d=await postJSON('/register',{username:fd.get('regUsername'),password:fd.get('regPassword')});state.user=d.user;state.profile=d.profile;state.settings=d.profile.settings;setMessage('#registerMessage',d.message,'success');await enterApp(true);}catch(err){setMessage('#registerMessage',err.message,'error');}}
+async function login(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#loginMessage','Entrando...');const d=await postJSON('/login',{username:fd.get('username'),password:fd.get('password')});state.token=d.token||state.token;state.user=d.user;state.profile=d.profile||{avatar:{},settings:{}};state.settings=state.profile.settings;setMessage('#loginMessage',d.message,'success');await enterApp();}catch(err){setMessage('#loginMessage',err.message,'error');SoundFX.bad();}}
+async function register(e){e.preventDefault();const fd=new FormData(e.target);try{setMessage('#registerMessage','Criando conta...');const d=await postJSON('/register',{username:fd.get('regUsername'),password:fd.get('regPassword')});state.token=d.token||state.token;state.user=d.user;state.profile=d.profile||{avatar:{},settings:{}};state.settings=state.profile.settings;setMessage('#registerMessage',d.message,'success');await enterApp(true);}catch(err){setMessage('#registerMessage',err.message,'error');SoundFX.bad();}}
 
 async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');
-  state.items=(await getJSON('/items')).items||[];
-  state.inventory=(await getJSON('/inventory')).items||[];
+  if(!state.profile)state.profile={avatar:{},settings:{}};
+  if(!state.profile.avatar)state.profile.avatar={};
+  if(!state.profile.settings)state.profile.settings=defaultClientSettings();
+  try{state.items=(await getJSON('/items')).items||[];}catch(e){state.items=[];toast('Catálogo temporariamente indisponível. O jogo continuará funcionando.','error',3500);}
+  try{state.inventory=(await getJSON('/inventory')).items||[];}catch(e){state.inventory=[];toast('Inventário ainda não pôde ser carregado.','error',3500);}
   updateUserUI();
   connectSocket();
   renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);
   loadMiniRank();renderMapPreview();loadAchievementsPreview();populateCustomizer();applySettings();
   if(forceCustomize||!state.profile.avatar?.hair)openCustomize();
   navigate('lobby');
+  startBackgroundMusic();
 }
+function defaultClientSettings(){return {music:true,musicVolume:.45,sfx:true,sfxVolume:.75,animations:true,chatWorld:true,chatRoom:true,chatPrivate:true,reducedMotion:false};}
+
 function updateUserUI(){const u=state.user;if(!u)return;$('#coinValue').textContent=formatNum(u.coins);$('#levelValue').textContent=u.level;$('#heroName').textContent=u.username;$('#winsValue').textContent=u.wins||0;$('#xpValue').textContent=formatNum(u.xp);$('#profileName').textContent=u.username;$('#profileLevel').textContent=u.level;$('#profileWins').textContent=u.wins||0;$('#profileGames').textContent=u.gamesPlayed||0;$('#accountInfo').innerHTML=`<b>${escapeHtml(u.username)}</b><br>Cargo: ${escapeHtml(u.role)}<br>🪙 ${formatNum(u.coins)} • ⭐ ${formatNum(u.xp)} XP`;const pct=Math.min(100,Math.max(0,((u.xp-(u.level>1?xpForLevelClient(u.level):0))/Math.max(1,xpForLevelClient(u.level+1)-(u.level>1?xpForLevelClient(u.level):0)))*100));$('#xpBar').style.width=pct+'%';const title=itemName(state.profile?.avatar?.title)||'INICIANTE';$('#profileTitle').textContent=title.toUpperCase();$('#customNamePreview').textContent=u.username;$('#customTitlePreview').textContent=title.toUpperCase();$('#avatarMiniFace').textContent='🙂';}
 function formatNum(n){return new Intl.NumberFormat('pt-BR').format(Number(n||0));}
 function xpForLevelClient(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45));}
@@ -165,7 +196,7 @@ function navigate(view){
 
 function connectSocket(){
   if(state.socket?.connected)return;
-  state.socket=io({withCredentials:true});
+  state.socket=io({withCredentials:true,auth:state.token?{token:state.token}:{}});
   state.socket.on('connect',()=>toast('Conectado ao servidor online.','success',1800));
   state.socket.on('connect_error',e=>toast('Conexão online indisponível: '+(e.message||'erro'),'error'));
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
@@ -252,13 +283,13 @@ function populateCustomizer(){
 }
 function openCustomize(){populateCustomizer();show('#customizeModal');renderCharacter('#customCharacter',state.profile.avatar);}
 async function saveCharacter(){try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;hide('#customizeModal');renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);toast('Personagem salvo!','success');}catch(e){toast(e.message,'error');}}
-async function saveSettingsFromUI(){if(!state.profile)return;state.profile.settings={music:$('#setMusic').checked,musicVolume:Number($('#setMusicVol').value),sfx:$('#setSfx').checked,sfxVolume:Number($('#setSfxVol').value),animations:$('#setAnimations').checked,reducedMotion:$('#setReducedMotion').checked,chatWorld:$('#setWorldChat').checked,chatRoom:$('#setRoomChat').checked,chatPrivate:$('#setPrivateChat').checked};SoundFX.enabled=state.profile.settings.sfx;SoundFX.volume=state.profile.settings.sfxVolume;localStorage.setItem('uv_reduced_motion',state.profile.settings.reducedMotion?'1':'0');document.documentElement.style.setProperty('--motion',state.profile.settings.reducedMotion?'0':'1');try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;}catch{}}
-function applySettings(){const s=state.profile.settings||{};state.settings=s;$('#setMusic').checked=s.music;$('#setMusicVol').value=s.musicVolume;$('#setSfx').checked=s.sfx;$('#setSfxVol').value=s.sfxVolume;$('#setAnimations').checked=s.animations;$('#setReducedMotion').checked=s.reducedMotion;$('#setWorldChat').checked=s.chatWorld;$('#setRoomChat').checked=s.chatRoom;$('#setPrivateChat').checked=s.chatPrivate;SoundFX.enabled=s.sfx;SoundFX.volume=s.sfxVolume;}
+async function saveSettingsFromUI(){if(!state.profile)return;state.profile.settings={music:$('#setMusic').checked,musicVolume:Number($('#setMusicVol').value),sfx:$('#setSfx').checked,sfxVolume:Number($('#setSfxVol').value),animations:$('#setAnimations').checked,reducedMotion:$('#setReducedMotion').checked,chatWorld:$('#setWorldChat').checked,chatRoom:$('#setRoomChat').checked,chatPrivate:$('#setPrivateChat').checked};SoundFX.enabled=state.profile.settings.sfx;SoundFX.volume=state.profile.settings.sfxVolume;BackgroundMusic.setVolume(state.profile.settings.musicVolume);BackgroundMusic.setEnabled(state.profile.settings.music);localStorage.setItem('uv_reduced_motion',state.profile.settings.reducedMotion?'1':'0');document.documentElement.style.setProperty('--motion',state.profile.settings.reducedMotion?'0':'1');try{const d=await postJSON('/profile',{avatar:state.profile.avatar,settings:state.profile.settings,bio:state.profile.bio||''},{method:'PUT'});state.profile=d.profile;}catch{}}
+function applySettings(){const s=state.profile.settings||defaultClientSettings();state.settings=s;$('#setMusic').checked=s.music;$('#setMusicVol').value=s.musicVolume;$('#setSfx').checked=s.sfx;$('#setSfxVol').value=s.sfxVolume;$('#setAnimations').checked=s.animations;$('#setReducedMotion').checked=s.reducedMotion;$('#setWorldChat').checked=s.chatWorld;$('#setRoomChat').checked=s.chatRoom;$('#setPrivateChat').checked=s.chatPrivate;SoundFX.enabled=s.sfx;SoundFX.volume=s.sfxVolume;}
 
 function renderCharacter(selector,a){const el=typeof selector==='string'?$(selector):selector;if(!el||!a)return;const hair=a.hair||'hair_basic';const hairColor=a.hairColor||'#171717';el.innerHTML=`<div class="char-aura ${a.effect||''}"></div><div class="char-body" style="--skin:${a.skinColor||'#d59b76'};--eyes:${a.eyes||'#1d2433'}"><div class="char-head"><div class="char-hair ${hair}" style="--hair:${hairColor}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${a.top||'shirt_basic'}"></div><div class="char-bottom ${a.bottom||'pants_basic'}"></div><div class="char-shoes ${a.shoes||'shoes_basic'}"></div><div class="char-accessory ${a.accessory||''}"></div></div>`;}
 
 async function openRank(){navigate('rank');try{const d=await getJSON('/rank');$('#rankRows').innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${formatNum(p.xp)}</span><span>${formatNum(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){toast(e.message,'error');}}
-async function logout(){try{await postJSON('/logout',undefined);}catch{}try{state.socket?.disconnect()}catch{}state.user=null;state.profile=null;hide('#appScreen');show('#authScreen');}
+async function logout(){try{await postJSON('/logout',undefined);}catch{}try{state.socket?.disconnect()}catch{}state.user=null;state.profile=null;state.token=null;BackgroundMusic.stop();hide('#appScreen');show('#authScreen');}
 
 function setupShopTabs(){/* reservado */}
 

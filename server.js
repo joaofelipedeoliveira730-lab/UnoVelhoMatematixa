@@ -21,7 +21,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 if (!JWT_SECRET) console.warn('⚠️ JWT_SECRET não definido. Defina-o no Render antes de usar em produção.');
-const jwtSecret = JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const jwtSecret = JWT_SECRET || (process.env.DATABASE_URL ? crypto.createHash('sha256').update(process.env.DATABASE_URL).digest('hex') : crypto.createHash('sha256').update('unovelho-local-development-secret').digest('hex'));
 
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
@@ -182,8 +182,8 @@ async function hasItem(userId,itemId) {
   if(usePostgres){const r=await pool.query('SELECT 1 FROM user_inventory WHERE user_id=$1 AND item_id=$2',[userId,itemId]); return !!r.rows.length;}
   const db=localDb(); return !!db.inventory[userId]?.[itemId];
 }
-async function getItems() { if(usePostgres){const r=await pool.query('SELECT * FROM items WHERE is_active=true ORDER BY category,price,id'); return r.rows;} return []; }
-async function getInventory(userId) { if(usePostgres){const r=await pool.query(`SELECT i.*,ui.quantity,ui.acquired_at FROM user_inventory ui JOIN items i ON i.id=ui.item_id WHERE ui.user_id=$1 ORDER BY i.category,i.name`,[userId]); return r.rows;} const db=localDb(); return Object.entries(db.inventory[userId]||{}).map(([item_id,quantity])=>({id:item_id,quantity})); }
+async function getItems() { if(usePostgres){try{const r=await pool.query('SELECT * FROM items WHERE is_active=true ORDER BY category,price,id'); return r.rows;}catch(e){console.error('items:',e.message);return [];} } return []; }
+async function getInventory(userId) { if(usePostgres){try{const r=await pool.query(`SELECT i.*,ui.quantity,ui.acquired_at FROM user_inventory ui JOIN items i ON i.id=ui.item_id WHERE ui.user_id=$1 ORDER BY i.category,i.name`,[userId]); return r.rows;}catch(e){console.error('inventory:',e.message);return [];} } const db=localDb(); return Object.entries(db.inventory[userId]||{}).map(([item_id,quantity])=>({id:item_id,quantity})); }
 
 async function geminiModerate(text){
   if(!GEMINI_API_KEY) return {allowed:true,reason:'disabled'};
@@ -211,9 +211,11 @@ app.post('/api/register',async(req,res)=>{
     const hash=await bcrypt.hash(password,12); let user;
     if(usePostgres){const exists=await pool.query('SELECT id FROM users WHERE LOWER(username)=LOWER($1)',[username]);if(exists.rows.length)return res.status(409).json({success:false,message:'Usuário já existe.'});const r=await pool.query(`INSERT INTO users(username,password_hash,role,coins,xp,level,games_played) VALUES($1,$2,'user',500,0,1,0) RETURNING *`,[username,hash]);user=r.rows[0];}
     else {const db=localDb();if(db.users.some(u=>u.username.toLowerCase()===username.toLowerCase()))return res.status(409).json({success:false,message:'Usuário já existe.'});user={id:(db.users.reduce((m,u)=>Math.max(m,u.id||0),0)+1),username,password_hash:hash,role:'user',coins:500,xp:0,level:1,wins:0,losses:0,games_played:0,created_at:new Date().toISOString()};db.users.push(user);saveLocalDb(db);}
-    const token=signToken(user);setAuthCookie(res,token);await saveProfile(user.id,{avatar:defaultAvatar(),settings:defaultSettings(),bio:''});
-    for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres) await grantItem(user.id,id);
-    res.json({success:true,message:'Conta criada! Monte seu personagem para continuar.',token,user:publicUser(user),profile:await getProfile(user.id),needsCustomization:true});
+    const token=signToken(user);setAuthCookie(res,token);
+    let profile={avatar:defaultAvatar(),settings:defaultSettings(),bio:''};
+    try{profile=await saveProfile(user.id,profile);}catch(profileErr){console.error('profile register:',profileErr.message);}
+    for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres){try{await grantItem(user.id,id);}catch(itemErr){console.error('starter item:',itemErr.message);}}
+    res.json({success:true,message:'Conta criada! Monte seu personagem para continuar.',token,user:publicUser(user),profile,needsCustomization:true});
   } catch(e){console.error(e);res.status(500).json({success:false,message:'Erro ao criar conta.'});}
 });
 
@@ -224,7 +226,10 @@ app.post('/api/login',async(req,res)=>{
   try {let user=null;if(usePostgres){const r=await pool.query('SELECT * FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1',[username]);user=r.rows[0]||null;}else{const db=localDb();user=db.users.find(u=>u.username.toLowerCase()===username.toLowerCase())||null;}if(!user||!(await bcrypt.compare(password,user.password_hash)))return res.status(401).json({success:false,message:'Usuário ou senha incorretos.'});
     const mod=await activeModeration(user.id);if(mod?.action==='ban')return res.status(403).json({success:false,message:'Conta suspensa.',ban:mod});
     if(usePostgres)await pool.query('UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=$1',[user.id]);
-    const token=signToken(user);setAuthCookie(res,token);for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres) await grantItem(user.id,id);const profile=await getProfile(user.id);res.json({success:true,message:user.role==='CEO'?'Bem-vindo de volta, CEO!':'Login realizado com sucesso!',token,user:publicUser(user),profile,needsCustomization:!profile.avatar||Object.keys(profile.avatar).length===0});
+    const token=signToken(user);setAuthCookie(res,token);
+    for(const id of ['hair_basic','shirt_basic','pants_basic','shoes_basic','emote_wave','title_beginner','deck_classic','map_classroom']) if(usePostgres){try{await grantItem(user.id,id);}catch(itemErr){console.error('starter item login:',itemErr.message);}}
+    let profile;try{profile=await getProfile(user.id);}catch(profileErr){console.error('profile login:',profileErr.message);profile={avatar:defaultAvatar(),settings:defaultSettings(),bio:''};}
+    res.json({success:true,message:user.role==='CEO'?'Bem-vindo de volta, CEO!':'Login realizado com sucesso!',token,user:publicUser(user),profile,needsCustomization:!profile.avatar||Object.keys(profile.avatar).length===0});
   }catch(e){console.error(e);res.status(500).json({success:false,message:'Erro no login.'});}
 });
 

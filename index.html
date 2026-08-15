@@ -11,13 +11,17 @@
 <body>
   <div id="bootScreen" class="boot-screen"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a dimensão Matematixa...</p></div>
 
-  <div id="termsModal" class="modal-overlay hidden">
-    <div class="modal glass modal-narrow">
-      <div class="modal-icon">🍪</div>
-      <h2>Antes de entrar na mesa</h2>
-      <p>O jogo guarda preferências leves no navegador para deixar a experiência rápida: áudio, animações, cache visual e configurações. Seus dados de conta, XP, moedas, inventário e permissões continuam protegidos no servidor.</p>
-      <div class="check-row"><input id="termsCheck" type="checkbox"><label for="termsCheck">Aceito os Termos de Uso e o armazenamento local necessário para o jogo.</label></div>
-      <button id="btnAcceptTerms" class="btn btn-primary btn-wide" disabled>ACEITAR E ENTRAR</button>
+  <div id="termsModal" class="modal-overlay hidden terms-first">
+    <div class="modal glass modal-narrow terms-card">
+      <div class="terms-glow"></div>
+      <div class="modal-icon terms-icon">🍪</div>
+      <span class="pill">PRIMEIRO ACESSO</span>
+      <h2>Termos de Uso & Recursos</h2>
+      <p>Antes de jogar, aceite os Termos de Uso e autorize o navegador a baixar e guardar os recursos leves da experiência: preferências, cache visual, animações e imagens. Isso ajuda o jogo a carregar mais rápido no celular e reduz consultas desnecessárias ao servidor.</p>
+      <div class="download-preview"><span>📱</span><div><b>Recursos do jogo</b><small>Serão armazenados no navegador quando disponíveis.</small></div><strong id="downloadProgress">PRONTO</strong></div>
+      <div class="check-row"><input id="termsCheck" type="checkbox"><label for="termsCheck">Li e aceito os Termos de Uso e autorizo o armazenamento local necessário para a experiência.</label></div>
+      <button id="btnAcceptTerms" class="btn btn-primary btn-wide" disabled>🍪 ACEITAR E BAIXAR RECURSOS</button>
+      <small class="terms-note">Você pode apagar esses dados nas configurações do navegador a qualquer momento.</small>
     </div>
   </div>
 
@@ -29,11 +33,22 @@
       <div class="auth-brand"><div class="logo-mark">U</div><div><div class="brand-title">UNO VELHO</div><div class="brand-sub">MATEMATIXA</div></div></div>
       <div class="auth-copy"><span class="pill">🧠 CARTAS + MATEMÁTICA</span><h1>Entre na mesa.</h1><p>Jogue sozinho, desafie jogadores do mundo inteiro e construa seu personagem.</p></div>
       <div class="auth-grid">
-        <form id="formLogin" class="auth-form glass-inner">
-          <h2>Entrar</h2><label>Usuário<input name="username" autocomplete="username" maxlength="24" required></label><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><button class="btn btn-primary btn-wide" type="submit">ENTRAR NA CONTA</button><div id="loginMessage" class="form-message"></div>
+        <form id="formLogin" class="auth-form glass-inner auth-login-form">
+          <div class="form-kicker">🔐 ACESSO SEGURO</div>
+          <h2>Entrar no jogo</h2>
+          <label>Usuário<input name="username" autocomplete="username" maxlength="24" required placeholder="Seu usuário"></label>
+          <label>Senha<input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></label>
+          <button class="btn btn-primary btn-wide auth-submit" type="submit">ENTRAR NA CONTA</button>
+          <div id="loginMessage" class="form-message"></div>
         </form>
-        <form id="formRegister" class="auth-form glass-inner">
-          <h2>Criar conta</h2><label>Usuário<input name="regUsername" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required></label><label>Senha<input name="regPassword" type="password" minlength="6" autocomplete="new-password" required></label><button class="btn btn-cyan btn-wide" type="submit">CRIAR PERSONAGEM</button><div id="registerMessage" class="form-message"></div>
+        <div class="auth-divider"><span>AINDA NÃO TEM CONTA?</span></div>
+        <form id="formRegister" class="auth-form glass-inner auth-register-form">
+          <div class="form-kicker">✨ NOVO JOGADOR</div>
+          <h2>Cadastrar</h2>
+          <label>Escolha seu usuário<input name="regUsername" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" required placeholder="3 a 24 caracteres"></label>
+          <label>Crie sua senha<input name="regPassword" type="password" minlength="6" autocomplete="new-password" required placeholder="Mínimo de 6 caracteres"></label>
+          <button class="btn btn-cyan btn-wide auth-submit" type="submit">CADASTRAR E CRIAR PERSONAGEM</button>
+          <div id="registerMessage" class="form-message"></div>
         </form>
       </div>
       <div class="auth-foot">🔒 Login seguro • PostgreSQL • Socket.IO • Proteção de sessão</div>
