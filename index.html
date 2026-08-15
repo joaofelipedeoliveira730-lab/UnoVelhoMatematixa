@@ -48,7 +48,6 @@
         <button class="btn btn-cyan btn-wide" type="submit">CRIAR CONTA E JOGAR</button><div id="registerMessage" class="form-message"></div>
       </form>
     </div>
-    <div class="test-account">Conta de teste: <b>CeoVelho</b> • senha: <b>Velho2026</b></div>
     <div class="auth-foot">🔒 Login seguro • PostgreSQL • Socket.IO</div>
   </section>
 </main>
@@ -104,6 +103,14 @@
   </div>
 
   <div class="global-chat-v2 glass"><span class="global-dot">🌎</span><div><b>GLOBAL</b><p><strong>Joãozera:</strong> Quem quer sala? Bora jogar!</p></div><button id="btnGlobalChatOpen" type="button">💬</button></div>
+  <div id="ceoCommandDock" class="ceo-command-dock hidden" aria-label="Central de comandos do CEO">
+    <div class="ceo-dock-head"><span class="ceo-crown">♛</span><div><b>CEO COMMAND CENTER</b><small>Canal privado • somente CEO</small></div><button id="btnCloseCeoDock" type="button">×</button></div>
+    <div id="ceoCommandLog" class="ceo-command-log"><div class="ceo-log-line system">Digite <b>/help</b> para listar os comandos disponíveis.</div></div>
+    <form id="ceoCommandForm" class="ceo-command-form"><span>/</span><input id="ceoCommandInput" maxlength="500" autocomplete="off" placeholder="comando..."/><button type="submit">EXECUTAR</button></form>
+    <div class="ceo-command-hints"><button type="button" data-ceo-cmd="/status">/status</button><button type="button" data-ceo-cmd="/salas">/salas</button><button type="button" data-ceo-cmd="/help">/help</button><button type="button" data-ceo-cmd="/anuncio " >/anuncio</button></div>
+  </div>
+  <button id="btnOpenCeoDock" class="ceo-float-button hidden" type="button"><span>♛</span><b>CEO</b><small>COMANDOS</small></button>
+
   <div class="menu-status-v2"><span>🟢 SERVIDORES ONLINE</span><span>•</span><span>🎮 JOGADORES CONECTADOS</span></div>
 </section>
 

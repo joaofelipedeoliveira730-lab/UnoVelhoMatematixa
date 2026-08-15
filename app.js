@@ -142,6 +142,10 @@ function bindEvents(){
   on('#btnCreateRoomLobby','click',openCreateRoom);
   on('#btnGlobalChat','click',()=>toast('💬 Chat global selecionado. A conversa ficará disponível aqui.', 'info'));
   on('#btnGlobalChatOpen','click',()=>toast('💬 Chat global selecionado. A conversa ficará disponível aqui.', 'info'));
+  on('#btnOpenCeoDock','click',()=>{show('#ceoCommandDock');hide('#btnOpenCeoDock');setTimeout(()=>$('#ceoCommandInput')?.focus(),50);});
+  on('#btnCloseCeoDock','click',()=>{hide('#ceoCommandDock');show('#btnOpenCeoDock');});
+  on('#ceoCommandForm','submit',e=>{e.preventDefault();const input=$('#ceoCommandInput');let cmd=String(input?.value||'').trim();if(!cmd)return;if(!cmd.startsWith('/'))cmd='/'+cmd;appendCeoLog('> '+cmd,'system');state.socket?.emit('chat:send',{channel:'world',body:cmd});if(input)input.value='';});
+  $$('#ceoCommandDock [data-ceo-cmd]').forEach(b=>b.addEventListener('click',()=>{const input=$('#ceoCommandInput');if(input){input.value=b.dataset.ceoCmd;input.focus();}}));
   on('#btnOpenProfileMenu','click',()=>openInventory('items'));
   on('#btnMapsPreview','click',openCreateRoom);
   on('#btnConfirmCreateRoom','click',createRoom);
@@ -210,6 +214,8 @@ function updateUserUI(){
   $('#profileName')&&($('#profileName').textContent=u.username);$('#profileLevel')&&($('#profileLevel').textContent=u.level||1);$('#profileWins')&&($('#profileWins').textContent=u.wins||0);$('#profileGames')&&($('#profileGames').textContent=u.gamesPlayed||0);$('#profileTitle')&&($('#profileTitle').textContent=title.toUpperCase());$('#customNamePreview')&&($('#customNamePreview').textContent=u.username);$('#customTitlePreview')&&($('#customTitlePreview').textContent=title.toUpperCase());$('#accountInfo')&&($('#accountInfo').innerHTML=`<b>${escapeHtml(u.username)}</b><br>Cargo: ${escapeHtml(u.role||'user')}<br>🪙 ${fmt(u.coins)} • ⭐ ${fmt(u.xp)} XP`);
   const level=Math.max(1,Number(u.level)||1),base=xpLevel(level),next=xpLevel(level+1);const pct=Math.max(0,Math.min(100,((Number(u.xp)||0)-base)/Math.max(1,next-base)*100));$('#xpBar')&&($('#xpBar').style.width=pct+'%');
 }
+function appendCeoLog(message,type='system'){const box=$('#ceoCommandLog');if(!box)return;const el=document.createElement('div');el.className=`ceo-log-line ${type}`;el.textContent=String(message||'');box.appendChild(el);box.scrollTop=box.scrollHeight;}
+function updateCeoUI(){const isCEO=String(state.user?.role||'').toUpperCase()==='CEO';if(isCEO){show('#btnOpenCeoDock');}else{hide('#btnOpenCeoDock');hide('#ceoCommandDock');}}
 function xpLevel(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45));}
 
 function navigate(view){
@@ -237,7 +243,8 @@ function connectSocket(){
   state.socket.on('game:state',renderOnlineGame);
   state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);});
   state.socket.on('global:pause',m=>{show('#globalPauseBanner');if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='⏸ '+m.message;});state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
-  state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
+  state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));
+  state.socket.on('admin:result',m=>{toast(m.message,m.ok?'success':'error',5000);appendCeoLog(m.message,m.ok?'ok':'error');});
   state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;navigate('lobby');});
 }
 
@@ -264,72 +271,20 @@ function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;nav
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
 function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
 async function startSolo(difficulty){state.solo=makeSolo(difficulty);navigate('game');$('#arenaShell')?.classList.add('solo-arena');renderSolo();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
-function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho',botThinking:false,botTimer:null,playerDrew:false,playerSaidUno:false};}
-function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':(g.botThinking?'🤔 '+g.botName+' está pensando...':'VEZ DO BOT'));$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');$('#turnStatus')?.classList.toggle('thinking',!!g.botThinking);renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand)hand.innerHTML=g.player.map((c,i)=>cardHtml(c,i,g.player.length)).join('');}
+function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho'};}
+function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand)hand.innerHTML=g.player.map((c,i)=>cardHtml(c,i,g.player.length)).join('');}
 function renderArenaCard(card,color){if($('#discardPile')){$('#discardPile').className=`uno-card card-${color} big-card`;$('#discardPile').textContent=card?.value||'?';}if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';}
 function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(delta*5).toFixed(2);const lift=Math.min(12,Math.abs(delta)*2).toFixed(1);return `<button class="uno-card card-${c.color} hand-card" data-index="${i}" style="--rot:${rot}deg;--lift:${lift}px;--z:${20+i}" type="button" aria-label="Jogar carta ${escapeHtml(c.value)}"><i>${escapeHtml(c.value)}</i><span>${escapeHtml(c.value)}</span><em>${c.type==='number'?'UNO':c.type.toUpperCase()}</em></button>`;}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
-function playSoloCardAt(index){
-  const g=state.solo;if(!g||g.turn!=='player'||g.botThinking)return;
-  const card=g.player[index];if(!card)return;
-  if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');
-  if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}
-  applySoloCard(card,card.color);
-}
-function applySoloCard(card,chosenColor){
-  const g=state.solo;if(!g||g.turn!=='player')return;
-  const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;
-  g.player.splice(i,1);g.playerSaidUno=false;g.pile.push(g.discard);g.discard=card;
-  g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;
-  Sound.card();
-  if(g.player.length===1)toast('⚠️ Você ficou com 1 carta! Aperte UNO!','info',3500);
-  if(card.type==='draw2')drawSolo(g.bot,2);if(card.type==='draw4')drawSolo(g.bot,4);
-  if(g.player.length===0)return finishSolo(true);
-  g.turn=(card.type==='skip'||card.type==='reverse')?'bot':'bot';
-  renderSolo();scheduleBotTurn();
-}
-function drawSolo(hand,n){
-  const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length&&g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}
-    if(g.deck.length)hand.push(g.deck.pop());
-  }
-}
-function soloDraw(){
-  const g=state.solo;if(!g||g.turn!=='player'||g.botThinking)return;
-  drawSolo(g.player,1);Sound.cardDraw();g.playerDrew=true;renderSolo();
-  const drawn=g.player[g.player.length-1];
-  if(drawn&&playable(drawn,g.discard,g.color)){
-    toast('🃏 A carta comprada pode ser jogada!','success',2800);
-    return;
-  }
-  g.turn='bot';g.playerDrew=false;renderSolo();scheduleBotTurn();
-}
-function scheduleBotTurn(){
-  const g=state.solo;if(!g||g.turn!=='bot')return;
-  if(g.botTimer)clearTimeout(g.botTimer);
-  g.botThinking=true;renderSolo();
-  const delay=3000+Math.floor(Math.random()*7001); // 3 a 10 segundos
-  g.botTimer=setTimeout(()=>{g.botTimer=null;botTurn();},delay);
-}
-function botTurn(){
-  const g=state.solo;if(!g||g.turn!=='bot')return;
-  g.botThinking=false;
-  let cards=g.bot.filter(c=>playable(c,g.discard,g.color));
-  if(g.difficulty==='medium')cards.sort((a,b)=>cardScore(b)-cardScore(a));
-  if(g.difficulty==='hard')cards.sort((a,b)=>botScore(g,b)-botScore(g,a));
-  const card=cards[0];
-  if(!card){drawSolo(g.bot,1);Sound.cardDraw();g.turn='player';renderSolo();return;}
-  g.bot.splice(g.bot.indexOf(card),1);g.pile.push(g.discard);g.discard=card;
-  g.color=card.color==='black'?chooseColorBot(g.bot):card.color;Sound.card();
-  if(g.bot.length===1)toast(`📣 ${g.botName}: UNO!`,'info',2600);
-  if(card.type==='draw2')drawSolo(g.player,2);if(card.type==='draw4')drawSolo(g.player,4);
-  if(g.bot.length===0)return finishSolo(false);
-  g.turn=(card.type==='skip'||card.type==='reverse')?'bot':'player';renderSolo();
-  if(g.turn==='bot')scheduleBotTurn();
-}
+function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){applySoloCard(card,chooseColorBot(g.player));return;}applySoloCard(card);}
+function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.bot,2);if(card.type==='draw4')drawSolo(g.bot,4);if(g.player.length===0)return finishSolo(true);if(card.type==='skip'||card.type==='reverse'){renderSolo();return;}g.turn='bot';renderSolo();setTimeout(botTurn,850);}
+function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
+function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;drawSolo(g.player,1);g.turn='bot';renderSolo();setTimeout(botTurn,700);}
+function botTurn(){const g=state.solo;if(!g||g.turn!=='bot')return;let cards=g.bot.filter(c=>playable(c,g.discard,g.color));if(g.difficulty==='medium')cards.sort((a,b)=>cardScore(b)-cardScore(a));if(g.difficulty==='hard')cards.sort((a,b)=>botScore(g,b)-botScore(g,a));const card=cards[0];if(!card){drawSolo(g.bot,1);g.turn='player';renderSolo();return;}g.bot.splice(g.bot.indexOf(card),1);g.pile.push(g.discard);g.discard=card;g.color=card.color==='black'?chooseColorBot(g.bot):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.player,2);if(card.type==='draw4')drawSolo(g.player,4);if(g.bot.length===0)return finishSolo(false);g.turn=card.type==='skip'||card.type==='reverse'?'bot':'player';renderSolo();if(g.turn==='bot')setTimeout(botTurn,800);}
 function cardScore(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?40:Number(c.value)||0;}
 function botScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player.length<=3&&c.type!=='number')n+=25;return n;}
 function chooseColorBot(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
-async function finishSolo(win){const g=state.solo;if(!g)return;if(g.botTimer)clearTimeout(g.botTimer);Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1000);}
+async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1000);}
 
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
@@ -367,7 +322,7 @@ function stopMapMusic(){clearInterval(state.musicTimer);state.musicTimer=null;}
 
 function chooseColor(color){if(state.solo&&state.pendingSoloCard){const card=state.pendingSoloCard.card;state.pendingSoloCard=null;hide('#colorModal');applySoloCard(card,color);return;}if(!state.pendingCard||!state.socket)return;state.socket.emit('game:play',{cardId:state.pendingCard.cardId||state.pendingCard.id,chosenColor:color});state.pendingCard=null;state.pendingChallenge=null;hide('#colorModal');}
 function drawGameCard(){if(state.solo){soloDraw();return;}if(state.currentRoom?.started)state.socket?.emit('game:draw');}
-function callUno(){if(state.solo){if(state.solo.player.length===1){state.solo.playerSaidUno=true;Sound.ok();toast('📣 UNO! Agora segura essa última carta!','success');}else toast('Você só chama UNO quando ficar com uma carta.','error');return;}if(state.currentRoom)state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom.code,body:'📣 UNO!'});}
+function callUno(){if(state.solo){if(state.solo.player.length===1){Sound.ok();toast('📣 UNO!','success');}else toast('Você só chama UNO com uma carta.','error');return;}if(state.currentRoom)state.socket?.emit('chat:send',{channel:'room',roomCode:state.currentRoom.code,body:'📣 UNO!'});}
 function exitGame(){state.solo=null;state._onlineGame=null;state.pendingCard=null;state.pendingSoloCard=null;hide('#colorModal');navigate(state.currentRoom?'room':'lobby');}
 function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted&&state.profile?.settings?.sfx!==false;if($('#btnSound'))$('#btnSound').textContent=state.muted?'🔇':'🔊';}
 
