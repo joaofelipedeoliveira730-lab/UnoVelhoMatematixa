@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080b17">
+  <title>velhoUNO</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="toast"></div>
+
+<section id="intro" class="screen">
+  <div class="glow a"></div><div class="glow b"></div>
+  <div class="intro">
+    <div class="suits">♠ ♥ ♣ ♦</div>
+    <h1>velho<span>UNO</span></h1>
+    <p>Seu grupo. Suas cartas. Sua partida.</p>
+    <button id="startBtn" class="btn primary big">JOGAR</button>
+  </div>
+</section>
+
+<section id="auth" class="screen hidden">
+  <div class="panel auth">
+    <div class="brand">velho<span>UNO</span></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="login">Entrar</button>
+      <button class="tab" data-tab="register">Cadastrar</button>
+    </div>
+    <form id="loginForm">
+      <input id="loginUser" class="input" placeholder="Usuário" required>
+      <input id="loginPass" class="input" type="password" placeholder="Senha" required>
+      <button class="btn primary">Entrar</button>
+    </form>
+    <form id="registerForm" class="hidden">
+      <input id="regUser" class="input" maxlength="20" placeholder="Usuário" required>
+      <input id="regName" class="input" maxlength="20" placeholder="Nome no pódio" required>
+      <input id="regPass" class="input" type="password" minlength="6" placeholder="Senha (mínimo 6)" required>
+      <button class="btn primary">Criar conta</button>
+    </form>
+    <p id="authMsg" class="msg"></p>
+  </div>
+</section>
+
+<div id="app" class="hidden">
+<header>
+  <button id="homeBtn" class="brand">velho<span>UNO</span></button>
+  <span id="connection" class="status offline">● offline</span>
+  <span id="me" class="user"></span>
+  <button id="logoutBtn" class="btn ghost">Sair</button>
+</header>
+
+<main>
+<section id="menu" class="view">
+  <div class="panel hero">
+    <div class="tag">MULTIPLAYER • NEON + GITHUB</div>
+    <h2>Pronto para jogar?</h2>
+    <p>Crie uma sala e envie o código para seus amigos.</p>
+    <div class="modes">
+      <button id="soloBtn" class="mode"><b>🤖 Jogar solo</b><small>Você contra bots no navegador.</small></button>
+      <button id="onlineBtn" class="mode"><b>🌐 Jogar online</b><small>Salas reais para seus amigos.</small></button>
+      <button id="rankBtn" class="mode"><b>🏆 Pódio</b><small>Ranking salvo no Neon.</small></button>
+      <button id="settingsBtn" class="mode"><b>⚙️ Configuração</b><small>Preferências do jogo.</small></button>
+    </div>
+  </div>
+</section>
+
+<section id="rooms" class="view hidden">
+  <div class="panel pad">
+    <h2>🌐 Jogar online</h2>
+    <div class="two">
+      <div class="sub">
+        <h3>Criar sala</h3>
+        <label>Máximo de jogadores
+          <input id="maxPlayers" class="input" type="number" min="2" max="10" value="5">
+        </label>
+        <label>Senha opcional
+          <input id="roomPassword" class="input" type="password" maxlength="30">
+        </label>
+        <label class="check"><input id="chatEnabled" type="checkbox" checked> Chat permitido</label>
+        <label class="check"><input id="swapEnabled" type="checkbox"> Troca de cartas</label>
+        <button id="createRoomBtn" class="btn primary">Criar sala</button>
+      </div>
+      <div class="sub">
+        <h3>Entrar em sala</h3>
+        <input id="roomCode" class="input" maxlength="6" placeholder="Código (ex.: A7K2)">
+        <input id="joinPassword" class="input" type="password" placeholder="Senha (se houver)">
+        <button id="joinRoomBtn" class="btn primary">Entrar</button>
+      </div>
+    </div>
+    <button class="btn ghost back">← Voltar</button>
+  </div>
+</section>
+
+<section id="game" class="view hidden">
+  <div class="room-grid">
+    <div class="panel game-panel">
+      <div class="room-head">
+        <div><small>SALA</small><strong id="roomCodeLabel">----</strong></div>
+        <div class="room-actions">
+          <button id="startGameBtn" class="btn primary">Começar</button>
+          <button id="pauseBtn" class="btn ghost">⏸</button>
+          <button id="leaveRoomBtn" class="btn ghost">Sair</button>
+        </div>
+      </div>
+      <div id="pauseBanner" class="pause hidden">⏸ PARTIDA PAUSADA PELO ADMINISTRADOR</div>
+      <div id="players"></div>
+      <div class="table">
+        <div id="turnText" class="turn"></div>
+        <div id="topCard" class="card top"></div>
+        <div id="colorPicker" class="colors hidden">
+          <button data-color="red" class="red">V</button>
+          <button data-color="green" class="green">V</button>
+          <button data-color="blue" class="blue">V</button>
+          <button data-color="yellow" class="yellow">V</button>
+        </div>
+        <div id="hand" class="hand"></div>
+        <div class="game-actions">
+          <button id="drawBtn" class="btn primary">COMPRAR</button>
+          <button id="unoBtn" class="btn ghost">UNO!</button>
+        </div>
+      </div>
+    </div>
+    <aside class="panel chat">
+      <h3>💬 Chat</h3>
+      <div id="chatLog" class="chat-log"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" class="input" maxlength="300" placeholder="Mensagem...">
+        <button class="btn primary">➤</button>
+      </form>
+    </aside>
+  </div>
+</section>
+
+<section id="ranking" class="view hidden">
+  <div class="panel pad"><h2>🏆 Pódio</h2><div id="rankingList"></div><button class="btn ghost back">← Voltar</button></div>
+</section>
+
+<section id="settings" class="view hidden">
+  <div class="panel pad"><h2>⚙️ Configuração</h2>
+    <label class="check"><input id="sound" type="checkbox" checked> Sons e efeitos</label>
+    <p class="muted">O servidor precisa estar publicado para o multiplayer funcionar.</p>
+    <button class="btn ghost back">← Voltar</button>
+  </div>
+</section>
+</main>
+</div>
+
+<script src="./config.js"></script>
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<script src="./script.js"></script>
+</body>
+</html>
