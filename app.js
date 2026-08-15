@@ -275,21 +275,61 @@ async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const
 
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
+let lastOnlineFrameKey='';
+let lastOnlineMap='';
+let lastOnlineHandKey='';
+let lastOnlinePlayersKey='';
 function renderOnlineGame(game){
-  state._onlineGame=game;state.solo=null;navigate('game');
-  $('#roundText')&&($('#roundText').textContent='AO VIVO');
+  state._onlineGame=game; state.solo=null;
+  if(state.currentView!=='game') navigate('game');
   const mine=String(game.currentPlayerId)===String(state.user.id);
-  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');$('#turnStatus')?.classList.toggle('bot',!mine);
-  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;state.currentMapTheme=theme.music||'saloon';applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
-  renderArenaCard(game.top,game.currentColor);$('#deckCount')&&($('#deckCount').textContent=game.deckCount);
+  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;
+  const mapKey=String(game.mapId||'');
+  const handKey=(game.hand||[]).map(c=>c.id).join(',');
+  const playersKey=(game.players||[]).map(p=>`${p.userId}:${p.cardCount}:${p.username}`).join('|');
+  const frameKey=`${game.top?.id||''}:${game.currentColor}:${game.currentPlayerId}:${game.deckCount}:${handKey}:${playersKey}`;
+
+  $('#roundText')&&($('#roundText').textContent='AO VIVO');
+  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');
+  $('#turnStatus')?.classList.toggle('bot',!mine);
+
+  if(mapKey!==lastOnlineMap){
+    lastOnlineMap=mapKey;
+    state.currentMapTheme=theme.music||'saloon';
+    applyMapScene(game.mapId);
+    startMapMusic(theme.music||'saloon');
+  }
+  if(frameKey===lastOnlineFrameKey)return;
+  lastOnlineFrameKey=frameKey;
+
+  renderArenaCard(game.top,game.currentColor);
+  $('#deckCount')&&($('#deckCount').textContent=game.deckCount);
   renderPlayedCards(game.recentDiscard||[]);
-  const hand=$('#playerHand');if(hand)hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');
-  const ops=$('#opponents');
-  if(ops){const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));ops.innerHTML=others.map((p,i)=>{
-    const seat=i%4;const active=String(p.userId)===String(game.currentPlayerId);const char=characterMarkup(p.avatar||DEFAULT_AVATAR);return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
-  }).join('');}
-  const self=$('.player-self');if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
-  renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
+
+  if(handKey!==lastOnlineHandKey){
+    lastOnlineHandKey=handKey;
+    const hand=$('#playerHand');
+    if(hand) hand.innerHTML=(game.hand||[]).map((c,i,a)=>cardHtml(c,i,a.length)).join('');
+  }
+
+  if(playersKey!==lastOnlinePlayersKey){
+    lastOnlinePlayersKey=playersKey;
+    const ops=$('#opponents');
+    if(ops){
+      const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));
+      ops.innerHTML=others.map((p,i)=>{
+        const seat=i%4;
+        const active=String(p.userId)===String(game.currentPlayerId);
+        const char=characterMarkup(p.avatar||DEFAULT_AVATAR);
+        return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
+      }).join('');
+    }
+  }
+  const self=$('.player-self');
+  if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
+  renderCharacter('#gameAvatar',state.profile.avatar);
+  $('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);
+  $('#gamePlayerTitle')&&($('#gamePlayerTitle').textContent=itemName(state.profile.avatar.title).toUpperCase());
 }
 function characterMarkup(a){const x={...DEFAULT_AVATAR,...(a||{})};return `<div class="char-aura ${escapeHtml(x.effect)}"></div><div class="char-body" style="--skin:${escapeHtml(x.skinColor)};--eyes:${escapeHtml(x.eyes)}"><div class="char-head"><div class="char-hair ${escapeHtml(x.hair)}" style="--hair:${escapeHtml(x.hairColor)}"></div><div class="char-eye left"></div><div class="char-eye right"></div><div class="char-mouth"></div></div><div class="char-torso ${escapeHtml(x.top)}"></div><div class="char-bottom ${escapeHtml(x.bottom)}"></div><div class="char-shoes ${escapeHtml(x.shoes)}"></div><div class="char-accessory ${escapeHtml(x.accessory)}"></div></div>`;}
 function renderPlayedCards(cards){const el=$('#playedCards');if(!el)return;const recent=cards.slice(-5);el.innerHTML=recent.map((c,i)=>`<div class="uno-card card-${c.color} played-mini" style="--i:${i}"><span>${escapeHtml(c.value)}</span></div>`).join('');}
