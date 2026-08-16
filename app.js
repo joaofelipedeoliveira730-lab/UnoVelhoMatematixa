@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-1';
+const VERSION = '20260816-4';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -539,7 +539,19 @@ let settingsSaveTimer=null;function saveSettings(){if(!state.profile)return;cons
 
 async function openRank(){navigate('rank');const el=$('#rankRows');if(!el)return;try{const d=await get('/rank');el.innerHTML=(d.players||[]).map((p,i)=>`<div class="rank-row ${p.username===state.user.username?'me':''}"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><span>${p.level}</span><span>${fmt(p.xp)}</span><span>${fmt(p.wins)}</span></div>`).join('')||'<div class="empty-state">Nenhum jogador.</div>';}catch(e){el.innerHTML=`<div class="empty-state">${escapeHtml(e.message)}</div>`;}}
 function switchChat(ch){state.currentChat='world';}
-function sendChat(body,channel){const text=String(body||'').trim();if(!text)return;if(channel==='world'&&!state.profile.settings.chatWorld)return toast('Chat mundial desativado.','error');if(channel==='room'&&!state.profile.settings.chatRoom)return toast('Chat da sala desativado.','error');state.socket?.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});}
+async function sendChat(body,channel){
+  const text=String(body||'').trim(); if(!text)return;
+  if(channel==='world'&&!state.profile.settings.chatWorld)return toast('Chat mundial desativado.','error');
+  if(channel==='room'&&!state.profile.settings.chatRoom)return toast('Chat da sala desativado.','error');
+  if(state.socket?.connected){
+    state.socket.emit('chat:send',{channel,body:text,roomCode:state.currentRoom?.code,receiverId:state.selectedPrivateUser});
+    return;
+  }
+  if(channel==='world'){
+    try{await post('/chat/global',{body:text});}
+    catch(e){toast(e.message||'Chat indisponível.','error');}
+  }else toast('Conectando ao chat da sala...','error');
+}
 function renderChatMessage(m){
   if(m.channel==='world'){
     [$('#gameChatMessages'),$('#globalChatMessagesLobby')].forEach(box=>{if(!box)return;const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);while(box.children.length>80)box.firstChild.remove();box.scrollTop=box.scrollHeight;});

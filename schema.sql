@@ -22,6 +22,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS wins INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS losses INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS games_played INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS profiles (
   user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -234,3 +235,16 @@ CREATE TABLE IF NOT EXISTS game_moves (
 CREATE INDEX IF NOT EXISTS idx_game_sessions_room ON game_sessions(room_code, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_mode ON game_sessions(mode, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_game_moves_match ON game_moves(match_id, created_at DESC);
+
+
+CREATE TABLE IF NOT EXISTS login_logs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  username VARCHAR(50) NOT NULL,
+  ip VARCHAR(120) NOT NULL DEFAULT '',
+  user_agent VARCHAR(500) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_logs_created ON login_logs(created_at DESC);

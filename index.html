@@ -28,7 +28,7 @@
 
 <div id="bootScreen" class="boot-screen hidden"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a dimensão Matematixa...</p></div>
 
-<main id="authScreen" class="screen auth-screen hidden">
+<main id="authScreen" class="screen auth-screen">
   <div class="floating-cards" aria-hidden="true"><span class="float-card f1">7</span><span class="float-card f2">+2</span><span class="float-card f3">🌈</span><span class="float-card f4">3</span><span class="float-card f5">🔄</span><span class="float-card f6">9</span><span class="float-card f7">+4</span><span class="float-card f8">5</span></div>
   <section class="auth-shell glass">
     <div class="auth-brand"><div class="logo-mark">U</div><div><div class="brand-title">UNO VELHO</div><div class="brand-sub">MATEMATIXA</div></div></div>
@@ -238,7 +238,26 @@
   <form id="globalChatFormLobby" class="chat-form"><input id="globalChatInputLobby" maxlength="500" placeholder="Mensagem global..."><button type="submit">➤</button></form>
 </div>
 <div id="ceoPanel" class="modal-overlay hidden"><div class="modal modal-wide ceo-modal"><div class="modal-head"><div><span class="pill">👑 CEO</span><h2>Painel de Controle</h2><small>Conta autorizada: <b>CeoVelho</b></small></div><button class="close-modal" id="btnCloseCEO" type="button">×</button></div><div class="ceo-grid"><div class="panel"><h3>⚡ Controle global</h3><div class="ceo-actions"><button id="ceoFreeze" class="btn btn-danger">⏸ PARALISAR JOGO</button><button id="ceoUnfreeze" class="btn btn-primary">▶ DESCONGELAR</button><button id="ceoResetPodium" class="btn btn-secondary">🏆 RESETAR PÓDIO</button><button id="ceoClearLogins" class="btn btn-secondary">🧹 LIMPAR LOGINS</button></div><label>Mensagem global<input id="ceoMessage" maxlength="300" placeholder="Mensagem para todos"></label><button id="ceoSendMessage" class="btn btn-primary btn-wide">📢 ENVIAR</button></div><div class="panel"><h3>👥 Jogadores</h3><div id="ceoUsers" class="ceo-users"></div></div></div></div></div><div id="toastContainer" class="toast-container" aria-live="polite"></div>
-<script src="app.js?v=20260816-3"></script>
+<script>
+(function(){
+  // Segurança contra versões antigas do PWA: nunca bloqueia o carregamento.
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(rs){
+        rs.forEach(function(r){ r.unregister().catch(function(){}); });
+      }).catch(function(){});
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){
+          if (/unovelho|uno/i.test(k)) caches.delete(k).catch(function(){});
+        });
+      }).catch(function(){});
+    }
+  } catch(e) {}
+})();
+</script>
+<script src="app.js?v=20260816-4" defer></script>
 
 </body>
 </html>

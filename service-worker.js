@@ -1,5 +1,4 @@
-// UNO DOS IDOSOS — service worker seguro e leve.
-// Não cacheia HTML, JS, CSS, API ou Socket.IO para evitar versões presas.
+// UNO DOS IDOSOS — SW neutro para impedir cache antigo.
 self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', e => {});
+self.addEventListener('activate', e => e.waitUntil(self.registration.unregister().then(()=>self.clients.claim())));
+self.addEventListener('fetch', () => {});
