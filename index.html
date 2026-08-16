@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO divertido, personagens, progressão e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260815-uno-idosos-final">
+<link rel="stylesheet" href="style.css?v=20260815-uno-idosos-final2">
 </head>
 <body>
 <div class="ambient-uno-cards" aria-hidden="true">
@@ -36,7 +36,34 @@
 
 <div id="orientationGuard" class="orientation-guard hidden"><div class="rotate-phone">↻</div><h2>Vire o celular</h2><p>A partida foi feita para jogar deitado, como uma mesa de cartas.</p></div>
 
-<div id="bootScreen" class="boot-screen"><div class="loader-logo">UNO<span>DOS IDOSOS</span></div><div class="loader-ring"></div><p>Carregando a mesa dos idosos...</p></div>
+<div id="studioSplash" class="studio-splash">
+  <div class="studio-noise"></div><div class="studio-orbit orbit-a"></div><div class="studio-orbit orbit-b"></div>
+  <div class="studio-cards" aria-hidden="true"><i class="s-card sc1">7</i><i class="s-card sc2">+2</i><i class="s-card sc3">★</i><i class="s-card sc4">↻</i></div>
+  <div class="studio-mark"><span>V</span><div><b>VelhoStudios</b><small>APRESENTA</small></div></div>
+  <div class="studio-title">UMA MESA.<br><em>MIL HISTÓRIAS.</em></div><div class="studio-sub">UNO DOS IDOSOS</div>
+  <div class="studio-progress"><i id="studioProgress"></i></div><small id="studioStatus">Preparando a mesa...</small>
+</div>
+
+<section id="termsScreen" class="preauth-screen hidden">
+  <div class="terms-card glass">
+    <div class="preauth-brand"><span class="preauth-logo">V</span><div><b>VelhoStudios</b><small>UNO DOS IDOSOS</small></div></div>
+    <span class="pill">📜 PRIMEIRO ACESSO</span><h1>Termos de Uso</h1>
+    <p class="preauth-lead">Antes de entrar na mesa, dê uma olhada nas regras. Sem letras miúdas escondidas.</p>
+    <div id="termsScroll" class="terms-scroll">
+      <h3>1. Respeito na mesa</h3><p>Jogue para se divertir. Não use o chat para assediar, ameaçar ou publicar informações pessoais.</p>
+      <h3>2. Conta e segurança</h3><p>Você é responsável pela sua conta. Não compartilhe sua senha e não tente explorar falhas do jogo.</p>
+      <h3>3. Partidas</h3><p>O UNO DOS IDOSOS pode receber atualizações, ajustes de balanceamento e manutenção. Resultados e recompensas podem ser ajustados quando necessário para manter o jogo justo.</p>
+      <h3>4. Compras e recompensas</h3><p>Moedas, itens, títulos e recompensas são elementos virtuais do jogo e não representam dinheiro real.</p>
+      <h3>5. Conteúdo</h3><p>Ao usar o jogo, você concorda em manter um ambiente divertido e adequado para a comunidade.</p>
+    </div>
+    <label class="terms-check"><input id="termsAccept" type="checkbox"> <span>Li e aceito os Termos de Uso.</span></label>
+    <button id="btnAcceptTerms" class="btn btn-primary btn-wide" type="button" disabled>CONTINUAR</button>
+  </div>
+</section>
+
+<div id="bootScreen" class="boot-screen hidden"><div class="loader-logo">UNO<span>DOS IDOSOS</span></div><div class="loader-ring"></div><div class="loading-track"><i id="loadProgress"></i></div><b id="loadPercent">0%</b><p id="loadStatus">Carregando recursos...</p><small id="loadStats">0 KB carregados • armazenamento: calculando...</small>
+  <div class="loading-showcase" aria-hidden="true"><div class="showcase-frame frame-card"><span>🃏</span><b>UNO!!!</b><small>Cartas voando, efeitos e risadas</small></div><div class="showcase-frame frame-map"><span>🍺</span><b>MAPAS</b><small>Saloon • Neon • Espaço</small></div><div class="showcase-frame frame-char"><span>👴</span><b>SEU VELHO</b><small>Roupas e acessórios</small></div></div>
+</div>
 
 <main id="authScreen" class="screen auth-screen hidden">
   <div class="floating-cards" aria-hidden="true"><span class="float-card f1">7</span><span class="float-card f2">+2</span><span class="float-card f3">🌈</span><span class="float-card f4">3</span><span class="float-card f5">🔄</span><span class="float-card f6">9</span><span class="float-card f7">+4</span><span class="float-card f8">5</span></div>
@@ -249,7 +276,7 @@
 </div>
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="app.js?v=20260815-final-v4"></script>
+<script src="app.js?v=20260815-final-v5"></script>
 <footer class="site-footer">
   <div class="footer-line"></div>
   <strong>UNO DOS IDOSOS</strong>

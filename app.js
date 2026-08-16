@@ -67,19 +67,36 @@ function defaults(){return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));}
 function normalizeProfile(profile){const p=profile||{};p.avatar={...DEFAULT_AVATAR,...(p.avatar||{})};p.settings={...defaults(),...(p.settings||{})};p.bio=p.bio||'';return p;}
 function itemName(id){const item=state.items.find(x=>x.id===id);if(item?.name)return item.name;return ({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'Iniciante');}
 
-async function clearOldClientCache(){
-  try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}}catch{}
-  try{if('caches' in window){const keys=await caches.keys();for(const k of keys)if(k.toLowerCase().includes('unovelho'))await caches.delete(k);}}catch{}
+async function registerLightServiceWorker(){
+  try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js',{updateViaCache:'none'});}catch(e){console.debug('SW opcional:',e);}
 }
 
-async function init(){
-  await clearOldClientCache();
-  document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
-  setTimeout(()=>hide('#bootScreen'),250);
-  bindEvents();
+function kb(n){return n<1024?`${n} B`:`${(n/1024).toFixed(n<10240?1:0)} KB`;}
+async function refreshLoadStats(){
+  let transferred=0; try{performance.getEntriesByType('resource').forEach(r=>{transferred+=Number(r.transferSize||r.encodedBodySize||0)||0;});}catch{}
+  let storage='indisponível'; try{const e=await navigator.storage?.estimate?.(); if(e?.usage!=null) storage=`${(e.usage/1048576).toFixed(1)} MB`; }catch{}
+  const st=$('#loadStats'); if(st)st.textContent=`${kb(transferred)} carregados • armazenamento: ${storage}`;
+}
+function setLoadingProgress(v,status){const n=Math.max(0,Math.min(100,v));const bar=$('#loadProgress'),pct=$('#loadPercent'),txt=$('#loadStatus');if(bar)bar.style.width=n+'%';if(pct)pct.textContent=Math.round(n)+'%';if(txt)txt.textContent=status||'Carregando...';}
+async function runPreAuthSequence(){
+  const accepted=localStorage.getItem('uv_terms_v1')==='accepted';
+  hide('#authScreen');hide('#appScreen');hide('#platformScreen');
+  const splash=$('#studioSplash'); if(splash){show(splash);const bar=$('#studioProgress');const status=$('#studioStatus');let p=0;const t=setInterval(()=>{p=Math.min(100,p+7+Math.random()*10);if(bar)bar.style.width=p+'%';if(status)status.textContent=p<35?'Acendendo as luzes da VelhoStudios...':p<70?'Embaralhando as cartas...':'Abrindo a mesa dos idosos...';if(p>=100){clearInterval(t);setTimeout(()=>{hide(splash);if(!accepted)show('#termsScreen');else startLoadingScreen();},450);}},90);}
+  else if(!accepted)show('#termsScreen');else startLoadingScreen();
+}
+async function startLoadingScreen(){
+  show('#bootScreen');setLoadingProgress(8,'Preparando a mesa...');await refreshLoadStats();
+  const steps=[['Carregando cartas e sons...',28],['Montando personagens...',48],['Preparando mapas...',66],['Otimizando a interface...',82],['Quase pronto...',94]];
+  for(const [label,target] of steps){await new Promise(r=>setTimeout(r,180));setLoadingProgress(target,label);await refreshLoadStats();}
+  await registerLightServiceWorker();setLoadingProgress(100,'Tudo pronto!');await refreshLoadStats();
+  setTimeout(()=>hide('#bootScreen'),550);
   applyPlatform(state.platform);
-  if(!state.platform){hide('#authScreen');hide('#appScreen');show('#platformScreen');return;}
-  await continueAfterPlatform();
+  if(!state.platform){show('#platformScreen');return;}await continueAfterPlatform();
+}
+async function init(){
+  document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
+  bindEvents();
+  await runPreAuthSequence();
 }
 
 async function continueAfterPlatform(){
@@ -121,6 +138,8 @@ function bindEvents(){
   // Auth
   $$('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuth(b.dataset.auth)));
   on('#formLogin','submit',login);on('#formRegister','submit',register);
+  on('#termsAccept','change',()=>{const b=$('#btnAcceptTerms');if(b)b.disabled=!$('#termsAccept')?.checked;});
+  on('#btnAcceptTerms','click',()=>{if(!$('#termsAccept')?.checked)return;localStorage.setItem('uv_terms_v1','accepted');hide('#termsScreen');startLoadingScreen();});
   on('#btnPlatformMobile','click',()=>choosePlatform('mobile'));
   on('#btnPlatformComputer','click',()=>choosePlatform('computer'));
   on('#orientationGuard','click',()=>choosePlatform('mobile'));
