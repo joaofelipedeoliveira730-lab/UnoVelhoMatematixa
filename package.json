@@ -1,8 +1,8 @@
 {
   "name": "unovelho-matematixa-complete",
-  "version": "3.3.0",
+  "version": "6.0.0",
   "private": true,
-  "description": "Uno dos Idosos - UNO multiplayer com PostgreSQL, Socket.IO, loja, inventário, XP, chat e painel CEO.",
+  "description": "Uno Velho Matematixa — Mesa Viva, multiplayer UNO com PostgreSQL, Socket.IO, personagens, mapas e personalização.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

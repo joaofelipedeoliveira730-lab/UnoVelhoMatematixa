@@ -1458,3 +1458,64 @@ button:disabled{cursor:not-allowed;opacity:.52;filter:saturate(.55)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
 }
+/* MATEMATIXA — REFORMA VISUAL 2026
+   Camada nova sobre a estrutura existente. Não altera contratos de API/SQL. */
+:root{
+  --mx-ink:#17130f; --mx-paper:#f5ead5; --mx-cream:#fff9ef; --mx-red:#d83a32;
+  --mx-yellow:#f4c64e; --mx-green:#2e8b65; --mx-blue:#2f668f; --mx-purple:#7553a6;
+  --mx-shadow:0 24px 70px rgba(20,14,9,.24); --mx-radius:26px;
+}
+html{background:#efe2ca!important}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;color:var(--mx-ink)!important;background:#efe2ca!important}
+button{font-family:inherit!important}
+/* Tela de entrada: menos dashboard, mais jogo de mesa */
+.platform-screen{background:
+ radial-gradient(circle at 20% 15%,rgba(244,198,78,.25),transparent 28%),
+ radial-gradient(circle at 82% 75%,rgba(216,58,50,.22),transparent 30%),
+ linear-gradient(135deg,#f7eddc,#e7d2ad)!important;color:var(--mx-ink)!important}
+.platform-card{background:rgba(255,250,239,.92)!important;border:1px solid rgba(63,42,23,.12)!important;box-shadow:var(--mx-shadow)!important;backdrop-filter:blur(18px)}
+.platform-logo{color:var(--mx-ink)!important}.platform-logo>span{background:var(--mx-red)!important;color:white!important;box-shadow:0 10px 30px rgba(216,58,50,.28)!important;transform:rotate(-5deg)}
+.platform-logo small,.platform-kicker{color:var(--mx-red)!important}.platform-card h1{letter-spacing:-2px!important;color:var(--mx-ink)!important}.platform-card>p{color:#75624c!important}
+.platform-option{background:#fffaf0!important;color:var(--mx-ink)!important;border:1px solid rgba(54,37,22,.12)!important;box-shadow:0 12px 30px rgba(48,32,16,.1)!important}
+.platform-option:hover,.platform-option:focus-visible{transform:translateY(-4px)!important;border-color:var(--mx-red)!important;box-shadow:0 18px 40px rgba(70,40,20,.16)!important}
+.platform-option.mobile{background:linear-gradient(145deg,#fffaf0,#f5dfb6)!important}.platform-option.computer{background:linear-gradient(145deg,#fffaf0,#ead9c3)!important}.platform-option small{color:#806b54!important}.platform-note{color:#927c64!important}
+/* Login */
+.auth-screen{background:
+ radial-gradient(circle at 16% 18%,rgba(244,198,78,.3),transparent 24%),
+ radial-gradient(circle at 84% 78%,rgba(46,139,101,.2),transparent 28%),
+ linear-gradient(135deg,#f5ead7,#d8c3a0)!important}
+.auth-shell{background:rgba(255,250,241,.92)!important;border:1px solid rgba(55,37,21,.12)!important;box-shadow:var(--mx-shadow)!important;color:var(--mx-ink)}
+.auth-copy h1{background:none!important;color:var(--mx-ink)!important;letter-spacing:-3px!important}.auth-copy p,.auth-foot{color:#78634d!important}.pill{color:var(--mx-red)!important;background:#fff0e7!important;border-color:#e6b8a5!important}
+.logo-mark,.mini-logo{background:var(--mx-red)!important;color:white!important;box-shadow:none!important}.brand-title{color:var(--mx-ink)}.brand-sub{color:var(--mx-red)!important}
+.auth-tabs{border-bottom:1px solid #e6d8c4!important}.auth-tab{color:#907b65!important}.auth-tab.active{color:var(--mx-red)!important;border-color:var(--mx-red)!important}.auth-form{background:#fffaf1!important;border:1px solid #eadcc8!important}.auth-form input{background:#fff!important;color:var(--mx-ink)!important;border-color:#dfcfb8!important}.btn-primary{background:var(--mx-red)!important;box-shadow:0 10px 24px rgba(216,58,50,.22)!important}.btn-cyan{background:var(--mx-green)!important;color:#fff!important}
+/* App chrome */
+.app-screen{background:linear-gradient(180deg,#f4e8d5,#e7d3b5)!important}.topbar{background:rgba(255,249,239,.88)!important;color:var(--mx-ink)!important;border:0!important;border-bottom:1px solid rgba(70,48,28,.1)!important;border-radius:0!important;box-shadow:0 8px 28px rgba(50,34,19,.08)!important}.top-actions .currency,.level-chip{background:#f6ead8!important;color:#5c4734!important;border-color:#dfcdb4!important}.session-btn{background:#fff!important;color:#704f38!important;border:1px solid #dfcdb4!important}.icon-btn,.mail-btn,.avatar-mini{background:#fffaf0!important;color:#483522!important;border-color:#dfcdb4!important}
+/* Lobby */
+.lobby-v2{background:
+ radial-gradient(circle at 70% 12%,rgba(244,198,78,.2),transparent 24%),
+ linear-gradient(180deg,#f2e4cf,#dfc5a0)!important;color:var(--mx-ink)!important}
+.menu-bg-scene{opacity:.72!important}.bg-glow{filter:blur(80px)!important}.bg-card{background:#fffaf0!important;color:var(--mx-red)!important;box-shadow:0 20px 50px rgba(53,35,19,.13)!important;border-color:#ddc9ad!important}
+.menu-top-v2{border-bottom:1px solid rgba(71,47,26,.1)!important}.player-card-v2,.right-rail-v2,.global-chat-v2{background:rgba(255,250,241,.86)!important;color:var(--mx-ink)!important;border:1px solid rgba(75,50,28,.1)!important;box-shadow:0 14px 35px rgba(50,33,17,.08)!important}.menu-avatar-button{background:var(--mx-red)!important;box-shadow:none!important}.player-card-info span,.player-card-info small{color:#846d54!important}.xp-line{background:#e7d7c0!important}.xp-line span{background:var(--mx-green)!important;box-shadow:none!important}
+.brand-3d-v2 .uno-3d{color:var(--mx-red)!important;text-shadow:3px 4px 0 #8d211c!important}.brand-3d-v2 .velho-3d{color:var(--mx-ink)!important;text-shadow:none!important}.brand-3d-v2 span{color:#80634a!important}
+.character-platform-v2{filter:none!important}.character-platform-v2:before{background:radial-gradient(ellipse,#d2b48a,#b99870)!important;box-shadow:0 18px 40px rgba(50,31,15,.16)!important}.platform-ring{border-color:rgba(216,58,50,.22)!important}.edit-skin-v2,.character-small-action{background:#fffaf0!important;color:#624c38!important;border:1px solid #dcc7aa!important;box-shadow:0 8px 18px rgba(54,34,17,.08)!important}
+.big-menu-btn{background:#fffaf0!important;color:var(--mx-ink)!important;border:1px solid rgba(68,45,24,.1)!important;box-shadow:0 13px 28px rgba(54,34,17,.09)!important;border-radius:20px!important}.big-menu-btn:before{background:var(--mx-red)!important}.big-menu-btn.green .btn-icon{background:#e2f0e9!important}.big-menu-btn.blue .btn-icon{background:#e2ebf2!important}.big-menu-btn.gold .btn-icon{background:#f9edc9!important}.big-menu-btn.purple .btn-icon{background:#eee5f5!important}.big-menu-btn b{color:var(--mx-ink)!important}.big-menu-btn small{color:#8a7159!important}.big-menu-btn i{color:#a58a6f!important}.rail-btn{background:#fffaf0!important;color:#5d4935!important;border-color:#ddc9ae!important}.rail-btn small{color:#a17e5d!important}.menu-status-v2{color:#735d46!important}.menu-status-v2 span:first-child{color:var(--mx-green)!important}
+/* Subnav / hubs */
+.subnav{background:rgba(255,250,241,.72)!important;border-bottom:1px solid rgba(72,47,24,.1)!important;color:var(--mx-ink)!important}.back-btn{background:#fffaf0!important;color:#674d37!important;border-color:#ddc8ab!important}.mode-hub-btn{background:#fffaf0!important;color:var(--mx-ink)!important;border-color:#decbb2!important;box-shadow:0 12px 28px rgba(51,33,17,.08)!important}.mode-hub-btn:hover{border-color:var(--mx-red)!important;transform:translateY(-3px)!important}.mode-hub-btn small{color:#8b735b!important}
+/* Partida — mesa de bar artesanal */
+.game-view{background:#17120e!important}.game-stage-3d{background:linear-gradient(135deg,#241912,#0e0a08)!important;padding:14px!important;gap:12px!important}.game-chat-left{background:rgba(28,20,15,.94)!important;border:1px solid rgba(255,231,194,.12)!important;box-shadow:0 18px 50px rgba(0,0,0,.4)!important}.arena-3d{border-radius:28px!important;border:1px solid rgba(255,220,161,.22)!important;background:#3a2115!important}.saloon-map{background:
+ radial-gradient(circle at 50% 28%,rgba(255,213,142,.16),transparent 18%),
+ repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 2px,transparent 2px 56px),
+ linear-gradient(135deg,#2c170f,#754022 48%,#21100b)!important}
+.wood-table{background:linear-gradient(145deg,#a86235,#5a2815 45%,#9c4d26)!important;box-shadow:inset 0 0 0 7px rgba(42,16,7,.75),inset 0 0 0 14px rgba(255,199,112,.15),0 35px 45px rgba(0,0,0,.5)!important}.table-felt{background:radial-gradient(ellipse at center,#276d55,#123b30 70%)!important;border-color:rgba(255,216,144,.2)!important}.turn-badge{background:var(--mx-red)!important;box-shadow:0 8px 25px rgba(216,58,50,.3)!important}.game-stat span{color:#c2a98d!important}.arena-tools .icon-btn{background:rgba(27,17,12,.72)!important;color:#fff5e8!important;border-color:#ffffff1c!important}
+/* Cartas: impressão física / recorte */
+.uno-card{border:3px solid #fff!important;border-radius:17px!important;background:#fffdf7!important;color:#1d1711!important;box-shadow:0 10px 22px rgba(0,0,0,.25)!important}.uno-card:before{background:rgba(255,255,255,.85)!important}.uno-card span,.uno-card i{color:inherit!important;text-shadow:none!important}.card-red{--card-color:#d83a32!important}.card-yellow{--card-color:#e2aa16!important}.card-green{--card-color:#2e8b65!important}.card-blue{--card-color:#2f668f!important}.card-black{--card-color:#29231e!important}.uno-card:after{background:var(--card-color)!important}.hand-card{transform:translateY(var(--lift)) rotate(var(--rot))!important}.hand-card:hover{transform:translateY(calc(var(--lift) - 18px)) rotate(0deg) scale(1.07)!important;z-index:100!important;box-shadow:0 22px 40px rgba(0,0,0,.36)!important}.hand-card em{color:#8e7962!important}.back-mini{background:radial-gradient(circle at center,#fff 0 12%,#d83a32 13% 37%,#2a211a 38% 100%)!important;border-color:#f6e6d1!important}
+/* Personagens */
+.character-3d-container{filter:drop-shadow(0 18px 15px rgba(0,0,0,.2))}.chibi-3d-live{animation:mx-breathe 3.6s ease-in-out infinite}.chibi-3d-live .chibi-head{filter:drop-shadow(0 2px 1px rgba(0,0,0,.1))}.chibi-3d-live svg{overflow:visible}.chibi-3d-live .chibi-arm{transform-origin:50% 72%;animation:mx-arm 4s ease-in-out infinite}.chibi-3d-live .arm-right{animation-delay:-1.4s}.char-aura{filter:blur(3px)!important;opacity:.42!important}.character-card-3d{background:#fffaf0!important;border-color:#ddc9ae!important;color:var(--mx-ink)!important;box-shadow:0 14px 30px rgba(50,31,15,.08)!important}.character-card-3d.selected{border-color:var(--mx-red)!important;box-shadow:0 0 0 3px rgba(216,58,50,.12),0 18px 35px rgba(50,31,15,.12)!important}
+/* Modais, loja e painéis */
+.modal-backdrop{background:rgba(36,24,15,.62)!important;backdrop-filter:blur(8px)!important}.modal,.panel{background:#fffaf0!important;color:var(--mx-ink)!important;border:1px solid #e0ccb0!important;box-shadow:var(--mx-shadow)!important}.modal input,.modal select,.panel input,.panel select{background:#fff!important;color:var(--mx-ink)!important;border-color:#dfccb2!important}.panel-title{color:var(--mx-ink)!important}.item-card,.shop-item,.inventory-item{background:#fffaf0!important;border-color:#e1ceb3!important;box-shadow:0 10px 24px rgba(48,30,15,.07)!important}.toast{border-radius:14px!important;box-shadow:0 18px 35px rgba(0,0,0,.18)!important}
+/* Pequenos detalhes de produto */
+.glass{backdrop-filter:blur(14px)!important}.global-chat-v2{color:#5c4734!important}.global-dot{background:#e4f2eb!important}.ceo-floating{background:#fffaf0!important;color:#5b3d25!important}
+@keyframes mx-breathe{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-5px) rotate(.5deg)}}
+@keyframes mx-arm{0%,100%{transform:rotate(0)}50%{transform:rotate(-3deg)}}
+@media(max-width:900px){.platform-options{grid-template-columns:1fr}.menu-main-v2{grid-template-columns:1fr!important}.menu-character-column{order:-1}.right-rail-v2{display:grid!important;grid-template-columns:repeat(3,1fr);gap:8px}.rail-btn{min-height:76px}.game-stage-3d{grid-template-columns:1fr!important}.game-chat-left{display:none!important}.table-center-3d{gap:18px}.wood-table{width:88%;left:6%}.table-felt{inset:12%}}
+@media(max-width:560px){.platform-card{padding:24px}.auth-shell{padding:24px}.auth-grid{grid-template-columns:1fr}.menu-top-v2{grid-template-columns:1fr!important;gap:10px}.brand-3d-v2{order:-1}.right-rail-v2{grid-template-columns:1fr 1fr!important}.big-menu-btn{min-height:78px}.game-stage-3d{padding:6px!important}.arena-3d{border-radius:18px!important}.table-players{inset:48px 0 105px}.opponent-seat{transform:scale(.84)!important}.hand-card{min-width:54px!important}.player-hand{padding-inline:8px!important}}

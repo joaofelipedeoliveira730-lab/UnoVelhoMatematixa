@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '5.5.0';
+const VERSION = '6.0.0';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -715,7 +715,16 @@ function applyMapScene(mapId='map_velho_bar'){
   const sign=$('.map-sign'); if(sign)sign.textContent=info.label.toUpperCase();
   const cups=$$('.table-cup',scene); cups.forEach((c,i)=>c.textContent=theme==='quintal'?(i?'🧉':'🍉'):theme==='pier'?(i?'🥤':'🪣'):'🍺');
 }
-function startMapMusic(){ /* Música externa é opcional; nunca bloqueia a partida. */ }
+function startMapMusic(mapMusic='saloon'){
+  // Paisagem sonora procedural leve: não depende de arquivos externos e não interfere no SQL/rede.
+  try{
+    if(!state.profile?.settings?.music) return;
+    if(Sound.ambientTimer) clearInterval(Sound.ambientTimer);
+    const presets={saloon:[196,247,294],modern:[220,277,330],forest:[174,220,261],medieval:[147,196,247],pirate:[165,208,247]};
+    const notes=presets[mapMusic]||presets.saloon; let i=0;
+    Sound.ambientTimer=setInterval(()=>{ if(document.hidden||!Sound.enabled)return; Sound.tone(notes[i++%notes.length],.28,'sine'); },3600);
+  }catch{}
+}
 function renderPlayedCards(cards=[]){
   const el=$('#playedCards'); if(!el)return;
   const recent=Array.isArray(cards)?cards.slice(-5):[];
