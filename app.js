@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-5';
+const VERSION = '20260816-6';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -187,7 +187,7 @@ function bindEvents(){
   on('#btnMapsPreview','click',openCreateRoom);
   on('#btnConfirmCreateRoom','click',createRoom);
   on('#btnConfirmJoinRoom','click',joinSelectedRoom);
-  on('#btnStartRoom','click',()=>state.socket?.emit('room:start'));
+  on('#btnStartRoom','click',()=>{state._onlineIntroShown=false;state._pendingOnlineGame=null;state.socket?.emit('room:start');});
   on('#btnLeaveRoom','click',leaveRoom);
   on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);on('#btnSaveCharacterModal','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
@@ -195,7 +195,7 @@ function bindEvents(){
   on('#btnBackGame','click',exitGame);
   on('#btnSound','click',toggleMute);
   on('#btnLogout','click',logout);
-  on('#btnCEO','click',openCEOPanel);on('#btnCEOFloat','click',openCEOPanel);on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/ceo/message',{message:msg});});
+  on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/api/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/api/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/api/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/api/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/api/ceo/message',{message:msg});});
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
   $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
@@ -211,8 +211,10 @@ function bindEvents(){
   on('#gameChatInput','input',()=>{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:true});clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}),900);});
   on('#gameChatInput','blur',()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}));
 
-  // Delegação para conteúdo criado dinamicamente.
+  // Fallback de clique para o painel CEO: funciona mesmo se o botão foi recriado/atualizado pelo lobby.
   document.addEventListener('click',e=>{
+    const ceo=e.target.closest('#btnCEO, #btnCEOFloat');
+    if(ceo){ e.preventDefault(); e.stopPropagation(); openCEOPanel(); return; }
     const map=e.target.closest('[data-map]');if(map){openShop('official');return;}
     const join=e.target.closest('[data-join-room]');if(join){selectRoom(join.dataset.joinRoom);return;}
     const buy=e.target.closest('[data-buy-item]');if(buy){buyItem(buy.dataset.buyItem);return;}
@@ -304,10 +306,10 @@ async function connectSocket(){
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
   state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');if(room.started&&room.options?.gameMode==='draw')navigate('draw');else if(room.started&&['truco','checkers','chess'].includes(room.options?.gameMode))navigate('modeGameView');});
   state.socket.on('room:update',room=>{if(state.currentRoom?.code===room.code){state.currentRoom=room;renderRoom(room);if(room.started&&room.options?.gameMode==='draw')navigate('draw');else if(room.started&&['truco','checkers','chess'].includes(room.options?.gameMode))navigate('modeGameView');}});
-  state.socket.on('room:system',m=>toast(m.message));state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
+  state.socket.on('room:countdown',m=>{if(Number(m?.seconds)!==5||gameIntroBusy)return;state._onlineIntroShown=true;showGameIntro(()=>{if(state._pendingOnlineGame){const g=state._pendingOnlineGame;state._pendingOnlineGame=null;renderOnlineGame(g);}}, {online:true});});state.socket.on('room:system',m=>toast(m.message));state.socket.on('room:closed',m=>{toast(m.message,'error');state.currentRoom=null;navigate('rooms');});
   state.socket.on('toast',m=>toast(m.message,m.type||'info'));state.socket.on('chat:message',renderChatMessage);state.socket.on('chat:typing',renderTypingIndicator);state.socket.on('game:chatAction',handleChatAction);
   state.socket.on('game:action',handleGameAction);state.socket.on('game:uno',m=>{Sound.ok();toast(`📣 ${m.username} GRITOU UNO!`,'success',1800);});state.socket.on('game:emote',handleGameEmote);
-  state.socket.on('game:state',renderOnlineGame);state.socket.on('mode:state',renderModeGameState);
+  state.socket.on('game:countdown',m=>{if(Number(m?.seconds)===5&&!gameIntroBusy){state._onlineIntroShown=true;showGameIntro(()=>{if(state._pendingOnlineGame){const g=state._pendingOnlineGame;state._pendingOnlineGame=null;renderOnlineGame(g);}}, {online:true});}});state.socket.on('game:state',game=>{state._pendingOnlineGame=game;if(gameIntroBusy)return;if(state._onlineIntroShown){state._pendingOnlineGame=null;renderOnlineGame(game);return;}state._onlineIntroShown=true;showGameIntro(()=>{const g=state._pendingOnlineGame||game;state._pendingOnlineGame=null;renderOnlineGame(g);},{online:true});});state.socket.on('mode:state',renderModeGameState);
   state.socket.on('drawing:state',renderDrawingState);
   state.socket.on('drawing:stroke',receiveDrawingStroke);
   state.socket.on('drawing:clear',clearDrawingCanvas);
@@ -348,17 +350,65 @@ function renderRoom(room){
 }
 function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
 
+// ---------------- INÍCIO DE PARTIDA ----------------
+let gameIntroBusy=false;
+function playCountdownSound(kind='tick'){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    const ac=window.__unoAudio||(window.__unoAudio=new AC());if(ac.state==='suspended')ac.resume().catch(()=>{});
+    const o=ac.createOscillator(),g=ac.createGain();o.type=kind==='go'?'square':'sine';o.frequency.value=kind==='go'?740:420;
+    g.gain.setValueAtTime(.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(kind==='go'?.08:.045,ac.currentTime+.015);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.16);
+    o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.18);
+  }catch{}
+}
+function showGameIntro(onDone,opts={}){
+  if(gameIntroBusy){onDone?.();return;}
+  gameIntroBusy=true;
+  const overlay=$('#gameStartOverlay');if(!overlay){gameIntroBusy=false;onDone?.();return;}
+  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card"><div class="game-start-kicker">${opts.online?'🌎 PARTIDA ONLINE':'🤖 PARTIDA SOLO'}</div><div id="gameStartNumber" class="game-start-number">5</div><div class="game-start-label">PREPARE A MESA!</div><div id="gameStartDeck" class="game-start-deck" aria-hidden="true">${Array.from({length:10},(_,i)=>`<span style="--d:${i}">${['7','+2','3','🌈','9','0','+4','5','↻','2'][i]}</span>`).join('')}</div></div>`;
+  const n=$('#gameStartNumber');let value=5;playCountdownSound();
+  const timer=setInterval(()=>{
+    value--;
+    if(value>0){n.textContent=String(value);n.classList.remove('pulse');void n.offsetWidth;n.classList.add('pulse');playCountdownSound();return;}
+    clearInterval(timer);n.textContent='GO!';n.classList.add('go');playCountdownSound('go');
+    overlay.classList.add('dealing');
+    setTimeout(()=>{overlay.classList.add('hidden');overlay.classList.remove('dealing');gameIntroBusy=false;onDone?.();},1250);
+  },900);
+}
+function startSoloIntroAndGame(g,difficulty){
+  navigate('game');$('#arenaShell')?.classList.add('solo-arena');
+  showGameIntro(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');},{online:false});
+}
+
 // ---------------- SOLO ----------------
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
 function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
 let soloMode='uno';
-function startSoloMode(mode,difficulty='medium'){soloMode=mode;state.soloDifficulty=difficulty;if(mode==='uno'){startSolo(difficulty);return;}if(mode==='draw'){startLocalDrawGame(difficulty);return;}startTableSolo(mode,difficulty);}
+function startSoloMode(mode,difficulty='medium'){
+  state.soloDifficulty=difficulty;
+  if(mode==='uno'){ startSolo(difficulty); return; }
+  if(mode==='draw'){ startLocalDrawGame(difficulty); return; }
+  startTableSolo(mode,difficulty);
+}
 function startLocalDrawGame(difficulty){state._localDraw={mode:'draw',difficulty,round:1,score:0,word:['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)],drawing:false};navigate('modeGameView');renderLocalDraw();}
 function startTableSolo(mode,difficulty){state._tableSolo={mode,difficulty,turn:'player',selected:null,botName:mode==='truco'?'Truquinho':mode==='checkers'?'Daminha': 'Xadrezinho',message:'Começou! Faça sua jogada.'};navigate('modeGameView');renderTableSolo();}
 function exitModeGame(){state._tableSolo=null;state._localDraw=null;navigate(state.currentRoom?'room':'solo');}
 function renderLocalDraw(){const g=state._localDraw;if(!g)return;$('#modeGameBadge').textContent='🎨 GARTIC SOLO';$('#modeGameTitle').textContent='Adivinha o Desenho';$('#modeGameTurn').textContent='VOCÊ DESENHA';$('#modeGameMessage').textContent=`Palavra secreta: ${g.word} • desenhe e depois clique em REVELAR.`;$('#modeGameBody').innerHTML=`<div class="local-draw-board glass"><div class="local-draw-toolbar"><span>🎨 Quadro</span><button id="localReveal" class="btn btn-primary">REVELAR</button><button id="localClear" class="btn btn-secondary">LIMPAR</button></div><canvas id="localDrawCanvas" width="1000" height="560"></canvas><div id="localDrawReveal" class="local-reveal hidden"></div></div>`;const c=$('#localDrawCanvas'),ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);let down=false;const pos=e=>{const r=c.getBoundingClientRect();const p=e.touches?.[0]||e;return{x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height}};const start=e=>{down=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y)};const move=e=>{if(!down)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#111827';ctx.lineWidth=9;ctx.lineCap='round';ctx.stroke()};['mousedown','touchstart'].forEach(x=>c.addEventListener(x,start,{passive:true}));['mousemove','touchmove'].forEach(x=>c.addEventListener(x,move,{passive:true}));['mouseup','mouseleave','touchend'].forEach(x=>c.addEventListener(x,()=>down=false));on('#localClear','click',()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height)});on('#localReveal','click',()=>{const r=$('#localDrawReveal');r.classList.remove('hidden');r.textContent=`🔎 Era: ${g.word}`;g.round++;setTimeout(()=>{g.word=['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)];renderLocalDraw()},1800)});}
 function renderTableSolo(){const g=state._tableSolo;if(!g)return;const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};$('#modeGameBadge').textContent=labels[g.mode][0];$('#modeGameTitle').textContent=labels[g.mode][1];$('#modeGameTurn').textContent=g.turn==='player'?'SUA VEZ':'BOT PENSANDO';$('#modeGameMessage').textContent=g.message;const body=$('#modeGameBody');if(g.mode==='truco'){body.innerHTML=`<div class="truco-solo-board glass"><div class="table-opponent"><div class="solo-code-character">🤠</div><b>${g.botName}</b><small>Bot • ${g.difficulty}</small></div><div class="truco-center">🃏<strong>TRUCO!</strong><small>Rodada ${Math.floor(Math.random()*3)+1}</small></div><div class="truco-hand">${['A♥','K♣','7♦'].map((x,i)=>`<button class="playing-card-mini" data-card="${i}">${x}</button>`).join('')}</div><button id="callTruco" class="btn btn-primary">TRUCO!</button></div>`;$$('[data-card]').forEach(b=>b.onclick=()=>{g.message=`Você jogou ${b.textContent}. O bot está pensando...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez!';renderTableSolo()},3000)});on('#callTruco','click',()=>{g.message='VOCÊ GRITOU TRUCO! O bot está decidindo...';g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message=Math.random()>.35?'O bot aceitou! Sua vez.':'O bot correu! Você ganhou a mão.';renderTableSolo()},3000)});return;}const pieces=g.mode==='chess'?['♜','♞','♝','♛','♚','♝','♞','♜']:['⚫','⚫','⚫','⚫','⚫','⚫','⚫','⚫'];body.innerHTML=`<div class="board-solo glass"><div class="board-grid ${g.mode}">${Array.from({length:64},(_,i)=>`<button class="board-cell ${((Math.floor(i/8)+i)%2?'dark':'light')}" data-cell="${i}">${g.mode==='chess'&&i<8?pieces[i]:g.mode==='chess'&&i>=48?['♜','♞','♝','♛','♚','♝','♞','♜'][i-48]:g.mode==='checkers'&&(Math.floor(i/8)<3||Math.floor(i/8)>4)&&((Math.floor(i/8)+i)%2)?'⚫':''}</button>`).join('')}</div></div>`;$$('.board-cell').forEach(b=>b.onclick=()=>{g.message=`Jogada em ${Number(b.dataset.cell)+1}. O bot pensa por alguns segundos...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez! Escolha outra casa.';renderTableSolo()},2500)});}
-async function startSolo(difficulty){state.solo=makeSolo(difficulty);navigate('game');$('#arenaShell')?.classList.add('solo-arena');renderSolo();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');}
+async function startSolo(difficulty){
+  try {
+    const g=makeSolo(difficulty);
+    state.solo=null;
+    state._onlineGame=null;
+    state._tableSolo=null;
+    state._localDraw=null;
+    startSoloIntroAndGame(g,difficulty);
+  } catch(e) {
+    console.error('Erro ao iniciar UNO solo:',e);
+    state.solo=null;
+    toast('Não foi possível iniciar o UNO. Tente novamente.','error',4500);
+  }
+}
 function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho'};}
 function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();}
 function renderArenaCard(card,color){if($('#discardPile')){$('#discardPile').className=`uno-card card-${color} big-card`;$('#discardPile').textContent=card?.value||'?';}if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';}
@@ -516,8 +566,8 @@ async function openCEOPanel(){
   void loadCEOUsers();
 }
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
-async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button><button data-unchat="${u.id}" type="button">DESBLOQUEAR</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}));
-    box.querySelectorAll('[data-unchat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-unblock',{userId:Number(b.dataset.unchat)}));
+async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/api/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button><button data-unchat="${u.id}" type="button">DESBLOQUEAR</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/api/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/api/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}));
+    box.querySelectorAll('[data-unchat]').forEach(b=>b.onclick=()=>ceoAction('/api/ceo/chat-unblock',{userId:Number(b.dataset.unchat)}));
   }catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
 
 function itemVisualIcon(item){
