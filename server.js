@@ -29,6 +29,14 @@ app.use(express.json({ limit: '300kb' }));
 // Evita que navegadores/CDNs sirvam HTML, JS e CSS antigos depois de uma atualização.
 app.use((req,res,next)=>{ if(req.path==='/' || /\.(html|js|css)$/.test(req.path)){res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');res.setHeader('Expires','0');} next(); });
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
+app.use((req,res,next)=>{
+  if(req.path==='/'||req.path.endsWith('.html')||req.path.endsWith('.js')||req.path.endsWith('.css')){
+    res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma','no-cache');
+    res.setHeader('Expires','0');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname)));
 
 let pool = null;
@@ -239,7 +247,14 @@ async function ensureCeo() {
   const marker = await pool.query('SELECT key FROM app_bootstrap WHERE key=$1 LIMIT 1', [resetMarker]);
   if (!marker.rows.length) {
     if (!password) {
-      throw new Error('CEO_INITIAL_PASSWORD não definido. Configure no Render para concluir o bootstrap do CeoVelho.');
+      const existingNoPassword = await pool.query("SELECT id,role FROM users WHERE LOWER(username)=LOWER('CeoVelho') LIMIT 1");
+      if(existingNoPassword.rows.length){
+        if(existingNoPassword.rows[0].role!=='CEO') await pool.query("UPDATE users SET role='CEO' WHERE id=$1",[existingNoPassword.rows[0].id]);
+        console.log('👑 CeoVelho encontrado; sem reset de senha.');
+        return;
+      }
+      console.warn('⚠️ CeoVelho não existe. Configure CEO_INITIAL_PASSWORD se quiser criá-lo.');
+      return;
     }
 
     const client = await pool.connect();
@@ -275,7 +290,7 @@ async function ensureCeo() {
   // Em deploys seguintes não apaga contas nem altera dados do jogo.
   const found = await pool.query("SELECT id, username, role FROM users WHERE LOWER(username)='ceovelho' LIMIT 1");
   if (!found.rows.length) {
-    if (!password) throw new Error('CeoVelho não existe e CEO_INITIAL_PASSWORD não está definido.');
+    if (!password) { console.warn('⚠️ CeoVelho não existe; servidor continuará disponível.'); return; }
     const hash = await bcrypt.hash(password, 12);
     await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)", [hash]);
     console.log('👑 Conta CeoVelho recriada.');
@@ -438,9 +453,13 @@ app.get('/api/health',async(req,res)=>{
 async function requireDatabase(req,res,next){
   try{
     if(databaseReady)return next();
-    if(databaseReadyPromise)await databaseReadyPromise;
-    if(databaseReady)return next();
-    return res.status(503).json({success:false,message:'Servidor ainda está inicializando. Tente novamente em alguns segundos.'});
+    if(databaseReadyPromise){
+      let timedOut=false;
+      await Promise.race([databaseReadyPromise,new Promise(resolve=>setTimeout(()=>{timedOut=true;resolve();},4000))]);
+      if(databaseReady)return next();
+      if(timedOut)return res.status(503).json({success:false,message:'O servidor ainda está acordando. Tente novamente em alguns segundos.'});
+    }
+    return res.status(503).json({success:false,message:'Banco de dados temporariamente indisponível.'});
   }catch(err){
     console.error('❌ Banco não pronto:',err.message);
     return res.status(503).json({success:false,message:'Banco de dados temporariamente indisponível.'});

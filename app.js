@@ -72,24 +72,42 @@ async function clearOldClientCache(){
 }
 
 async function init(){
+  // A abertura NUNCA espera cache, banco, Socket.IO ou seleção de plataforma.
+  // O login precisa aparecer imediatamente mesmo se o PostgreSQL estiver iniciando.
   window.__UV_APP_READY__=true;
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
-  setTimeout(()=>hide('#bootScreen'),250);
   bindEvents();
-  applyPlatform(state.platform);
-  if(!state.platform){hide('#authScreen');hide('#appScreen');show('#platformScreen');return;}
-  await continueAfterPlatform();
+  hide('#bootScreen');
+  hide('#platformScreen');
+  hide('#appScreen');
+  show('#authScreen');
+  applyPlatform(state.platform || (window.matchMedia('(pointer:coarse)').matches?'mobile':'desktop'));
+
+  const savedToken=localStorage.getItem('uv_token');
+  if(!savedToken)return;
+  state.token=savedToken;
+  try{
+    const me=await get('/me');
+    state.user=me.user;
+    state.profile=normalizeProfile(me.profile);
+    updateCEOButton();
+    await enterApp(false);
+  }catch(err){
+    localStorage.removeItem('uv_token');
+    state.token=null;
+    state.user=null;
+    state.profile=null;
+    hide('#appScreen');show('#authScreen');switchAuth('login');
+  }
 }
 
 async function continueAfterPlatform(){
-  hide('#platformScreen');
-  try{
-    const me=await get('/me');
-    state.user=me.user;state.profile=normalizeProfile(me.profile);state.token=localStorage.getItem('uv_token')||null;updateCEOButton();
-    await enterApp(false);
-  }catch{
-    hide('#appScreen');show('#authScreen');switchAuth('login');
-  }
+  // Mantido para compatibilidade com versões antigas; nunca bloqueia a tela inicial.
+  const token=localStorage.getItem('uv_token');
+  if(!token){hide('#appScreen');show('#authScreen');return;}
+  state.token=token;
+  try{const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);updateCEOButton();await enterApp(false);}
+  catch{localStorage.removeItem('uv_token');state.token=null;state.user=null;state.profile=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
 }
 
 function applyPlatform(platform){
@@ -206,14 +224,16 @@ async function register(e){
 
 async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
-  const [itemsRes,inventoryRes]=await Promise.allSettled([get('/items'),get('/inventory')]);
-  state.items=itemsRes.status==='fulfilled'?(itemsRes.value.items||[]):[];
-  state.inventory=inventoryRes.status==='fulfilled'?(inventoryRes.value.items||[]):[];
+  // Abre o lobby primeiro. Loja, inventário e ranking são carregados em segundo plano.
   updateUserUI();applySettings();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
   renderMapPreview();renderAchievementsPreview();connectSocket();navigate('lobby');
-  // Ranking é secundário: carrega depois da tela abrir e nunca bloqueia o usuário.
+  void Promise.allSettled([get('/items'),get('/inventory')]).then(([itemsRes,inventoryRes])=>{
+    state.items=itemsRes.status==='fulfilled'?(itemsRes.value.items||[]):[];
+    state.inventory=inventoryRes.status==='fulfilled'?(inventoryRes.value.items||[]):[];
+    updateUserUI();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
+  });
   void loadMiniRank();
-  if(forceCustomize)openCustomize();
+  if(forceCustomize)setTimeout(openCustomize,0);
 }
 function updateUserUI(){
   const u=state.user;if(!u)return;const a=state.profile.avatar||DEFAULT_AVATAR;const title=itemName(a.title);
