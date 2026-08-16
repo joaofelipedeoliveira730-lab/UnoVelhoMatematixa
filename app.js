@@ -134,6 +134,60 @@ function updateOrientationGuard(){
   if(gameActive&&mobile&&portrait)show('#orientationGuard');else hide('#orientationGuard');
 }
 
+
+// ====== FUNÇÕES DE INTERFACE QUE PRECISAM EXISTIR ANTES DOS EVENTOS ======
+function openShop(mode='official'){
+  state.shopMode=mode||'official';
+  navigate('shop');
+  const grid=$('#shopGrid'); if(!grid)return;
+  grid.innerHTML='<div class="empty-state glass"><span>🛒</span><b>Carregando catálogo...</b></div>';
+  get('/items').then(d=>{
+    state.items=d.items||[]; updateUserUI();
+    grid.innerHTML=state.items.map(item=>{
+      const owned=state.inventory.some(x=>x.id===item.id);
+      const locked=Number(state.user?.xp||0)<Number(item.xp_required||0);
+      const ceoOnly=item.asset?.ceoOnly && String(state.user?.username||'').toLowerCase()!=='ceovelho';
+      return `<article class="item-card glass"><div class="item-art">🎁</div><div><span class="pill">${escapeHtml(item.category||'COSMÉTICO')}</span><h3>${escapeHtml(item.name||item.id)}</h3><small>${escapeHtml(item.description||'Item cosmético do jogo.')}</small></div><div class="item-card-footer"><b>🪙 ${fmt(item.price||0)}</b><button class="btn btn-primary" type="button" data-buy-item="${escapeHtml(item.id)}" ${owned||locked||ceoOnly?'disabled':''}>${owned?'ADQUIRIDO':ceoOnly?'CEO':locked?'BLOQUEADO':'COMPRAR'}</button></div></article>`;
+    }).join('')||'<div class="empty-state glass"><span>🛒</span><b>Catálogo vazio.</b></div>';
+  }).catch(e=>{grid.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível abrir a loja.</b><small>${escapeHtml(e.message)}</small></div>`;});
+}
+function openInventory(mode='items'){
+  state.inventoryMode=mode||'items'; navigate('inventory');
+  renderCharacter('#profileCharacterLarge',state.profile?.avatar||DEFAULT_AVATAR); updateUserUI();
+  const box=$('#inventoryContent'); if(!box)return;
+  box.innerHTML='<div class="empty-state"><span>🎒</span><b>Carregando inventário...</b></div>';
+  get('/inventory').then(d=>{state.inventory=d.items||[];populateCustomizer();renderInventoryContent();}).catch(e=>{box.innerHTML=`<div class="empty-state"><span>⚠️</span><b>Erro ao carregar inventário.</b><small>${escapeHtml(e.message)}</small></div>`;});
+}
+function renderInventoryContent(){
+  const box=$('#inventoryContent'); if(!box)return;
+  if(state.inventoryMode==='achievements'){
+    box.innerHTML='<div class="achievement-grid">'+[['🏆','Primeira vitória'],['🧠','Mente matemática'],['🌎','Primeiro online'],['🎒','Colecionador']].map(x=>`<div class="achievement-chip glass"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')+'</div>';return;
+  }
+  box.innerHTML=state.inventory.length?state.inventory.map(i=>`<div class="inventory-row glass"><div class="item-art small">🎁</div><div><b>${escapeHtml(i.name||i.id)}</b><small>${escapeHtml(i.category||'cosmético')} • quantidade ${i.quantity||1}</small></div></div>`).join(''):'<div class="empty-state"><span>🎒</span><b>Seu inventário está vazio.</b></div>';
+}
+function openBattlePass(){
+  navigate('battlePassView'.endsWith('View')?'battlePass':'battlePass');
+  const grid=$('#passGrid'); if(!grid)return;
+  grid.innerHTML='<div class="empty-state"><span>🎟️</span><b>Carregando passe...</b></div>';
+  get('/pass').then(d=>{
+    state.passData=d; $('#passCurrentLevel')&&($('#passCurrentLevel').textContent=d.level||1);$('#passXpText')&&($('#passXpText').textContent=fmt(d.xp||0)+' XP');
+    grid.innerHTML=(d.levels||[]).map(r=>`<button type="button" class="pass-level ${r.level<=d.level?'unlocked':''}" data-pass-level="${r.level}"><b>${r.level}</b><span>🪙 ${fmt(r.coins)}</span>${r.itemId?`<small>🎁 ${escapeHtml(r.itemId)}</small>`:''}${(d.claimed||[]).includes(r.level)?'<em>✓ COLETADO</em>':''}</button>`).join('');
+  }).catch(e=>{grid.innerHTML=`<div class="empty-state"><span>⚠️</span><b>${escapeHtml(e.message)}</b></div>`;});
+}
+async function claimPass(all=false,level=null){
+  try{
+    const levels=all?(state.passData?.levels||[]).filter(x=>x.level<=(state.passData?.level||0)).map(x=>x.level):[Number(level)];
+    const d=await post('/pass/claim',all?{levels}:{level:Number(level)}); if(d.user){state.user=d.user;updateUserUI();} toast(d.message||'Recompensa coletada.','success'); openBattlePass();
+  }catch(e){toast(e.message,'error');}
+}
+async function buyItem(itemId){
+  try{const d=await post('/shop/buy',{itemId});toast(d.message||'Item comprado!','success');const inv=await get('/inventory');state.inventory=inv.items||[];const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);updateUserUI();renderInventoryContent();populateCustomizer();}catch(e){toast(e.message,'error');}
+}
+function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted;const b=$('#btnSound');if(b)b.textContent=state.muted?'🔇':'🔊';Sound.click();}
+function drawGameCard(){if(state.solo){soloDraw();return;}if(state.socket?.connected)state.socket.emit('game:draw');else toast('Multiplayer ainda está conectando.','error');}
+function callUno(){if(state.solo){const g=state.solo;if(g.player?.length===1){g.unoDeadline=Date.now()+3200;Sound.uno();toast('📣 UNO!!!','success',1600);renderSolo();}return;}if(state.socket?.connected){Sound.uno();state.socket.emit('game:uno');}else toast('Multiplayer ainda está conectando.','error');}
+function exitGame(){if(state.socket?.connected&&state.currentRoom)state.socket.emit('room:leave');state.currentRoom=null;state._onlineGame=null;state.solo=null;clearUnoTimer();navigate('lobby');}
+
 function bindEvents(){
   // Auth
   $$('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuth(b.dataset.auth)));
@@ -171,7 +225,7 @@ function bindEvents(){
   on('#btnMapsPreview','click',openCreateRoom);
   on('#btnConfirmCreateRoom','click',createRoom);
   on('#btnConfirmJoinRoom','click',joinSelectedRoom);
-  on('#btnStartRoom','click',()=>state.socket?.emit('room:start'));
+  on('#btnStartRoom','click',startCurrentRoom);
   on('#btnLeaveRoom','click',leaveRoom);
   on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);on('#btnSaveCharacterModal','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
@@ -312,8 +366,8 @@ async function openRooms(){state.selectedGameMode=state.selectedGameMode||'uno';
 async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const rooms=d.rooms||[];const mode=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;el.innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${mapTheme(r.options?.mapId)}">${r.locked?'🔒':mode.icon}</div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers}</small></div><div class="room-tags"><span>${escapeHtml(mode.label)}</span><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span></div><button class="btn btn-primary btn-wide" data-join-room="${r.code}" type="button">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):`<div class="empty-state glass"><span>${mode.icon}</span><b>Nenhuma sala de ${escapeHtml(mode.label)} aberta.</b><small>Crie a primeira mesa desse modo.</small></div>`;}catch(e){el.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível carregar as salas.</b><small>${escapeHtml(e.message)}</small></div>`;}}
 function mapTheme(id){return MAPS.find(m=>m.id===id)?.theme||'classroom';}
 async function selectRoom(code){try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return toast('Sala não encontrada.','error');state.roomToJoin=room;$('#joinRoomInfo')&&($('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Com senha':'🌎 Aberta'}`);if($('#joinRoomPassword'))$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
-function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:r.code,password:$('#joinRoomPassword')?.value||''});hide('#joinRoomModal');}
-async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:'uno',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};if(body.gameMode==='draw')body.turnSeconds=Math.max(30,Number(body.turnSeconds)||45);state.selectedGameMode=body.gameMode;const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+async function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;const password=$('#joinRoomPassword')?.value||'';try{if(state.socket?.connected){state.socket.emit('room:join',{code:r.code,password});}else{const d=await post(`/rooms/${encodeURIComponent(r.code)}/join`,{password});state.currentRoom=d.room;renderRoom(d.room);navigate('room');connectSocket();}hide('#joinRoomModal');}catch(e){toast(e.message,'error');}}
+async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:state.selectedGameMode||'uno',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};const d=await post('/rooms',body);hide('#createRoomModal');if(state.socket?.connected){state.socket.emit('room:join',{code:d.roomCode,password:body.password});}else{const joined=await post(`/rooms/${encodeURIComponent(d.roomCode)}/join`,{password:body.password});state.currentRoom=joined.room;renderRoom(joined.room);navigate('room');connectSocket();}}catch(e){toast(e.message,'error');}}
 function leaveDrawingGame(){
   if(state.socket&&state.currentRoom)state.socket.emit('room:leave');
   state.currentRoom=null;state._drawingGame=null;stopDrawingTimer();if(drawSnapshotTimer)clearInterval(drawSnapshotTimer);drawSnapshotTimer=null;clearDrawingCanvas();navigate('lobby');
@@ -323,7 +377,8 @@ function renderRoom(room){
   const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
   const banner=$('#roomMapBanner');if(banner){banner.className=`room-map-banner map-${mapTheme(room.options.mapId)}`;banner.innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(MAPS.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
 }
-function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
+async function startCurrentRoom(){if(!state.currentRoom)return;try{if(state.socket?.connected){state.socket.emit('room:start');return;}const d=await post(`/rooms/${encodeURIComponent(state.currentRoom.code)}/start`,{});state.currentRoom=d.room;renderRoom(d.room);if(d.room.started&&d.room.options?.gameMode==='uno'){toast('Partida iniciada! Conectando à mesa...','success');connectSocket();}}catch(e){toast(e.message,'error');}}
+async function leaveRoom(){try{if(state.currentRoom)await post(`/rooms/${encodeURIComponent(state.currentRoom.code)}/leave`,{});}catch{}try{state.socket?.emit('room:leave');}catch{}state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
 
 // ---------------- SOLO ----------------
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
@@ -561,7 +616,7 @@ function renderChatMessage(m){
   if(m.channel==='room'&&state.currentRoom?.code===m.roomCode){const box=$('#roomChatMessages');if(box){const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);box.scrollTop=box.scrollHeight;}}
 }
 async function loadGlobalChatHistory(){try{const d=await get('/chat/global');const boxes=[$('#gameChatMessages'),$('#globalChatMessagesLobby')];boxes.forEach(box=>{if(!box)return;box.innerHTML='';(d.messages||[]).forEach(m=>{const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);});box.scrollTop=box.scrollHeight;});const last=d.messages?.at(-1);if(last&&$('#globalChatPreview'))$('#globalChatPreview').textContent=`${last.senderName}: ${last.body}`;}catch{}}
-async function openGlobalChat(){state.globalChatOpen=true;await loadGlobalChatHistory();if(state.currentView==='game'){show('#gameGlobalChat');$('#gameChatInput')?.focus();}else{show('#globalChatPanel');$('#globalChatInputLobby')?.focus();}$('#btnGameGlobalChat')?.classList.remove('has-message');}
+async function openGlobalChat(){state.globalChatOpen=true;if(state.currentView==='game'){show('#gameGlobalChat');$('#gameChatInput')?.focus();}else{show('#globalChatPanel');$('#globalChatInputLobby')?.focus();}$('#btnGameGlobalChat')?.classList.remove('has-message');void loadGlobalChatHistory();}
 function closeGlobalChat(){state.globalChatOpen=false;hide('#gameGlobalChat');hide('#globalChatPanel');}
 async function logout(){try{await post('/logout');}catch{}try{state.socket?.disconnect();}catch{}localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;state.currentRoom=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
 
