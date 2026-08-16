@@ -192,3 +192,29 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
+
+-- Sistema persistente dos modos de jogo.
+CREATE TABLE IF NOT EXISTS game_sessions (
+  match_id UUID PRIMARY KEY,
+  room_code VARCHAR(30) NOT NULL,
+  mode VARCHAR(20) NOT NULL CHECK (mode IN ('uno','draw','truco','checkers','chess')),
+  status VARCHAR(20) NOT NULL DEFAULT 'waiting',
+  state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS game_moves (
+  id BIGSERIAL PRIMARY KEY,
+  match_id UUID NOT NULL REFERENCES game_sessions(match_id) ON DELETE CASCADE,
+  room_code VARCHAR(30) NOT NULL,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  username VARCHAR(50) NOT NULL,
+  event_type VARCHAR(40) NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_sessions_room ON game_sessions(room_code, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_mode ON game_sessions(mode, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_moves_match ON game_moves(match_id, created_at DESC);

@@ -25,3 +25,6 @@ No Web Service do Render, mantenha/adicionar:
 A Etapa 1 não contém `DROP TABLE`, `TRUNCATE`, exclusão de jogadores ou reset de pontuação.
 
 O bootstrap do ADM só cria a conta se o usuário ainda não existir. Se `Velho` já existir, o backend não substitui a senha existente; apenas garante `is_admin = TRUE`.
+
+## Modos persistentes
+A versão atual inclui `game_sessions` e `game_moves` para registrar o estado e o histórico das partidas de UNO, Gartic, Truco, Damas e Xadrez. O estado de uma partida ativa continua em memória para baixa latência e cada ação relevante é persistida no PostgreSQL.
