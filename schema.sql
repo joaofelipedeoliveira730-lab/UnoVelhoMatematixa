@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- Migração segura de instalações antigas.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS username VARCHAR(50);
+ALTER TABLE profiles ALTER COLUMN username DROP NOT NULL;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bio VARCHAR(180) NOT NULL DEFAULT '';
@@ -59,8 +61,12 @@ CREATE TABLE IF NOT EXISTS user_inventory (
 );
 
 -- Migração segura de inventário antigo: garante as colunas usadas pelo backend.
+ALTER TABLE user_inventory ADD COLUMN IF NOT EXISTS item_type VARCHAR(40);
 ALTER TABLE user_inventory ADD COLUMN IF NOT EXISTS quantity INT;
 ALTER TABLE user_inventory ALTER COLUMN quantity SET DEFAULT 1;
+UPDATE user_inventory ui SET item_type=COALESCE(i.category,'cosmetic') FROM items i WHERE i.id=ui.item_id AND (ui.item_type IS NULL OR ui.item_type='');
+ALTER TABLE user_inventory ALTER COLUMN item_type SET DEFAULT 'cosmetic';
+ALTER TABLE user_inventory ALTER COLUMN item_type SET NOT NULL;
 UPDATE user_inventory SET quantity=1 WHERE quantity IS NULL OR quantity < 1;
 ALTER TABLE user_inventory ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 

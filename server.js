@@ -162,14 +162,27 @@ async function repairLegacySchema() {
 
     ALTER TABLE profiles
       ADD COLUMN IF NOT EXISTS user_id INTEGER,
+      ADD COLUMN IF NOT EXISTS username VARCHAR(50),
       ADD COLUMN IF NOT EXISTS avatar JSONB NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS bio VARCHAR(180) NOT NULL DEFAULT '',
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
+    ALTER TABLE profiles ALTER COLUMN username DROP NOT NULL;
+
     ALTER TABLE user_inventory
       ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1,
-      ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+      ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS item_type VARCHAR(40);
+
+    UPDATE user_inventory ui
+       SET item_type = COALESCE(i.category, 'cosmetic')
+      FROM items i
+     WHERE i.id = ui.item_id
+       AND (ui.item_type IS NULL OR ui.item_type = '');
+
+    ALTER TABLE user_inventory ALTER COLUMN item_type SET DEFAULT 'cosmetic';
+    ALTER TABLE user_inventory ALTER COLUMN item_type SET NOT NULL;
 
     ALTER TABLE items
       ADD COLUMN IF NOT EXISTS name VARCHAR(120) NOT NULL DEFAULT 'Item',
@@ -345,9 +358,19 @@ async function getProfile(userId) {
   return p ? { avatar:{...defaultAvatar(),...(p.avatar||{})}, settings:{...defaultSettings(),...(p.settings||{})}, bio:p.bio||'' } : {avatar:defaultAvatar(),settings:defaultSettings(),bio:''};
 }
 async function saveProfile(userId, profile) {
-  const avatar={...defaultAvatar(),...(profile.avatar||{})}; const settings={...defaultSettings(),...(profile.settings||{})}; const bio=cleanText(profile.bio,180);
-  if (usePostgres) { await pool.query(`INSERT INTO profiles(user_id,avatar,settings,bio) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET avatar=EXCLUDED.avatar,settings=EXCLUDED.settings,bio=EXCLUDED.bio,updated_at=CURRENT_TIMESTAMP`,[userId,JSON.stringify(avatar),JSON.stringify(settings),bio]); }
-  else { const db=localDb(); db.profiles[userId]={avatar,settings,bio,updatedAt:new Date().toISOString()}; saveLocalDb(db); }
+  const avatar={...defaultAvatar(),...(profile.avatar||{})};
+  const settings={...defaultSettings(),...(profile.settings||{})};
+  const bio=cleanText(profile.bio,180);
+  if (usePostgres) {
+    const user=await pool.query('SELECT username FROM users WHERE id=$1',[userId]);
+    if(!user.rows[0]) throw new Error('Usuário não encontrado.');
+    const username=user.rows[0].username;
+    await pool.query(`INSERT INTO profiles(user_id,username,avatar,settings,bio) VALUES($1,$2,$3,$4,$5)
+      ON CONFLICT(user_id) DO UPDATE SET username=EXCLUDED.username,avatar=EXCLUDED.avatar,settings=EXCLUDED.settings,bio=EXCLUDED.bio,updated_at=CURRENT_TIMESTAMP`,
+      [userId,username,JSON.stringify(avatar),JSON.stringify(settings),bio]);
+  } else {
+    const db=localDb(); db.profiles[userId]={avatar,settings,bio,updatedAt:new Date().toISOString()}; saveLocalDb(db);
+  }
   return {avatar,settings,bio};
 }
 async function activeModeration(userId) {
@@ -367,7 +390,11 @@ async function addEconomy(userId, coinsDelta, xpDelta, result='') {
   const db=localDb(); const u=db.users.find(x=>x.id===Number(userId)); if(!u) return null; u.coins=Math.max(0,(u.coins||0)+coinsDelta); u.xp=Math.max(0,(u.xp||0)+xpDelta); u.level=levelForXp(u.xp); saveLocalDb(db); return u;
 }
 async function grantItem(userId,itemId) {
-  if(usePostgres) { await pool.query(`INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1`,[userId,itemId]); return true; }
+  if(usePostgres) {
+    await pool.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic'))
+      ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1,item_type=COALESCE(user_inventory.item_type,EXCLUDED.item_type)`,[userId,itemId]);
+    return true;
+  }
   const db=localDb(); db.inventory[userId]=db.inventory[userId]||{}; db.inventory[userId][itemId]=(db.inventory[userId][itemId]||0)+1; saveLocalDb(db); return true;
 }
 async function hasItem(userId,itemId) {
@@ -512,8 +539,8 @@ app.post('/api/pass/claim',auth,async(req,res)=>{
     let coins=0,items=[];
     for(const n of fresh){
       const reward=passReward(n); coins+=reward.coins;
-      if(reward.itemId){await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,reward.itemId]);items.push(reward.itemId);}
-      if(reward.title){await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,reward.title]);items.push(reward.title);}
+      if(reward.itemId){await client.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic')) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1,item_type=COALESCE(user_inventory.item_type,EXCLUDED.item_type)`,[req.user.id,reward.itemId]);items.push(reward.itemId);}
+      if(reward.title){await client.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic')) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1,item_type=COALESCE(user_inventory.item_type,EXCLUDED.item_type)`,[req.user.id,reward.title]);items.push(reward.title);}
       await client.query('INSERT INTO user_pass_claims(user_id,pass_level) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.user.id,n]);
     }
     if(coins)await client.query('UPDATE users SET coins=coins+$1 WHERE id=$2',[coins,req.user.id]);
@@ -529,11 +556,11 @@ app.get('/api/items',async(req,res)=>res.json({success:true,items:await getItems
 app.get('/api/shop/market',auth,async(req,res)=>{if(!usePostgres)return res.json({success:true,listings:[]});const r=await pool.query(`SELECT m.listing_id,m.price,m.created_at,i.*,u.username seller FROM player_market m JOIN items i ON i.id=m.item_id JOIN users u ON u.id=m.seller_id WHERE m.status='active' ORDER BY m.created_at DESC LIMIT 100`);res.json({success:true,listings:r.rows});});
 app.post('/api/shop/buy',auth,async(req,res)=>{
   const itemId=cleanText(req.body.itemId,80);if(!usePostgres)return res.status(503).json({success:false,message:'Loja online exige PostgreSQL.'});
-  const client=await pool.connect();try{await client.query('BEGIN');const item=(await client.query('SELECT * FROM items WHERE id=$1 AND is_active=true FOR UPDATE',[itemId])).rows[0];if(!item)throw new Error('Item não encontrado.');if(item.asset?.ceoOnly&&req.user.role!=='CEO')throw new Error('Item exclusivo do CEO.');const own=await client.query('SELECT 1 FROM user_inventory WHERE user_id=$1 AND item_id=$2',[req.user.id,itemId]);if(own.rows.length)throw new Error('Você já possui este item.');const buyer=(await client.query('SELECT coins,xp FROM users WHERE id=$1 FOR UPDATE',[req.user.id])).rows[0];if(Number(buyer.xp)<Number(item.xp_required))throw new Error(`Você precisa de ${item.xp_required} XP.`);if(Number(buyer.coins)<Number(item.price))throw new Error('Moedas insuficientes.');await client.query('UPDATE users SET coins=coins-$1 WHERE id=$2',[item.price,req.user.id]);await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2)',[req.user.id,itemId]);await client.query('COMMIT');res.json({success:true,message:'Item desbloqueado!',item});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}
+  const client=await pool.connect();try{await client.query('BEGIN');const item=(await client.query('SELECT * FROM items WHERE id=$1 AND is_active=true FOR UPDATE',[itemId])).rows[0];if(!item)throw new Error('Item não encontrado.');if(item.asset?.ceoOnly&&req.user.role!=='CEO')throw new Error('Item exclusivo do CEO.');const own=await client.query('SELECT 1 FROM user_inventory WHERE user_id=$1 AND item_id=$2',[req.user.id,itemId]);if(own.rows.length)throw new Error('Você já possui este item.');const buyer=(await client.query('SELECT coins,xp FROM users WHERE id=$1 FOR UPDATE',[req.user.id])).rows[0];if(Number(buyer.xp)<Number(item.xp_required))throw new Error(`Você precisa de ${item.xp_required} XP.`);if(Number(buyer.coins)<Number(item.price))throw new Error('Moedas insuficientes.');await client.query('UPDATE users SET coins=coins-$1 WHERE id=$2',[item.price,req.user.id]);await client.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic'))`,[req.user.id,itemId]);await client.query('COMMIT');res.json({success:true,message:'Item desbloqueado!',item});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}
 });
 app.post('/api/shop/market/list',auth,async(req,res)=>{if(!usePostgres)return res.status(503).json({success:false,message:'Loja de jogadores exige PostgreSQL.'});const itemId=cleanText(req.body.itemId,80);const price=Math.floor(Number(req.body.price));if(!itemId||!Number.isFinite(price)||price<10||price>100000000)return res.status(400).json({success:false,message:'Preço inválido.'});const client=await pool.connect();try{await client.query('BEGIN');const own=(await client.query('SELECT quantity FROM user_inventory WHERE user_id=$1 AND item_id=$2 FOR UPDATE',[req.user.id,itemId])).rows[0];if(!own)throw new Error('Você não possui o item.');const active=await client.query("SELECT 1 FROM player_market WHERE seller_id=$1 AND item_id=$2 AND status='active'",[req.user.id,itemId]);if(active.rows.length)throw new Error('Esse item já está anunciado.');await client.query('DELETE FROM user_inventory WHERE user_id=$1 AND item_id=$2',[req.user.id,itemId]);const r=await client.query("INSERT INTO player_market(seller_id,item_id,price) VALUES($1,$2,$3) RETURNING *",[req.user.id,itemId,price]);await client.query('COMMIT');res.json({success:true,listing:r.rows[0]});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}});
-app.post('/api/shop/market/cancel',auth,async(req,res)=>{if(!usePostgres)return res.status(503).json({success:false,message:'Loja de jogadores exige PostgreSQL.'});const listingId=Number(req.body.listingId);const client=await pool.connect();try{await client.query('BEGIN');const l=(await client.query("SELECT * FROM player_market WHERE listing_id=$1 AND seller_id=$2 AND status='active' FOR UPDATE",[listingId,req.user.id])).rows[0];if(!l)throw new Error('Anúncio não encontrado.');await client.query("UPDATE player_market SET status='cancelled' WHERE listing_id=$1",[listingId]);await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,l.item_id]);await client.query('COMMIT');res.json({success:true,message:'Anúncio cancelado e item devolvido.'});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}});
-app.post('/api/shop/market/buy',auth,async(req,res)=>{if(!usePostgres)return res.status(503).json({success:false,message:'Loja de jogadores exige PostgreSQL.'});const listingId=Number(req.body.listingId);const client=await pool.connect();try{await client.query('BEGIN');const l=(await client.query("SELECT m.*,i.name,i.asset FROM player_market m JOIN items i ON i.id=m.item_id WHERE m.listing_id=$1 AND m.status='active' FOR UPDATE",[listingId])).rows[0];if(!l)throw new Error('Anúncio não encontrado.');if(l.seller_id===req.user.id)throw new Error('Você não pode comprar seu próprio anúncio.');const buyer=(await client.query('SELECT coins FROM users WHERE id=$1 FOR UPDATE',[req.user.id])).rows[0];if(Number(buyer.coins)<Number(l.price))throw new Error('Moedas insuficientes.');const seller=(await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[l.seller_id])).rows[0];if(!seller)throw new Error('Vendedor não encontrado.');await client.query('UPDATE users SET coins=coins-$1 WHERE id=$2',[l.price,req.user.id]);await client.query('UPDATE users SET coins=coins+$1 WHERE id=$2',[l.price,l.seller_id]);await client.query('DELETE FROM user_inventory WHERE user_id=$1 AND item_id=$2',[l.seller_id,l.item_id]);await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,l.item_id]);await client.query("UPDATE player_market SET status='sold',sold_at=CURRENT_TIMESTAMP WHERE listing_id=$1",[listingId]);await client.query('COMMIT');res.json({success:true,message:'Compra concluída!'});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}});
+app.post('/api/shop/market/cancel',auth,async(req,res)=>{if(!usePostgres)return res.status(503).json({success:false,message:'Loja de jogadores exige PostgreSQL.'});const listingId=Number(req.body.listingId);const client=await pool.connect();try{await client.query('BEGIN');const l=(await client.query("SELECT * FROM player_market WHERE listing_id=$1 AND seller_id=$2 AND status='active' FOR UPDATE",[listingId,req.user.id])).rows[0];if(!l)throw new Error('Anúncio não encontrado.');await client.query("UPDATE player_market SET status='cancelled' WHERE listing_id=$1",[listingId]);await client.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic')) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1,item_type=COALESCE(user_inventory.item_type,EXCLUDED.item_type)`,[req.user.id,l.item_id]);await client.query('COMMIT');res.json({success:true,message:'Anúncio cancelado e item devolvido.'});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}});
+app.post('/api/shop/market/buy',auth,async(req,res)=>{if(!usePostgres)return res.status(503).json({success:false,message:'Loja de jogadores exige PostgreSQL.'});const listingId=Number(req.body.listingId);const client=await pool.connect();try{await client.query('BEGIN');const l=(await client.query("SELECT m.*,i.name,i.asset FROM player_market m JOIN items i ON i.id=m.item_id WHERE m.listing_id=$1 AND m.status='active' FOR UPDATE",[listingId])).rows[0];if(!l)throw new Error('Anúncio não encontrado.');if(l.seller_id===req.user.id)throw new Error('Você não pode comprar seu próprio anúncio.');const buyer=(await client.query('SELECT coins FROM users WHERE id=$1 FOR UPDATE',[req.user.id])).rows[0];if(Number(buyer.coins)<Number(l.price))throw new Error('Moedas insuficientes.');const seller=(await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE',[l.seller_id])).rows[0];if(!seller)throw new Error('Vendedor não encontrado.');await client.query('UPDATE users SET coins=coins-$1 WHERE id=$2',[l.price,req.user.id]);await client.query('UPDATE users SET coins=coins+$1 WHERE id=$2',[l.price,l.seller_id]);await client.query('DELETE FROM user_inventory WHERE user_id=$1 AND item_id=$2',[l.seller_id,l.item_id]);await client.query(`INSERT INTO user_inventory(user_id,item_id,item_type) VALUES($1,$2,COALESCE((SELECT category FROM items WHERE id=$2),'cosmetic')) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1,item_type=COALESCE(user_inventory.item_type,EXCLUDED.item_type)`,[req.user.id,l.item_id]);await client.query("UPDATE player_market SET status='sold',sold_at=CURRENT_TIMESTAMP WHERE listing_id=$1",[listingId]);await client.query('COMMIT');res.json({success:true,message:'Compra concluída!'});}catch(e){await client.query('ROLLBACK');res.status(400).json({success:false,message:e.message});}finally{client.release();}});
 
 app.get('/api/rank',async(req,res)=>{if(!usePostgres)return res.json({success:true,players:[]});const r=await pool.query(`SELECT username,level,xp,wins,games_played FROM users WHERE role<>'banned' ORDER BY level DESC,xp DESC,wins DESC LIMIT 100`);res.json({success:true,players:r.rows});});
 app.post('/api/report',auth,async(req,res)=>{if(!usePostgres)return res.json({success:true});const target=Number(req.body.targetId);const reason=cleanText(req.body.reason,255);if(!target||!reason)return res.status(400).json({success:false,message:'Denúncia incompleta.'});await pool.query('INSERT INTO reports(reporter_id,target_id,reason) VALUES($1,$2,$3)',[req.user.id,target,reason]);res.json({success:true,message:'Denúncia enviada.'});});

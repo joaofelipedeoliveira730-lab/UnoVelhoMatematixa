@@ -385,3 +385,53 @@ body.in-game{overflow:hidden}.game-view{position:fixed!important;inset:0;z-index
 @media(max-width:900px){.pass-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.game-chat-left{width:min(250px,48vw)!important}.pass-hero{padding:16px}.pass-level-big{min-width:88px}.pass-level-big b{font-size:34px}}
 @media(max-width:650px){.pass-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.pass-card{min-height:155px;padding:9px}.pass-reward-icon{font-size:30px}.game-chat-left{left:6px!important;top:48px!important;width:230px!important;height:270px!important}.game-global-chat-toggle{left:6px;top:48px}.global-chat-button small{max-width:120px}.pass-hero{align-items:flex-start}.pass-hero p{font-size:11px}.pass-big-btn{padding:8px 10px;font-size:10px}}
 .global-chat-panel{position:fixed;left:14px;top:76px;width:min(330px,calc(100vw - 28px));height:min(390px,62vh);z-index:10000;background:rgba(4,11,23,.88)!important;backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.13);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.45);overflow:hidden}.global-chat-panel.hidden{display:none!important}.global-chat-panel .chat-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid rgba(255,255,255,.08)}.global-chat-panel .chat-head button{border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}.global-chat-panel .chat-messages{height:calc(100% - 105px);overflow:auto;padding:10px}.global-chat-panel .chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid rgba(255,255,255,.08)}.global-chat-panel .chat-form input{min-width:0;flex:1}.global-chat-panel .chat-form button{width:40px;border-radius:11px;border:0;background:#2563eb;color:#fff;font-weight:900}@media(max-width:650px){.global-chat-panel{left:8px;top:58px;width:250px;height:290px}.global-chat-panel .chat-messages{font-size:10px}}
+
+/* ==========================================================
+   UNO DOS IDOSOS — identidade final / leve / animada
+   ========================================================== */
+:root{
+  --font-main:'Trebuchet MS','Arial Rounded MT Bold',Arial,sans-serif;
+  --font-display:'Trebuchet MS','Arial Rounded MT Bold',Arial,sans-serif;
+}
+html,body,button,input,select,textarea{font-family:var(--font-main)!important}
+body{letter-spacing:.01em;background:#020816;}
+body:before{content:"";position:fixed;inset:-20%;z-index:-5;pointer-events:none;background:radial-gradient(circle at 18% 20%,rgba(41,163,255,.22),transparent 25%),radial-gradient(circle at 82% 75%,rgba(174,76,255,.18),transparent 28%),radial-gradient(circle at 50% 45%,rgba(20,205,145,.08),transparent 32%);animation:idiotAmbient 14s ease-in-out infinite alternate;}
+body:after{content:"";position:fixed;inset:0;z-index:-4;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,transparent,#000 20%,#000 80%,transparent);opacity:.45;animation:gridDrift 20s linear infinite;}
+@keyframes idiotAmbient{0%{transform:scale(1) rotate(0deg);filter:hue-rotate(0deg)}50%{transform:scale(1.06) rotate(1deg);filter:hue-rotate(12deg)}100%{transform:scale(1.02) rotate(-1deg);filter:hue-rotate(-10deg)}}
+@keyframes gridDrift{to{background-position:42px 42px}}
+
+.ambient-uno-cards{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:-1;perspective:900px;}
+.ambient-uno-card{position:absolute;width:62px;height:88px;border-radius:11px;border:3px solid rgba(255,255,255,.85);display:grid;place-items:center;font-size:26px;font-weight:1000;color:#fff;box-shadow:0 14px 30px rgba(0,0,0,.28),inset 0 0 0 2px rgba(0,0,0,.14);opacity:.12;transform-style:preserve-3d;animation:unoFlight var(--dur,18s) linear infinite;}
+.ambient-uno-card:before{content:"UNO";position:absolute;inset:13px 7px;border:2px solid rgba(255,255,255,.72);border-radius:50%;display:grid;place-items:center;font-size:10px;transform:rotate(-14deg);}
+.ambient-uno-card.red{background:linear-gradient(145deg,#ef334c,#8b1023)}.ambient-uno-card.blue{background:linear-gradient(145deg,#2d8fff,#0d3e98)}.ambient-uno-card.green{background:linear-gradient(145deg,#23d477,#08743d)}.ambient-uno-card.yellow{background:linear-gradient(145deg,#ffd83d,#b27700);color:#111}.ambient-uno-card.wild{background:linear-gradient(145deg,#151923,#05060a)}
+.ambient-uno-card.c1{left:4%;top:14%;--dur:19s;animation-delay:-4s;transform:rotate(-22deg)}.ambient-uno-card.c2{left:18%;top:72%;--dur:24s;animation-delay:-11s}.ambient-uno-card.c3{left:39%;top:5%;--dur:21s;animation-delay:-7s}.ambient-uno-card.c4{right:18%;top:18%;--dur:26s;animation-delay:-14s}.ambient-uno-card.c5{right:5%;top:72%;--dur:22s;animation-delay:-9s}.ambient-uno-card.c6{left:72%;top:48%;--dur:25s;animation-delay:-18s}.ambient-uno-card.c7{left:47%;top:78%;--dur:23s;animation-delay:-5s}.ambient-uno-card.c8{left:85%;top:8%;--dur:20s;animation-delay:-12s}
+@keyframes unoFlight{0%{translate:-12vw 8vh;rotate:-25deg;scale:.72;opacity:0}10%{opacity:.13}50%{translate:8vw -10vh;rotate:180deg;scale:1}90%{opacity:.11}100%{translate:-12vw 8vh;rotate:385deg;scale:.72;opacity:0}}
+
+/* tipografia com mais personalidade */
+h1,h2,h3,.brand-title,.brand-3d-v2,.uno-3d,.velho-3d,.loader-logo,.platform-card h1,.menu-status-v2,.btn,.big-menu-btn,.mode-hub-btn,.rail-btn{font-family:var(--font-display)!important}
+.brand-title,.brand-3d-v2,.uno-3d,.velho-3d{letter-spacing:.06em;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 24px rgba(80,220,255,.18)}
+button{transition:transform .18s cubic-bezier(.2,.8,.2,1),filter .18s,box-shadow .18s}
+button:hover{transform:translateY(-3px)}
+button:active{transform:translateY(1px) scale(.98)}
+
+/* cartões da interface */
+.glass{backdrop-filter:blur(18px) saturate(130%);-webkit-backdrop-filter:blur(18px) saturate(130%)}
+.big-menu-btn,.mode-hub-btn,.online-mode-card,.solo-mode-card,.rail-btn,.pass-big-btn{position:relative;overflow:hidden}
+.big-menu-btn:after,.mode-hub-btn:after,.online-mode-card:after,.solo-mode-card:after,.rail-btn:after,.pass-big-btn:after{content:"";position:absolute;top:-120%;left:-35%;width:28%;height:340%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:rotate(24deg);animation:shineSweep 5.5s ease-in-out infinite;pointer-events:none}
+@keyframes shineSweep{0%,55%{left:-45%}75%,100%{left:125%}}
+
+/* rodapé */
+.site-footer{position:fixed;left:14px;right:14px;bottom:10px;z-index:18000;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;padding:9px 14px;border:1px solid rgba(120,220,255,.12);border-radius:16px;background:rgba(2,10,25,.48);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#7895bb;font-size:10px;letter-spacing:.35px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.site-footer strong{color:#eaf9ff;letter-spacing:1px}.site-footer b{color:#9feaff}.site-footer a{color:#75dfff;text-decoration:none}.site-footer a:hover{text-decoration:underline;color:#fff}.footer-line{display:none}
+
+/* footer não interfere na mesa */
+.app-screen{padding-bottom:46px}.auth-screen,.platform-screen{padding-bottom:64px}
+
+@media(max-width:760px){
+  .ambient-uno-card{width:46px;height:66px;font-size:20px;opacity:.08}.ambient-uno-card:before{inset:9px 5px;font-size:8px}
+  .site-footer{font-size:8px;gap:5px;left:8px;right:8px;bottom:6px;padding:7px 9px}.site-footer span:nth-of-type(1){display:none}.site-footer a{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-screen{padding-bottom:58px}.auth-screen,.platform-screen{padding-bottom:76px}
+}
+@media(prefers-reduced-motion:reduce){body:before,body:after,.ambient-uno-card,.big-menu-btn:after,.mode-hub-btn:after,.online-mode-card:after,.solo-mode-card:after,.rail-btn:after,.pass-big-btn:after{animation:none!important}}
+
+@supports selector(body:has(*)){body:has(#gameView:not(.hidden)) .site-footer{display:none!important}}
