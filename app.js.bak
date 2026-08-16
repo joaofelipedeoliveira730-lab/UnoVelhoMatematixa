@@ -116,27 +116,17 @@ async function choosePlatform(platform){
   localStorage.setItem('uv_platform',platform);localStorage.setItem('uv_platform_version',VERSION);
   applyPlatform(platform);
   Sound.init();
-  if(platform==='mobile') await requestLandscape();
+  if(platform==='mobile'){
+    try{ if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); }catch{}
+  }
   await continueAfterPlatform();
-}
-
-async function requestLandscape(){
-  try{ if(document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:'hide'}); }catch{}
-  try{ if(screen.orientation?.lock) await screen.orientation.lock('landscape'); }catch{}
-  updateOrientationGuard();
-}
-async function forceLandscape(){
-  if(state.platform!=='mobile')return;
-  await requestLandscape();
 }
 
 function updateOrientationGuard(){
   const gameActive=state.currentView==='game'&&!$('#gameView')?.classList.contains('hidden');
   const portrait=window.matchMedia?.('(orientation: portrait)').matches;
   const mobile=state.platform==='mobile';
-  // O navegador pode negar o lock. Nesse caso o jogo continua em portrait com layout adaptado.
-  if(gameActive&&mobile&&portrait){document.body.classList.add('game-portrait-fallback');show('#orientationGuard');}
-  else{document.body.classList.remove('game-portrait-fallback');hide('#orientationGuard');}
+  if(gameActive&&mobile&&portrait)show('#orientationGuard');else hide('#orientationGuard');
 }
 
 function bindEvents(){
@@ -145,7 +135,7 @@ function bindEvents(){
   on('#formLogin','submit',login);on('#formRegister','submit',register);
   on('#btnPlatformMobile','click',()=>choosePlatform('mobile'));
   on('#btnPlatformComputer','click',()=>choosePlatform('computer'));
-  on('#orientationGuard','click',()=>forceLandscape());on('#btnForceLandscape','click',()=>forceLandscape());
+  on('#orientationGuard','click',()=>choosePlatform('mobile'));
 
   // Navegação principal — todos os botões são ligados aqui, sem depender de outros componentes.
   on('#brandHome','click',()=>navigate('lobby'));
@@ -184,7 +174,7 @@ function bindEvents(){
   on('#btnBackGame','click',exitGame);
   on('#btnSound','click',toggleMute);
   on('#btnLogout','click',logout);
-  on('#btnCEO','click',openCEOPanel);on('#btnCEOFloat','click',openCEOPanel);on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/ceo/message',{message:msg});});
+  on('#btnCEO','click',openCEOPanel);on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/ceo/message',{message:msg});});
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
   $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
@@ -258,7 +248,7 @@ function navigate(view){
   const target=$(`#${view}View`);if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
   $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;
   document.body.classList.toggle('in-game',view==='game');
-  if((view==='game'||view==='draw')&&state.platform==='mobile'){void requestLandscape();}
+  if((view==='game'||view==='draw')&&state.platform==='mobile'){try{screen.orientation?.lock?.('landscape');}catch{}}
   updateOrientationGuard();
   window.scrollTo({top:0,behavior:'smooth'});
   if(view==='lobby'){renderCharacter('#heroCharacter',state.profile.avatar);loadMiniRank();}
@@ -489,9 +479,12 @@ function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'custom
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
 function updateCEOButton(){
-  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho';
-  document.querySelectorAll('#btnCEO').forEach(b=>{b.hidden=!isCEO;b.style.display=isCEO?'grid':'none';b.disabled=!isCEO;});
-  const f=document.querySelector('#btnCEOFloat'); if(f){f.hidden=!isCEO;f.style.display=isCEO?'flex':'none';}
+  const b=document.querySelector('#btnCEO');if(!b)return;
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho'||String(state.user?.role||'').toUpperCase()==='CEO';
+  b.style.display=isCEO?'flex':'none';
+  b.hidden=!isCEO;
+  b.disabled=!isCEO;
+  const f=document.querySelector('#btnCEOFloat'); if(f){f.hidden=!isCEO; f.style.display=isCEO?'flex':'none';}
 }
 async function openCEOPanel(){const el=document.querySelector('#ceoPanel');if(!el)return;el.classList.remove('hidden');loadCEOUsers()}
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
