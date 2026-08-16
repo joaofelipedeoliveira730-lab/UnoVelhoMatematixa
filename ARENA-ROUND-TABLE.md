@@ -16,7 +16,7 @@
 - Nas salas online, os três mapas aparecem no seletor de mapa.
 - Corrigidas duas chamadas que podiam quebrar a renderização online (`applyMapScene` e `renderPlayedCards`).
 - Música de mapa foi deixada opcional e não bloqueante para evitar travamentos.
-- Tempo de pensamento do bot limitado ao sistema de até 3 segundos.
+- Tempo de pensamento do oponente limitado ao sistema de até 3 segundos.
 
 ## Controles da câmera
 - Celular: arraste a mesa para a esquerda/direita.

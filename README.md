@@ -32,5 +32,5 @@ A partida foi redesenhada para seguir a composição da referência fornecida:
 - baralho de compra e descarte grandes no centro;
 - HUD de partida, turno e estado AO VIVO;
 - visual quente de mesa/baralho, com alto contraste para celular;
-- partida solo não revela ao jogador se o oponente é bot ou pessoa;
+- partida solo não revela ao jogador se o oponente é participante;
 - o mesmo layout é usado para partidas online e solo.

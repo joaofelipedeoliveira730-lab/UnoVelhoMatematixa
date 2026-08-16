@@ -5,7 +5,7 @@ Base desta entrega: versão `PERSONAGENS-3D-PODIO`, preservando o backend Postgr
 ## O que está incluído
 - Personagem em código/CSS, com categorias de cabelo, roupa, calça, tênis, acessórios, efeitos e títulos.
 - Tela de Personagens separada para desbloqueados/bloqueados.
-- Partida UNO em mesa, com jogadores/bots, TAG do jogador e mão de cartas.
+- Partida UNO em mesa, com jogadores, TAG do jogador e mão de cartas.
 - Pódio de final de partida com 1º/2º/3º e animação de comemoração.
 - Solo e Online mantidos como UNO; matemática não participa da partida.
 - Passe de nível 1–100.

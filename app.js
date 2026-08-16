@@ -29,13 +29,13 @@ const MAP_PERSONALITY={
 
 const COSMETICS = {
   hair:['hair_basic','hair_curl','hair_long','hair_mohawk','hair_afro','hair_braids','hair_ice','hair_ceo'],
-  top:['shirt_basic','shirt_red','shirt_neon','shirt_gold','shirt_space'], bottom:['pants_basic','pants_black','pants_neon'],
+  top:['shirt_basic','shirt_red','shirt_neon','shirt_gold','shirt_space'], oponentetom:['pants_basic','pants_black','pants_neon'],
   shoes:['shoes_basic','shoes_red','shoes_gold'], accessory:['glasses_basic','glasses_cyan','glasses_gold','hat_cap','hat_cowboy','hat_crown','mask_math','backpack_blue','backpack_space'],
   effect:['aura_blue','aura_gold','aura_rainbow'], emote:['emote_wave','emote_math','emote_fire'], title:['title_beginner','title_calculator','title_master','title_ceo']
 };
 const COLORS = ['red','yellow','green','blue'];
 const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
-const DEFAULT_AVATAR = {character:'velhinho',skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const DEFAULT_AVATAR = {character:'velhinho',skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',oponentetom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
 const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true,doNotDisturb:false};
 
 const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? localStorage.getItem('uv_platform') : localStorage.getItem('uv_platform') || null;
@@ -64,7 +64,7 @@ function on(id,event,fn){const el=$(id);if(el)el.addEventListener(event,fn);}
 function authHeaders(extra={}){return {...extra,...(state.token?{Authorization:`Bearer ${state.token}`}:{})};}
 async function api(url,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),9000);try{const opts={credentials:'include',signal:controller.signal,...options,headers:authHeaders({'Content-Type':'application/json',...(options.headers||{})})};const res=await fetch(API+url,opts);let data={};try{data=await res.json()}catch{}if(!res.ok)throw Object.assign(new Error(data.message||`Erro ${res.status} de comunicação com o servidor.`),{status:res.status,data});return data}catch(e){if(e.name==='AbortError')throw new Error('O servidor demorou demais. Tente novamente.');throw e}finally{clearTimeout(timeout)}}
 // Helpers HTTP usados por login, loja, inventário, salas e painel CEO.
-// Mantidos separados do fetch bruto para evitar botões presos e erros de referência.
+// Mantidos separados do fetch bruto para evitar oponenteões presos e erros de referência.
 async function get(url){ return api(url,{method:'GET',headers:{}}); }
 async function post(url,body={}){ return api(url,{method:'POST',body:JSON.stringify(body)}); }
 async function put(url,body={}){ return api(url,{method:'PUT',body:JSON.stringify(body)}); }
@@ -164,6 +164,18 @@ function updateOrientationGuard(){
 }
 
 function bindEvents(){
+  // Navegação universal: qualquer botão de retorno usa o alvo declarado ou o mapa de fallback.
+  document.addEventListener('click',(e)=>{
+    const target=e.target.closest?.('.back-btn,[data-back],#btnBackGameAlt,#btnBackGame,#btnBackModeGame,#btnBackDraw,#btnLeaveRoom');
+    if(!target)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(target.matches('#btnBackGameAlt,#btnBackGame')) return exitGame();
+    if(target.matches('#btnBackModeGame')) return exitModeGame();
+    if(target.matches('#btnBackDraw')) return leaveDrawingGame();
+    if(target.matches('#btnLeaveRoom')) return leaveRoom();
+    return navigateBack(target.dataset.back||null);
+  },true);
   // Auth
   $$('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuth(b.dataset.auth)));
   on('#formLogin','submit',login);on('#formRegister','submit',register);
@@ -171,7 +183,7 @@ function bindEvents(){
   on('#btnPlatformComputer','click',()=>choosePlatform('computer'));
   on('#orientationGuard','click',()=>forceLandscape());on('#btnForceLandscape','click',()=>forceLandscape());
 
-  // Navegação principal — todos os botões são ligados aqui, sem depender de outros componentes.
+  // Navegação principal — todos os oponenteões são ligados aqui, sem depender de outros componentes.
   on('#brandHome','click',()=>navigate('lobby'));
   on('#btnPlay','click',()=>navigate('play'));on('#btnMail','click',openMail);on('#btnTerms','click',()=>show('#termsModal'));on('#btnAddFriend','click',()=>show('#addFriendModal'));on('#btnConfirmAddFriend','click',addFriend);
   on('#btnShop','click',()=>openShop('official'));on('#btnBattlePass','click',openBattlePass);
@@ -214,7 +226,6 @@ function bindEvents(){
   on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
-  $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
   $$('.shop-tab').forEach(b=>b.addEventListener('click',()=>openShop(b.dataset.shop)));
   $$('.inventory-tab').forEach(b=>b.addEventListener('click',()=>openInventory(b.dataset.inv)));
   state.currentChat='world';
@@ -227,14 +238,13 @@ function bindEvents(){
   on('#gameChatInput','input',()=>{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:true});clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}),900);});
   on('#gameChatInput','blur',()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}));
 
-  // Fallback de clique para o painel CEO: funciona mesmo se o botão foi recriado/atualizado pelo lobby.
+  // Fallback de clique para o painel CEO: funciona mesmo se o oponenteão foi recriado/atualizado pelo lobby.
   document.addEventListener('click',e=>{
     const close=e.target.closest('.close-modal,[data-close]');
     if(close){const id=close.dataset.close||close.closest('.modal-overlay')?.id;if(id){hide('#'+id);return;}}
     const overlay=e.target.classList?.contains('modal-overlay')?e.target:null;if(overlay){hide('#'+overlay.id);return;}
     const ceo=e.target.closest('#btnCEO, #btnCEOFloat');
     if(ceo){ e.preventDefault(); e.stopPropagation(); openCEOPanel(); return; }
-    const navBack=e.target.closest('[data-back]');if(navBack){navigate(navBack.dataset.back);return;}
     const ai=e.target.closest('[data-accept-invite]');if(ai){acceptInvite(ai.dataset.acceptInvite);return;}
     const di=e.target.closest('[data-decline-invite]');if(di){declineInvite(di.dataset.declineInvite);return;}
     const map=e.target.closest('[data-map]');if(map){openShop('official');return;}
@@ -290,10 +300,29 @@ function updateUserUI(){
 }
 function xpLevel(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45));}
 
+function navigateBack(explicitTarget){
+  const fallback={
+    play:'lobby',onlineModeView:'play',solo:'play',rooms:'onlineModeView',room:'rooms',
+    characters:'lobby',customize:'characters',battlePass:'lobby',shop:'lobby',inventory:'lobby',
+    rank:'play',settings:'lobby',modeGameView:'solo',draw:'rooms',game:'solo'
+  };
+  const target=explicitTarget||fallback[state.currentView]||state.previousView||'lobby';
+  if(state.currentView==='game') return exitGame();
+  if(state.currentView==='modeGameView') return exitModeGame();
+  if(state.currentView==='draw') return leaveDrawingGame();
+  if(state.currentView==='room' && !explicitTarget) return leaveRoom();
+  navigate(target);
+}
+
 function navigate(view){
   if(!state.user)return;
-  const target=$(`#${view}View`);if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
-  $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;
+  const normalized=String(view||'').replace(/View$/,'');
+  const target=$(`#${normalized}View`)||$(`#${view}`);
+  if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
+  const nextView=target.id.replace(/View$/,'');
+  if(nextView===state.currentView)return;
+  const oldView=state.currentView;
+  $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=oldView;state.currentView=nextView;
   document.body.classList.toggle('in-game',view==='game');
   if(view==='game'){ enterGameViewport(); } else { document.body.classList.remove('game-portrait-fallback'); }
   updateOrientationGuard();
@@ -302,7 +331,9 @@ function navigate(view){
   if(view==='solo')void loadFriends();
   if(view==='characters'){renderCharactersPage();}
   if(view==='settings')applySettings();
+  try{history.replaceState({uvView:nextView},'',`#${nextView}`);}catch{}
 }
+if(!window.__UV_HISTORY_BOUND__){window.__UV_HISTORY_BOUND__=true;window.addEventListener('popstate',()=>{if(state.user)navigateBack();});}
 
 let socketLoaderPromise=null;
 function loadSocketIO(){
@@ -362,7 +393,7 @@ async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=aw
 function mapTheme(id){return MAPS.find(m=>m.id===id)?.theme||'classroom';}
 async function selectRoom(code){try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return toast('Sala não encontrada.','error');state.roomToJoin=room;$('#joinRoomInfo')&&($('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Com senha':'🌎 Aberta'}`);if($('#joinRoomPassword'))$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
 function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:r.code,password:$('#joinRoomPassword')?.value||''});hide('#joinRoomModal');}
-async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:(['uno','draw','truco','checkers','chess'].includes($('#roomGameMode')?.value)?$('#roomGameMode').value:(state.selectedGameMode||'uno')),maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};if(body.gameMode==='draw')body.turnSeconds=Math.max(30,Number(body.turnSeconds)||45);state.selectedGameMode=body.gameMode;const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
+async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:(['uno','draw','truco','checkers','chess'].includes($('#roomGameMode')?.value)?$('#roomGameMode').value:(state.selectedGameMode||'uno')),maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',fillCount:4,mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),autoFill:true,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};if(body.gameMode==='draw')body.turnSeconds=Math.max(30,Number(body.turnSeconds)||45);state.selectedGameMode=body.gameMode;const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
 function leaveDrawingGame(){
   if(state.socket&&state.currentRoom)state.socket.emit('room:leave');
   state.currentRoom=null;state._drawingGame=null;stopDrawingTimer();if(drawSnapshotTimer)clearInterval(drawSnapshotTimer);drawSnapshotTimer=null;clearDrawingCanvas();navigate('lobby');
@@ -430,10 +461,10 @@ function startSoloMode(mode,difficulty='medium'){
   startTableSolo(mode,difficulty);
 }
 function startLocalDrawGame(difficulty){state._localDraw={mode:'draw',difficulty,round:1,score:0,word:['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)],drawing:false};navigate('modeGameView');renderLocalDraw();}
-function startTableSolo(mode,difficulty){state._tableSolo={mode,difficulty,turn:'player',selected:null,botName:mode==='truco'?'Mestre da Mesa':mode==='checkers'?'Estrategista':'Mestre do Tabuleiro',message:'Começou! Faça sua jogada.'};navigate('modeGameView');renderTableSolo();}
+function startTableSolo(mode,difficulty){state._tableSolo={mode,difficulty,turn:'player',selected:null,opponentName:mode==='truco'?'Mestre da Mesa':mode==='checkers'?'Estrategista':'Mestre do Tabuleiro',message:'Começou! Faça sua jogada.'};navigate('modeGameView');renderTableSolo();}
 function exitModeGame(){state._tableSolo=null;state._localDraw=null;navigate(state.currentRoom?'room':'solo');}
 function renderLocalDraw(){const g=state._localDraw;if(!g)return;$('#modeGameBadge').textContent='🎨 GARTIC SOLO';$('#modeGameTitle').textContent='Adivinha o Desenho';$('#modeGameTurn').textContent='VOCÊ DESENHA';$('#modeGameMessage').textContent=`Palavra secreta: ${g.word} • desenhe e depois clique em REVELAR.`;$('#modeGameBody').innerHTML=`<div class="local-draw-board glass"><div class="local-draw-toolbar"><span>🎨 Quadro</span><button id="localReveal" class="btn btn-primary">REVELAR</button><button id="localClear" class="btn btn-secondary">LIMPAR</button></div><canvas id="localDrawCanvas" width="1000" height="560"></canvas><div id="localDrawReveal" class="local-reveal hidden"></div></div>`;const c=$('#localDrawCanvas'),ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);let down=false;const pos=e=>{const r=c.getBoundingClientRect();const p=e.touches?.[0]||e;return{x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height}};const start=e=>{down=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y)};const move=e=>{if(!down)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#111827';ctx.lineWidth=9;ctx.lineCap='round';ctx.stroke()};['mousedown','touchstart'].forEach(x=>c.addEventListener(x,start,{passive:true}));['mousemove','touchmove'].forEach(x=>c.addEventListener(x,move,{passive:true}));['mouseup','mouseleave','touchend'].forEach(x=>c.addEventListener(x,()=>down=false));on('#localClear','click',()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height)});on('#localReveal','click',()=>{const r=$('#localDrawReveal');r.classList.remove('hidden');r.textContent=`🔎 Era: ${g.word}`;g.round++;setTimeout(()=>{g.word=['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)];renderLocalDraw()},1800)});}
-function renderTableSolo(){const g=state._tableSolo;if(!g)return;const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};$('#modeGameBadge').textContent=labels[g.mode][0];$('#modeGameTitle').textContent=labels[g.mode][1];$('#modeGameTurn').textContent=g.turn==='player'?'SUA VEZ':'OPONENTE PENSANDO';$('#modeGameMessage').textContent=g.message;const body=$('#modeGameBody');if(g.mode==='truco'){body.innerHTML=`<div class="truco-solo-board glass"><div class="table-opponent"><div class="solo-code-character">🤠</div><b>${g.botName}</b><small>Nível • ${g.difficulty}</small></div><div class="truco-center">🃏<strong>TRUCO!</strong><small>Rodada ${Math.floor(Math.random()*3)+1}</small></div><div class="truco-hand">${['A♥','K♣','7♦'].map((x,i)=>`<button class="playing-card-mini" data-card="${i}">${x}</button>`).join('')}</div><button id="callTruco" class="btn btn-primary">TRUCO!</button></div>`;$$('[data-card]').forEach(b=>b.onclick=()=>{g.message=`Você jogou ${b.textContent}. O oponente está pensando...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez!';renderTableSolo()},520)});on('#callTruco','click',()=>{g.message='VOCÊ GRITOU TRUCO! O oponente está decidindo...';g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message=Math.random()>.35?'O oponente aceitou! Sua vez.':'O oponente recuou! Você ganhou a mão.';renderTableSolo()},520)});return;}const pieces=g.mode==='chess'?['♜','♞','♝','♛','♚','♝','♞','♜']:['⚫','⚫','⚫','⚫','⚫','⚫','⚫','⚫'];body.innerHTML=`<div class="board-solo glass"><div class="board-grid ${g.mode}">${Array.from({length:64},(_,i)=>`<button class="board-cell ${((Math.floor(i/8)+i)%2?'dark':'light')}" data-cell="${i}">${g.mode==='chess'&&i<8?pieces[i]:g.mode==='chess'&&i>=48?['♜','♞','♝','♛','♚','♝','♞','♜'][i-48]:g.mode==='checkers'&&(Math.floor(i/8)<3||Math.floor(i/8)>4)&&((Math.floor(i/8)+i)%2)?'⚫':''}</button>`).join('')}</div></div>`;$$('.board-cell').forEach(b=>b.onclick=()=>{g.message=`Jogada em ${Number(b.dataset.cell)+1}. O oponente está analisando a jogada...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez! Escolha outra casa.';renderTableSolo()},2500)});}
+function renderTableSolo(){const g=state._tableSolo;if(!g)return;const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};$('#modeGameBadge').textContent=labels[g.mode][0];$('#modeGameTitle').textContent=labels[g.mode][1];$('#modeGameTurn').textContent=g.turn==='player'?'SUA VEZ':'OPONENTE PENSANDO';$('#modeGameMessage').textContent=g.message;const body=$('#modeGameBody');if(g.mode==='truco'){body.innerHTML=`<div class="truco-solo-board glass"><div class="table-opponent"><div class="solo-code-character">🤠</div><b>${g.opponentName}</b><small>Nível • ${g.difficulty}</small></div><div class="truco-center">🃏<strong>TRUCO!</strong><small>Rodada ${Math.floor(Math.random()*3)+1}</small></div><div class="truco-hand">${['A♥','K♣','7♦'].map((x,i)=>`<button class="playing-card-mini" data-card="${i}">${x}</button>`).join('')}</div><button id="callTruco" class="btn btn-primary">TRUCO!</button></div>`;$$('[data-card]').forEach(b=>b.onclick=()=>{g.message=`Você jogou ${b.textContent}. O oponente está pensando...`;g.turn='oponente';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez!';renderTableSolo()},520)});on('#callTruco','click',()=>{g.message='VOCÊ GRITOU TRUCO! O oponente está decidindo...';g.turn='oponente';renderTableSolo();setTimeout(()=>{g.turn='player';g.message=Math.random()>.35?'O oponente aceitou! Sua vez.':'O oponente recuou! Você ganhou a mão.';renderTableSolo()},520)});return;}const pieces=g.mode==='chess'?['♜','♞','♝','♛','♚','♝','♞','♜']:['⚫','⚫','⚫','⚫','⚫','⚫','⚫','⚫'];body.innerHTML=`<div class="board-solo glass"><div class="board-grid ${g.mode}">${Array.from({length:64},(_,i)=>`<button class="board-cell ${((Math.floor(i/8)+i)%2?'dark':'light')}" data-cell="${i}">${g.mode==='chess'&&i<8?pieces[i]:g.mode==='chess'&&i>=48?['♜','♞','♝','♛','♚','♝','♞','♜'][i-48]:g.mode==='checkers'&&(Math.floor(i/8)<3||Math.floor(i/8)>4)&&((Math.floor(i/8)+i)%2)?'⚫':''}</button>`).join('')}</div></div>`;$$('.board-cell').forEach(b=>b.onclick=()=>{g.message=`Jogada em ${Number(b.dataset.cell)+1}. O oponente está analisando a jogada...`;g.turn='oponente';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez! Escolha outra casa.';renderTableSolo()},2500)});}
 async function startSolo(difficulty){
   try {
     const g=makeSolo(difficulty);
@@ -448,19 +479,19 @@ async function startSolo(difficulty){
     toast('Não foi possível iniciar o UNO. Tente novamente.','error',4500);
   }
 }
-function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}const names=['Zé do Baralho','Dona Cartolina','Mestre 7','Vó do UNO','Neto Relâmpago','Capitão Coringa'];return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:names[Math.floor(Math.random()*names.length)]};}
+function makeSolo(difficulty){const deck=makeDeck(),player=[],oponente=[];for(let i=0;i<7;i++){player.push(deck.pop());oponente.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}const names=['Zé do Baralho','Dona Cartolina','Mestre 7','Vó do UNO','Neto Relâmpago','Capitão Coringa'];return{difficulty,deck,player,oponente,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',opponentName:names[Math.floor(Math.random()*names.length)]};}
 function renderSolo(){
   const g=state.solo;if(!g)return;
   $('#roundText')&&($('#roundText').textContent='2 JOGADORES');
   $('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO OPONENTE');
-  $('#turnStatus')?.classList.remove('bot');
+  $('#turnStatus')?.classList.remove('oponente');
   renderArenaCard(g.discard,g.color);
   $('#deckCount')&&($('#deckCount').textContent=g.deck.length);
-  if($('#opponents'))$('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="opponent">
+  if($('#opponents'))$('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-opponent" data-player-id="opponent">
     <div class="player-emote" data-emote-for="opponent"></div>
-    ${gamePortraitMarkup(DEFAULT_AVATAR,g.botName)}
-    <div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} CARTAS</small></div>
-    <div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div>
+    ${gamePortraitMarkup(DEFAULT_AVATAR,g.opponentName)}
+    <div class="player-nameplate"><b>${escapeHtml(g.opponentName)}</b><small>${g.oponente.length} CARTAS</small></div>
+    <div class="mini-hand">${Array.from({length:Math.min(7,g.oponente.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div>
   </div>`;
   const hand=$('#playerHand');
   if(hand){
@@ -476,7 +507,7 @@ function renderArenaCard(card,color){
   const el=$('#discardPile');if(el){
     const value=String(card?.value??'?');
     el.className=`uno-card card-${color||'red'} big-card center-card face-up-card`;
-    el.innerHTML=`<span class="card-corner top">${escapeHtml(value)}</span><span class="card-symbol">${escapeHtml(value)}</span><span class="card-corner bottom">${escapeHtml(value)}</span>`;
+    el.innerHTML=`<span class="card-corner top">${escapeHtml(value)}</span><span class="card-symbol">${escapeHtml(value)}</span><span class="card-corner oponentetom">${escapeHtml(value)}</span>`;
     el.setAttribute('aria-label',`Carta na mesa: ${value}`);
   }
   if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';
@@ -486,7 +517,7 @@ function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(
 function bindRenderedHand(){const hand=$('#playerHand');if(!hand)return;hand.querySelectorAll('.hand-card').forEach((el)=>{el.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const index=Number(el.dataset.index);if(Number.isInteger(index))playHandCard(index);};});}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
 function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;Sound.click();const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}applySoloCard(card);}
-function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.bot,2);if(card.type==='draw4')drawSolo(g.bot,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));return;}g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));}
+function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.oponente,2);if(card.type==='draw4')drawSolo(g.oponente,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));return;}g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));}
 function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
 function drawGameCard(){
   if(state.solo){soloDraw();return;}
@@ -501,37 +532,37 @@ function exitGame(){
   if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');return;}
   navigate('solo');
 }
-function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();const drawn=g.player[g.player.length-1];if(count===1&&drawn&&playable(drawn,g.discard,g.color)){g.message='Você comprou uma carta jogável. Escolha se quer jogar.';renderSolo();return;}g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));}
-function soloBotDelay(difficulty='medium'){const ranges={easy:[280,520],medium:[360,680],hard:[480,850]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
-function botTurn(){
-  const g=state.solo;if(!g||g.turn!=='bot')return;
-  const delay=soloBotDelay(g.difficulty);
-  toast(`🧠 Oponente analisando...`,'info',Math.min(2200,Math.max(700,delay-200)));
+function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();const drawn=g.player[g.player.length-1];if(count===1&&drawn&&playable(drawn,g.discard,g.color)){g.message='Você comprou uma carta jogável. Escolha se quer jogar.';renderSolo();return;}g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));}
+function opponentDelay(difficulty='medium'){const ranges={easy:[140,240],medium:[170,300],hard:[210,360]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
+function housePlayerTurn(){
+  const g=state.solo;if(!g||g.turn!=='oponente')return;
+  const delay=opponentDelay(g.difficulty);
+  toast(`🧠 Oponente jogando...`,'info',Math.min(2200,Math.max(700,delay-200)));
   setTimeout(()=>{
-    if(!state.solo||state.solo!==g||g.turn!=='bot')return;
-    let cards=g.bot.filter(c=>playable(c,g.discard,g.color));if(g.pendingDraw>0)cards=[];let card=null;
+    if(!state.solo||state.solo!==g||g.turn!=='oponente')return;
+    let cards=g.oponente.filter(c=>playable(c,g.discard,g.color));if(g.pendingDraw>0)cards=[];let card=null;
     if(g.difficulty==='easy')card=cards[Math.floor(Math.random()*cards.length)]||null;
-    else if(g.difficulty==='hard')card=cards.sort((a,b)=>botScore(g,b)-botScore(g,a))[0]||null;
+    else if(g.difficulty==='hard')card=cards.sort((a,b)=>opponentScore(g,b)-opponentScore(g,a))[0]||null;
     else card=cards.sort((a,b)=>cardScore(b)-cardScore(a))[0]||null;
-    if(!card){drawSolo(g.bot,g.pendingDraw||1);g.pendingDraw=0;g.turn='player';Sound.cardDraw();renderSolo();return;}
-    g.bot.splice(g.bot.indexOf(card),1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?chooseColorBot(g.bot):card.color;
+    if(!card){drawSolo(g.oponente,g.pendingDraw||1);g.pendingDraw=0;g.turn='player';Sound.cardDraw();renderSolo();return;}
+    g.oponente.splice(g.oponente.indexOf(card),1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?chooseOpponentColor(g.oponente):card.color;
     g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;
     if(card.type==='draw2')drawSolo(g.player,2);if(card.type==='draw4')drawSolo(g.player,4);
     Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();
-    if(g.bot.length===0)return finishSolo(false);if(g.bot.length===1){toast(`📣 ${g.botName} gritou UNO!`,'success',1800);Sound.uno();}
+    if(g.oponente.length===0)return finishSolo(false);if(g.oponente.length===1){toast(`📣 ${g.opponentName} gritou UNO!`,'success',1800);Sound.uno();}
     g.turn='player';renderSolo();
   },delay);
 }
 function cardScore(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?40:Number(c.value)||0;}
-function botScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player.length<=3&&c.type!=='number')n+=25;return n;}
-function chooseColorBot(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
+function opponentScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player.length<=3&&c.type!=='number')n+=25;return n;}
+function chooseOpponentColor(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
 function dancePodiumCharacters(entries){
   return entries.map((e,i)=>`<div class="podium-slot place-${i+1}"><div class="podium-confetti">${i===0?'👑':'✨'}</div><div class="podium-dancer">${characterMarkup(e.avatar||DEFAULT_AVATAR,e.name||'Jogador')}</div><div class="podium-base"><strong>${i+1}º</strong><b>${escapeHtml(e.name||'Jogador')}</b><small>${escapeHtml(e.label||'')}</small></div></div>`).join('');
 }
 function showPodium(entries){
   const overlay=$('#podiumOverlay');if(!overlay)return;const top=[...entries].slice(0,3);overlay.innerHTML=`<div class="podium-card"><button class="podium-close" id="btnClosePodium" type="button">×</button><span class="pill">🏆 PARTIDA ENCERRADA</span><h2>O PÓDIO DO BARALHO!</h2><p>Os campeões estão comemorando!</p><div class="podium-stage">${dancePodiumCharacters(top)}</div><button class="btn btn-primary btn-wide" id="btnPodiumLobby" type="button">🏠 VOLTAR AO LOBBY</button></div>`;overlay.classList.remove('hidden');Sound.win();[0,1,2].forEach(i=>setTimeout(()=>Sound.emote(),i*180));on('#btnClosePodium','click',closePodium);on('#btnPodiumLobby','click',closePodium);}
 function closePodium(){hide('#podiumOverlay');state.solo=null;state._onlineGame=null;if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;}navigate('lobby');}
-async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}const playerEntry={name:state.user?.username||'Jogador',avatar:state.profile?.avatar||DEFAULT_AVATAR,label:win?'CAMPEÃO':'JOGADOR'};const botAvatar={...DEFAULT_AVATAR,character:['barman','robo','rei'][Math.floor(Math.random()*3)]};const others=[{name:'Oponente',avatar:botAvatar,label:'Vice-campeão'},{name:'Oponente',avatar:{...DEFAULT_AVATAR,character:['rainha','astronauta','velhinho'][Math.floor(Math.random()*3)]},label:'3º lugar'}];const entries=win?[playerEntry,others[0],others[1]]:[others[0],playerEntry,others[1]];showPodium(entries);}
+async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}const playerEntry={name:state.user?.username||'Jogador',avatar:state.profile?.avatar||DEFAULT_AVATAR,label:win?'CAMPEÃO':'JOGADOR'};const oponenteAvatar={...DEFAULT_AVATAR,character:['barman','robo','rei'][Math.floor(Math.random()*3)]};const others=[{name:'Oponente',avatar:oponenteAvatar,label:'Vice-campeão'},{name:'Oponente',avatar:{...DEFAULT_AVATAR,character:['rainha','astronauta','velhinho'][Math.floor(Math.random()*3)]},label:'3º lugar'}];const entries=win?[playerEntry,others[0],others[1]]:[others[0],playerEntry,others[1]];showPodium(entries);}
 
 function initDrawingCanvas(){
   const canvas=$('#drawCanvas');if(!canvas)return;
@@ -574,7 +605,7 @@ function renderDrawingGuess(g){
 }
 
 // ---------------- ONLINE ----------------
-function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
+function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseOpponentColor(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
 
 function handleGameAction(action={}){
   if(action.type==='play'){Sound.play();toast(`🃏 ${escapeHtml(action.username||'Jogador')} jogou uma carta.`,'info',1200);}
@@ -641,7 +672,7 @@ function renderOnlineGame(game){
   $('#roundText')&&($('#roundText').textContent=playerCount===4?'2 VS 2':`${playerCount} JOGADORES`);
   const mine=String(game.currentPlayerId)===String(state.user.id);
   $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');
-  $('#turnStatus')?.classList.remove('bot');
+  $('#turnStatus')?.classList.remove('oponente');
   const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;
   state.currentMapTheme=theme.music||'saloon';
   applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
@@ -695,7 +726,7 @@ function characterMarkup(a,name=''){
   const tops={shirt_basic:'#2f80ed',shirt_red:'#ef4444',shirt_neon:'#06b6d4',shirt_gold:'#eab308',shirt_space:'#64748b'};
   const pantsMap={pants_basic:'#23324a',pants_black:'#111827',pants_neon:'#16a34a'};
   const shoesMap={shoes_basic:'#e5e7eb',shoes_red:'#ef4444',shoes_gold:'#facc15'};
-  const shirt=tops[x.top]||ch.shirt, pants=pantsMap[x.bottom]||ch.pants, shoes=shoesMap[x.shoes]||'#e5e7eb';
+  const shirt=tops[x.top]||ch.shirt, pants=pantsMap[x.oponentetom]||ch.pants, shoes=shoesMap[x.shoes]||'#e5e7eb';
   const glasses=['glasses_basic','glasses_cyan','glasses_gold'].includes(x.accessory);
   const gc=x.accessory==='glasses_cyan'?'#22d3ee':x.accessory==='glasses_gold'?'#facc15':'#111827';
   const backpack=x.accessory?.startsWith('backpack_') ? `<path d="M18 67 Q10 71 13 88 Q15 95 22 94 L28 91 L27 68Z" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}" stroke="#fff3" stroke-width="1.2"/>` : '';
@@ -738,7 +769,7 @@ function renderCharactersPage(){
 }
 async function selectCharacter(id){const c=ORIGINAL_CHARACTERS[id];if(!c)return;if(!characterOwned(id)){toast(`🔒 ${c.name}: ${c.req}`,'info');return;}state.profile.avatar.character=id;renderCharactersPage();renderCharacter('#heroCharacter',state.profile.avatar);await persistCharacterSilently();Sound.ok();toast(`${c.name} equipado!`,'success');}
 
-function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
+function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',oponentetom:'customOponentetom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
@@ -920,7 +951,7 @@ function renderCustomPage(){
 }
 function renderEquippedList(owned){
   const el=$('#equippedList');if(!el)return;
-  const slots=[['top','👕'],['hair','💇'],['bottom','👖'],['shoes','👟'],['accessory','🕶️']];
+  const slots=[['top','👕'],['hair','💇'],['oponentetom','👖'],['shoes','👟'],['accessory','🕶️']];
   el.innerHTML=slots.map(([slot,icon])=>`<div class="equipped-chip"><span>${icon}</span><div><small>${slot}</small><b>${escapeHtml(itemName(state.profile.avatar[slot]))}</b></div></div>`).join('');
 }
 function renderCustomCatalog(category){
