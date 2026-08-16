@@ -1,11 +1,47 @@
-const CACHE="uno-dos-idosos-v2";
-const CORE=["/","/index.html","/style.css","/app.js"];
-self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE).catch(()=>{})).then(()=>self.skipWaiting()));});
-self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
-self.addEventListener("fetch",e=>{
-  if(e.request.method!=="GET") return;
-  const u=new URL(e.request.url);
-  if(u.origin!==self.location.origin || u.pathname.startsWith('/api/') || u.pathname.startsWith('/socket.io/')) return;
-  if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put('/index.html',c));return r;}).catch(()=>caches.match('/index.html')));return;}
-  e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok){const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));}return r;}).catch(()=>hit)));
+const CACHE='uno-dos-idosos-v3';
+const CORE=['/','/index.html','/style.css','/app.js'];
+
+self.addEventListener('install',event=>{
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache=>cache.addAll(CORE).catch(()=>{}))
+      .then(()=>self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate',event=>{
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
+      .then(()=>self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET') return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) return;
+
+  // HTML e JavaScript/CSS sempre tentam a versão nova primeiro.
+  // Isso evita o celular ficar preso em uma versão quebrada do jogo.
+  const fresh=url.pathname==='/' || url.pathname==='/index.html' || url.pathname==='/app.js' || url.pathname==='/style.css' || url.pathname==='/service-worker.js';
+  if(fresh){
+    event.respondWith(
+      fetch(event.request,{cache:'no-store'})
+        .then(response=>{
+          if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+          return response;
+        })
+        .catch(()=>caches.match(event.request).then(hit=>hit || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(hit=>hit || fetch(event.request).then(response=>{
+        if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+        return response;
+      }).catch(()=>hit))
+  );
 });

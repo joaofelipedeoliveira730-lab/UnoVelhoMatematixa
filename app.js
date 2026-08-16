@@ -78,25 +78,65 @@ async function refreshLoadStats(){
   const st=$('#loadStats'); if(st)st.textContent=`${kb(transferred)} carregados • armazenamento: ${storage}`;
 }
 function setLoadingProgress(v,status){const n=Math.max(0,Math.min(100,v));const bar=$('#loadProgress'),pct=$('#loadPercent'),txt=$('#loadStatus');if(bar)bar.style.width=n+'%';if(pct)pct.textContent=Math.round(n)+'%';if(txt)txt.textContent=status||'Carregando...';}
+function safeStorageGet(key, fallback=null){try{return localStorage.getItem(key) ?? fallback;}catch{return fallback;}}
+function safeStorageSet(key,value){try{localStorage.setItem(key,value);return true;}catch{return false;}}
+
 async function runPreAuthSequence(){
-  const accepted=localStorage.getItem('uv_terms_v1')==='accepted';
-  hide('#authScreen');hide('#appScreen');hide('#platformScreen');
-  const splash=$('#studioSplash'); if(splash){show(splash);const bar=$('#studioProgress');const status=$('#studioStatus');let p=0;const t=setInterval(()=>{p=Math.min(100,p+7+Math.random()*10);if(bar)bar.style.width=p+'%';if(status)status.textContent=p<35?'Acendendo as luzes da VelhoStudios...':p<70?'Embaralhando as cartas...':'Abrindo a mesa dos idosos...';if(p>=100){clearInterval(t);setTimeout(()=>{hide(splash);if(!accepted)show('#termsScreen');else startLoadingScreen();},450);}},90);}
-  else if(!accepted)show('#termsScreen');else startLoadingScreen();
+  const accepted=safeStorageGet('uv_terms_v1')==='accepted';
+  hide('#authScreen');hide('#appScreen');hide('#platformScreen');hide('#termsScreen');hide('#bootScreen');
+  const splash=$('#studioSplash');
+  if(!splash){ if(!accepted) show('#termsScreen'); else await startLoadingScreen(); return; }
+  show(splash);
+  const bar=$('#studioProgress');
+  const status=$('#studioStatus');
+  let p=0, finished=false;
+  const finish=async()=>{
+    if(finished)return; finished=true;
+    hide(splash);
+    if(!accepted) show('#termsScreen');
+    else await startLoadingScreen();
+  };
+  const t=setInterval(()=>{
+    p=Math.min(100,p+8+Math.random()*12);
+    if(bar)bar.style.width=p+'%';
+    if(status)status.textContent=p<35?'Acendendo as luzes da VelhoStudios...':p<70?'Embaralhando as cartas...':'Abrindo a mesa dos idosos...';
+    if(p>=100){clearInterval(t);setTimeout(finish,220);}
+  },90);
+  // Nunca deixe a vinheta bloquear o jogo por erro de timer/renderização.
+  setTimeout(()=>{clearInterval(t);finish();},3500);
 }
+
 async function startLoadingScreen(){
-  show('#bootScreen');setLoadingProgress(8,'Preparando a mesa...');await refreshLoadStats();
-  const steps=[['Carregando cartas e sons...',28],['Montando personagens...',48],['Preparando mapas...',66],['Otimizando a interface...',82],['Quase pronto...',94]];
-  for(const [label,target] of steps){await new Promise(r=>setTimeout(r,180));setLoadingProgress(target,label);await refreshLoadStats();}
-  await registerLightServiceWorker();setLoadingProgress(100,'Tudo pronto!');await refreshLoadStats();
-  setTimeout(()=>hide('#bootScreen'),550);
+  show('#bootScreen');setLoadingProgress(5,'Preparando a mesa...');
+  const steps=[
+    ['Carregando cartas e sons...',25],
+    ['Montando personagens...',45],
+    ['Preparando a mesa...',65],
+    ['Otimizando a interface...',82],
+    ['Quase pronto...',95]
+  ];
+  for(const [label,target] of steps){
+    await new Promise(r=>setTimeout(r,120));
+    setLoadingProgress(target,label);
+    // Estatísticas são opcionais; nunca podem travar a entrada.
+    refreshLoadStats().catch(()=>{});
+  }
+  setLoadingProgress(100,'Tudo pronto!');
+  setTimeout(()=>hide('#bootScreen'),180);
   applyPlatform(state.platform);
-  if(!state.platform){show('#platformScreen');return;}await continueAfterPlatform();
+  if(!state.platform){show('#platformScreen');return;}
+  await continueAfterPlatform();
 }
+
 async function init(){
-  document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
-  bindEvents();
-  await runPreAuthSequence();
+  try{document.documentElement.style.setProperty('--motion',safeStorageGet('uv_reduced_motion')==='1'?'0':'1');}catch{}
+  try{bindEvents();}catch(err){console.error('Falha ao ligar interface:',err);}
+  try{await runPreAuthSequence();}
+  catch(err){
+    console.error('Falha na inicialização:',err);
+    hide('#studioSplash');hide('#termsScreen');hide('#bootScreen');hide('#platformScreen');
+    show('#authScreen');switchAuth('login');
+  }
 }
 
 async function continueAfterPlatform(){
