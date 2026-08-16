@@ -26,6 +26,8 @@ const jwtSecret = JWT_SECRET || (process.env.DATABASE_URL ? crypto.createHash('s
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json({ limit: '300kb' }));
+// Evita que navegadores/CDNs sirvam HTML, JS e CSS antigos depois de uma atualização.
+app.use((req,res,next)=>{ if(req.path==='/' || /\.(html|js|css)$/.test(req.path)){res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');res.setHeader('Expires','0');} next(); });
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use(express.static(path.join(__dirname)));
 
@@ -756,7 +758,7 @@ server.listen(PORT,'0.0.0.0',()=>{
   })();
 });
 process.on('SIGTERM',async()=>{try{await pool?.end()}finally{process.exit(0)}});
-const CEO_NAME='ceovelho';function requireCEO(req,res,next){if(String(req.user?.username||'').toLowerCase()!==CEO_NAME||req.user?.role!=='CEO')return res.status(403).json({success:false,message:'Acesso exclusivo do CEO.'});next()}
+const CEO_NAME='ceovelho';function requireCEO(req,res,next){if(String(req.user?.username||'').trim().toLowerCase()!==CEO_NAME)return res.status(403).json({success:false,message:'Acesso exclusivo da conta CeoVelho.'});next()}
 app.get('/api/ceo/users',auth,requireCEO,async(req,res)=>{try{const r=await pool.query('SELECT id,username,role,level,xp,coins,last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 200');res.json({success:true,users:r.rows})}catch(e){res.status(500).json({success:false,message:'Não foi possível carregar jogadores.'})}});
 app.post('/api/ceo/reset-xp',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId);await pool.query("UPDATE users SET xp=0,level=1 WHERE id=$1 AND LOWER(username)<>$2",[id,CEO_NAME]);res.json({success:true,message:'XP zerado.'})}catch(e){res.status(500).json({message:'Erro ao zerar XP.'})}});
 app.post('/api/ceo/chat-block',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId),mins=Math.max(1,Math.min(10080,Number(req.body.minutes)||60));await pool.query("UPDATE users SET chat_blocked_until=NOW()+($2||' minutes')::interval WHERE id=$1 AND LOWER(username)<>$3",[id,mins,CEO_NAME]);res.json({success:true,message:'Chat bloqueado.'})}catch(e){res.status(500).json({message:'Erro ao bloquear chat.'})}});

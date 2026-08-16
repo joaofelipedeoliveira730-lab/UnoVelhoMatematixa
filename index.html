@@ -239,6 +239,25 @@
 </div>
 <div id="ceoPanel" class="modal-overlay hidden"><div class="modal modal-wide ceo-modal"><div class="modal-head"><div><span class="pill">👑 CEO</span><h2>Painel de Controle</h2><small>Conta autorizada: <b>CeoVelho</b></small></div><button class="close-modal" id="btnCloseCEO" type="button">×</button></div><div class="ceo-grid"><div class="panel"><h3>⚡ Controle global</h3><div class="ceo-actions"><button id="ceoFreeze" class="btn btn-danger">⏸ PARALISAR JOGO</button><button id="ceoUnfreeze" class="btn btn-primary">▶ DESCONGELAR</button><button id="ceoResetPodium" class="btn btn-secondary">🏆 RESETAR PÓDIO</button><button id="ceoClearLogins" class="btn btn-secondary">🧹 LIMPAR LOGINS</button></div><label>Mensagem global<input id="ceoMessage" maxlength="300" placeholder="Mensagem para todos"></label><button id="ceoSendMessage" class="btn btn-primary btn-wide">📢 ENVIAR</button></div><div class="panel"><h3>👥 Jogadores</h3><div id="ceoUsers" class="ceo-users"></div></div></div></div></div><div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="app.js?v=20260815-opt8"></script>
+<script>
+/* Bootstrap anti-cache: remove Service Workers antigos antes de carregar o app.
+   Isso evita que o celular execute um app.js velho e mostre "post is not defined". */
+(async()=>{
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if('caches' in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){ console.warn('Limpeza de cache ignorada:',e); }
+  const script=document.createElement('script');
+  script.src='app.js?v=20260816-1-'+Date.now();
+  script.onerror=()=>{const el=document.getElementById('bootScreen');if(el)el.innerHTML='<div class="loader-logo">UNO<span> DOS IDOSOS</span></div><p>Não foi possível carregar o jogo. Atualize a página.</p><button onclick="location.reload()" style="padding:12px 20px;border-radius:12px;border:0">RECARREGAR</button>';};
+  document.body.appendChild(script);
+})();
+</script>
 </body>
 </html>

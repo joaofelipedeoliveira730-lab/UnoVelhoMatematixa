@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260815-9';
+const VERSION = '20260816-1';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -54,6 +54,14 @@ function hide(id){const el=typeof id==='string'?$(id):id;if(el)el.classList.add(
 function on(id,event,fn){const el=$(id);if(el)el.addEventListener(event,fn);}
 function authHeaders(extra={}){return {...extra,...(state.token?{Authorization:`Bearer ${state.token}`}:{})};}
 async function api(url,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),9000);try{const opts={credentials:'include',signal:controller.signal,...options,headers:authHeaders({'Content-Type':'application/json',...(options.headers||{})})};const res=await fetch(API+url,opts);let data={};try{data=await res.json()}catch{}if(!res.ok)throw Object.assign(new Error(data.message||`Erro ${res.status} de comunicação com o servidor.`),{status:res.status,data});return data}catch(e){if(e.name==='AbortError')throw new Error('O servidor demorou demais. Tente novamente.');throw e}finally{clearTimeout(timeout)}}
+// Helpers HTTP usados por login, loja, inventário, salas e painel CEO.
+// Mantidos separados do fetch bruto para evitar botões presos e erros de referência.
+async function get(url){ return api(url,{method:'GET',headers:{}}); }
+async function post(url,body={}){ return api(url,{method:'POST',body:JSON.stringify(body)}); }
+async function put(url,body={}){ return api(url,{method:'PUT',body:JSON.stringify(body)}); }
+async function del(url,body={}){ return api(url,{method:'DELETE',body:JSON.stringify(body)}); }
+// Expondo os helpers também no window evita qualquer falha causada por cache antigo/handlers legados.
+window.get=window.get||get; window.post=window.post||post; window.put=window.put||put; window.del=window.del||del;
 function defaults(){return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));}
 function normalizeProfile(profile){const p=profile||{};p.avatar={...DEFAULT_AVATAR,...(p.avatar||{})};p.settings={...defaults(),...(p.settings||{})};p.bio=p.bio||'';return p;}
 function itemName(id){const item=state.items.find(x=>x.id===id);if(item?.name)return item.name;return ({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'Iniciante');}
@@ -64,6 +72,7 @@ async function clearOldClientCache(){
 }
 
 async function init(){
+  window.__UV_APP_READY__=true;
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
   setTimeout(()=>hide('#bootScreen'),250);
   bindEvents();
@@ -152,6 +161,7 @@ function bindEvents(){
   on('#btnBackGame','click',exitGame);
   on('#btnSound','click',toggleMute);
   on('#btnLogout','click',logout);
+  on('#btnCEO','click',openCEOPanel);on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/ceo/message',{message:msg});});
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
   $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
@@ -196,10 +206,13 @@ async function register(e){
 
 async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
-  try{state.items=(await get('/items')).items||[];}catch{state.items=[];}
-  try{state.inventory=(await get('/inventory')).items||[];}catch{state.inventory=[];}
+  const [itemsRes,inventoryRes]=await Promise.allSettled([get('/items'),get('/inventory')]);
+  state.items=itemsRes.status==='fulfilled'?(itemsRes.value.items||[]):[];
+  state.inventory=inventoryRes.status==='fulfilled'?(inventoryRes.value.items||[]):[];
   updateUserUI();applySettings();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
-  renderMapPreview();renderAchievementsPreview();await loadMiniRank();connectSocket();navigate('lobby');
+  renderMapPreview();renderAchievementsPreview();connectSocket();navigate('lobby');
+  // Ranking é secundário: carrega depois da tela abrir e nunca bloqueia o usuário.
+  void loadMiniRank();
   if(forceCustomize)openCustomize();
 }
 function updateUserUI(){
