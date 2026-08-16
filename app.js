@@ -408,7 +408,7 @@ async function connectSocket(){
   state.socket.on('drawing:guess',renderDrawingGuess);
   state.socket.on('drawing:turn',renderDrawingTurn);
   state.socket.on('drawing:round',renderDrawingRound);
-  state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);const game=state._onlineGame;const players=(game?.players||[]).slice().sort((a,b)=>(Number(a.cardCount)||0)-(Number(b.cardCount)||0));const entries=players.slice(0,3).map((p,i)=>({name:p.username||'Jogador',avatar:p.avatar||DEFAULT_AVATAR,label:i===0?'CAMPEÃO':`${i+1}º lugar`}));if(entries.length)showPodium(entries);});
+  state.socket.on('game:ended',m=>{state._onlineGame=null;toast(m?.message||'A partida foi encerrada.', 'info', 4200);if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;}navigate('rooms');});state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);const game=state._onlineGame;const players=(game?.players||[]).slice().sort((a,b)=>(Number(a.cardCount)||0)-(Number(b.cardCount)||0));const entries=players.slice(0,3).map((p,i)=>({name:p.username||'Jogador',avatar:p.avatar||DEFAULT_AVATAR,label:i===0?'CAMPEÃO':`${i+1}º lugar`}));if(entries.length)showPodium(entries);});
   state.socket.on('global:pause',m=>applyMaintenance(true,m?.message));state.socket.on('global:resume',()=>applyMaintenance(false,''));
   state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
   state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;navigate('lobby');});
@@ -488,7 +488,16 @@ function startSoloIntroAndGame(g,difficulty){
 
 // ---------------- SOLO ----------------
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
-function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
+function playable(card,top,color,hand=[],pendingDraw=0,stackDraw=false){
+  if(!card||!top)return false;
+  if(pendingDraw>0){
+    if(!stackDraw)return false;
+    const expected=pendingDraw===2?'draw2':pendingDraw===4?'draw4':null;
+    if(!expected||card.type!==expected)return false;
+  }
+  if(card.type==='draw4'&&Array.isArray(hand)&&hand.some(c=>c!==card&&c.color!=='black'&&c.color===color))return false;
+  return card.color==='black'||card.color===color||card.value===top.value;
+}
 let soloMode='uno';
 function xpDifficulty(xp=0){const n=Math.max(0,Number(xp)||0);if(n>=5000)return 'hard';if(n>=1500)return 'medium';return 'easy';}
 function startSoloMode(mode,difficulty='medium'){
@@ -553,7 +562,7 @@ function renderArenaCard(card,color){
 function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(delta*5).toFixed(2);const lift=Math.min(12,Math.abs(delta)*2).toFixed(1);return `<button class="uno-card card-${c.color} hand-card" data-index="${i}" style="--rot:${rot}deg;--lift:${lift}px;--z:${20+i};--i:${i}" type="button" aria-label="Jogar carta ${escapeHtml(c.value)}"><i>${escapeHtml(c.value)}</i><span>${escapeHtml(c.value)}</span><em>${c.type==='number'?'UNO':c.type.toUpperCase()}</em></button>`;}
 function bindRenderedHand(){const hand=$('#playerHand');if(!hand)return;hand.querySelectorAll('.hand-card').forEach((el)=>{el.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const index=Number(el.dataset.index);if(Number.isInteger(index))playHandCard(index);};});}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
-function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;Sound.click();const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}applySoloCard(card);}
+function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;Sound.click();const card=g.player[index];if(!playable(card,g.discard,g.color,g.player,g.pendingDraw,g.stackDraw))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}applySoloCard(card);}
 function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.oponente,2);if(card.type==='draw4')drawSolo(g.oponente,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='oponente';renderSolo();scheduleSoloOpponent(g);return;}g.turn='oponente';renderSolo();scheduleSoloOpponent(g);}
 function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
 function drawGameCard(){
@@ -600,7 +609,7 @@ function housePlayerTurn(){
   const delay=Math.min(9000,opponentDelay(g.difficulty));
   setTimeout(()=>{
     if(!state.solo||state.solo!==g||g.turn!=='oponente')return;
-    let cards=g.oponente.filter(c=>playable(c,g.discard,g.color));
+    let cards=g.oponente.filter(c=>playable(c,g.discard,g.color,g.oponente,g.pendingDraw,g.stackDraw));
     if(g.pendingDraw>0)cards=[];
     let card=null;
     if(g.difficulty==='easy')card=cards[Math.floor(Math.random()*cards.length)]||null;
@@ -666,7 +675,7 @@ function renderDrawingGuess(g){
 }
 
 // ---------------- ONLINE ----------------
-function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseOpponentColor(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
+function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor,game.hand,game.pendingDraw,game.stackDraw))return toast(game.pendingDraw>0?'Só vale empilhar a mesma carta de compra.':'Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseOpponentColor(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
 
 function renderTypingIndicator(m={}){const el=$('#gameChatTyping');if(!el)return;el.textContent=m.typing?`${escapeHtml(m.username||'Jogador')} está digitando...`:'';el.classList.toggle('hidden',!m.typing);}
 function handleChatAction(m={}){ /* evento visual de chat; nunca altera turno ou navegação */ }

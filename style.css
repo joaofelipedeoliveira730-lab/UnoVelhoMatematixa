@@ -1417,3 +1417,44 @@ body.in-game .table-center-3d .draw-stack .back-card{transform:perspective(1000p
 .maintenance-card small{color:#8ea9d3}
 @keyframes maintenancePulse{0%,100%{transform:translateY(0);box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 60px rgba(72,92,255,.12)}50%{transform:translateY(-4px);box-shadow:0 34px 110px rgba(0,0,0,.58),0 0 90px rgba(104,78,255,.22)}}
 @media(max-width:700px){.maintenance-card{padding:32px 20px}.maintenance-icon{font-size:52px}.maintenance-card h2{font-size:29px}.maintenance-card p{font-size:14px}}
+
+
+/* POLIMENTO — mesa viva, estados claros e toque de produto acabado */
+button{transition:transform .16s ease,filter .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.06)}
+button:active:not(:disabled){transform:translateY(0) scale(.985)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(72,230,255,.65);outline-offset:3px}
+button:disabled{cursor:not-allowed;opacity:.52;filter:saturate(.55)}
+.big-menu-btn,.mode-hub-btn,.classic-mode-card,.training-card,.online-mode-card,.rail-btn,.character-small-action{position:relative;overflow:hidden}
+.big-menu-btn::after,.mode-hub-btn::after,.classic-mode-card::after,.training-card::after,.online-mode-card::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.08) 50%,transparent 65%);transform:translateX(-120%);transition:transform .55s ease;pointer-events:none}
+.big-menu-btn:hover::after,.mode-hub-btn:hover::after,.classic-mode-card:hover::after,.training-card:hover::after,.online-mode-card:hover::after{transform:translateX(120%)}
+.player-seat{transition:transform .22s ease,filter .22s ease,opacity .22s ease}
+.player-seat:not(.active){filter:saturate(.82)}
+.player-seat.active{transform:translateY(-7px) scale(1.025);filter:brightness(1.08);z-index:8}
+.player-seat.active .player-nameplate{box-shadow:0 8px 26px rgba(72,230,255,.22);border-color:rgba(72,230,255,.48)}
+.hand-card{transform:rotate(var(--rot)) translateY(var(--lift));transform-origin:50% 100%;transition:transform .2s cubic-bezier(.2,.8,.2,1),filter .2s ease,margin .2s ease}
+.hand-card:hover{transform:rotate(0deg) translateY(-22px) scale(1.07);z-index:100;filter:drop-shadow(0 18px 18px rgba(0,0,0,.34))}
+.hand-card.card-selected-to-play{animation:cardPlayPulse .45s ease}
+@keyframes cardPlayPulse{50%{transform:rotate(0) translateY(-30px) scale(1.1);filter:drop-shadow(0 0 22px rgba(72,230,255,.6))}}
+.draw-stack{will-change:transform}
+.draw-stack:hover{filter:brightness(1.12) drop-shadow(0 12px 20px rgba(0,0,0,.3))}
+.uno-call{min-width:92px;font-weight:1000;letter-spacing:.08em}
+.uno-call:not(:disabled){box-shadow:0 10px 26px rgba(255,82,118,.22)}
+.turn-badge{min-width:120px;text-align:center}
+.table-status{pointer-events:none}
+.room-players .room-player{transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.room-players .room-player:hover{transform:translateY(-2px);border-color:rgba(72,230,255,.4)}
+.chat-form button{min-width:46px}
+@media (max-width:900px){
+  .menu-main-v2{grid-template-columns:1fr!important}
+  .menu-character-column{order:0}
+  .main-buttons-v2{order:1}
+  .right-rail-v2{order:2}
+  .arena-tools .report-game-btn{display:none}
+  .arena-top{gap:8px}
+  .game-stat-match{display:none}
+  .hand-cards{padding-inline:10px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+}

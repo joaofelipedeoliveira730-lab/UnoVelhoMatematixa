@@ -589,11 +589,48 @@ function makeRoomPlayer(user,avatar=null){return {userId:user.id,username:user.u
 function makeHousePlayer(n){return {userId:`oponente-${Date.now()}-${n}`,username:['Calculinho','Fibonacci','Ada','Newton','Gauss','Euler','Turing','Hipátia'][n%8],role:'player',avatar:null,connected:true,hand:[],isHousePlayer:true};}
 function roomSummary(room){return {code:room.code,name:room.name,ownerId:room.ownerId,ownerName:room.ownerName,locked:!!room.password,started:room.started,players:room.players.map(p=>({userId:p.userId,username:p.username,role:'player',connected:p.connected,cardCount:p.hand?.length||0,avatar:p.avatar||null})),options:room.options,createdAt:room.createdAt};}
 function emitRoom(room){io.to(`room:${room.code}`).emit('room:update',roomSummary(room));io.emit('rooms:update');}
-function removePlayer(room,userId){const i=room.players.findIndex(p=>String(p.userId)===String(userId));if(i<0)return;if(room.started){room.players[i].connected=false;room.players[i].hand=[];if(room.game?.timer)clearTimeout(room.game.timer);clearTurnGuard(room);io.to(`room:${room.code}`).emit('room:system',{message:`${room.players[i].username} saiu da partida.`});}else{room.players.splice(i,1);if(room.ownerId===userId&&room.players.length){room.ownerId=room.players[0].userId;room.ownerName=room.players[0].username;}if(!room.players.length)rooms.delete(room.code);else emitRoom(room);}}
+function removePlayer(room,userId){
+  const i=room.players.findIndex(p=>String(p.userId)===String(userId));
+  if(i<0)return;
+  if(room.started){
+    const leaving=room.players[i];
+    leaving.connected=false;
+    leaving.hand=[];
+    if(room.game?.timer)clearTimeout(room.game.timer);
+    clearTurnGuard(room);
+    io.to(`room:${room.code}`).emit('room:system',{message:`${leaving.username} saiu da partida.`});
+    const active=room.players.filter(p=>p.connected);
+    if(active.length<2){
+      room.started=false;
+      room.locked=false;
+      room.starting=false;
+      if(room.game)room.game.winner=null;
+      io.to(`room:${room.code}`).emit('game:ended',{reason:'not-enough-players',message:'A partida foi encerrada porque não há jogadores suficientes.'});
+      emitRoom(room);
+    }else{
+      if(room.game&&room.game.currentIndex===i)room.game.currentIndex=nextIndex(room,1);
+      if(room.game){room.game.turnStartedAt=Date.now();emitGame(room);scheduleTurnGuard(room);}
+      emitRoom(room);
+    }
+  }else{
+    room.players.splice(i,1);
+    if(room.ownerId===userId&&room.players.length){room.ownerId=room.players[0].userId;room.ownerName=room.players[0].username;}
+    if(!room.players.length)rooms.delete(room.code);else emitRoom(room);
+  }
+}
 
 const COLORS=['red','yellow','green','blue'];
 function buildDeck(){const deck=[];for(const color of COLORS){for(let n=0;n<=9;n++)deck.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});deck.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});deck.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});deck.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){deck.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});deck.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;}
-function playable(card,top,currentColor,hand=[]){if(!card||!top)return false;if(card.type==='draw4'&&Array.isArray(hand)&&hand.some(c=>c.id!==card.id&&c.color!=='black'&&c.color===currentColor))return false;return card.color==='black'||card.color===currentColor||card.value===top.value;}
+function playable(card,top,currentColor,hand=[],pendingDraw=0,stackDraw=false){
+  if(!card||!top)return false;
+  if(pendingDraw>0){
+    if(!stackDraw)return false;
+    const expected=pendingDraw===2?'draw2':pendingDraw===4?'draw4':null;
+    if(!expected||card.type!==expected)return false;
+  }
+  if(card.type==='draw4'&&Array.isArray(hand)&&hand.some(c=>c.id!==card.id&&c.color!=='black'&&c.color===currentColor))return false;
+  return card.color==='black'||card.color===currentColor||card.value===top.value;
+}
 const DRAW_WORDS=['abacaxi','avião','bicicleta','cachorro','café','castelo','chuva','dinossauro','dragão','elefante','escola','foguete','girafa','hambúrguer','jacaré','lua','navio','palhaço','pizza','robô','sorvete','violão','vulcão','zumbi','pirata','cacto','computador','óculos','guarda-chuva','tubarão'];
 function drawingSafe(room,viewerId){const g=room.game;const me=room.players.find(p=>String(p.userId)===String(viewerId));const isDrawer=String(g.drawerId)===String(viewerId);return {mode:'draw',code:room.code,players:room.players.map(p=>({userId:p.userId,username:p.username,role:'player',avatar:p.avatar,points:p.points||0,connected:p.connected})),drawerId:g.drawerId,drawerName:g.drawerName,secretWord:isDrawer?g.secretWord:null,turnSeconds:room.options.turnSeconds,secondsLeft:Math.max(0,Math.ceil((g.turnEndsAt-Date.now())/1000)),round:g.round,guesses:g.guesses||[],isDrawer,wordLength:g.secretWord?.length||0};}
 function emitDrawingState(room){for(const p of room.players){if(p.isHousePlayer||!p.connected)continue;for(const [sid,u] of socketUsers){if(String(u.userId)===String(p.userId))io.to(sid).emit('drawing:state',drawingSafe(room,p.userId));}}}
@@ -678,10 +715,49 @@ function fillRoomWithHiddenOpponents(room){
   const owner=room.players.find(p=>String(p.userId)===String(room.ownerId));const baseXp=Number(owner?.xp||0);while(room.players.length<target && i<target){const ai=makeHiddenOpponent(i++,room);ai.aiXp=Math.max(0,baseXp+((i%3)-1)*900);room.players.push(ai);}
 }
 function startRoomGame(room){if(room.options.gameMode==='draw')return startDrawingGame(room);if(['truco','checkers','chess'].includes(room.options.gameMode))return startComingSoonMode(room);room.started=true;room.locked=true;const deck=buildDeck();room.game={deck,discard:[],currentColor:null,currentIndex:0,direction:1,pendingDraw:0,startedAt:Date.now(),lastAction:Date.now(),turnStartedAt:Date.now(),winner:null,matchId:crypto.randomUUID(),challenges:new Map(),unoCalled:{},afkStreaks:{}};room.players.forEach(p=>p.hand=[]);for(let n=0;n<room.options.startingCards;n++)for(const p of room.players){if(deck.length)p.hand.push(deck.pop());}let top;do{top=deck.pop();}while(top&&top.color==='black');room.game.discard=[top];room.game.currentColor=top.color;emitGame(room);scheduleTurnGuard(room);if(room.players[room.game.currentIndex]?.isHousePlayer)setTimeout(()=>housePlayerTurn(room),450);}
-function safeGameFor(player,room){const g=room.game;return {code:room.code,players:room.players.map(p=>({userId:p.userId,username:p.username,role:'player',connected:p.connected,cardCount:p.hand.length,avatar:p.avatar})),top:g.discard[g.discard.length-1],recentDiscard:g.discard.slice(-6),currentColor:g.currentColor,currentPlayerId:room.players[g.currentIndex]?.userId,direction:g.direction,pendingDraw:g.pendingDraw,deckCount:g.deck.length,hand:player?.hand||[],unoRequired:!!(p&&p.hand.length===1&&!g.unoCalled?.[p.userId]),unoCalled:!!(p&&g.unoCalled?.[p.userId]),mapId:room.options.mapId,deckId:room.options.deckId,startedAt:g.startedAt,turnSeconds:room.options.turnSeconds,winner:g.winner,turnStartedAt:g.turnStartedAt,turnRemainingMs:Math.max(0,10000-(Date.now()-(g.turnStartedAt||Date.now())))};}
+function safeGameFor(player,room){
+  const g=room.game;
+  const me=player;
+  return {
+    code:room.code,
+    players:room.players.map(p=>({userId:p.userId,username:p.username,role:'player',connected:p.connected,cardCount:p.hand.length,avatar:p.avatar})),
+    top:g.discard[g.discard.length-1],
+    recentDiscard:g.discard.slice(-6),
+    currentColor:g.currentColor,
+    currentPlayerId:room.players[g.currentIndex]?.userId,
+    direction:g.direction,
+    pendingDraw:g.pendingDraw,
+    stackDraw:!!room.options.stackDraw,
+    deckCount:g.deck.length,
+    hand:me?.hand||[],
+    unoRequired:!!(me&&me.hand.length===1&&!g.unoCalled?.[me.userId]),
+    unoCalled:!!(me&&g.unoCalled?.[me.userId]),
+    mapId:room.options.mapId,
+    deckId:room.options.deckId,
+    startedAt:g.startedAt,
+    turnSeconds:room.options.turnSeconds,
+    winner:g.winner,
+    turnStartedAt:g.turnStartedAt,
+    turnRemainingMs:Math.max(0,10000-(Date.now()-(g.turnStartedAt||Date.now())))
+  };
+}
 function emitGame(room){for(const p of room.players){if(p.isHousePlayer)continue;for(const [sid,u] of socketUsers){if(String(u.userId)===String(p.userId))io.to(sid).emit('game:state',safeGameFor(p,room));}}}
 function emitGameAction(room,action){io.to(`room:${room.code}`).emit('game:action',{...action,at:Date.now()});}
-function nextIndex(room,steps=1){const g=room.game;let i=g.currentIndex;for(let n=0;n<steps;n++){do{i=(i+g.direction+room.players.length)%room.players.length;}while(room.players[i]&&!room.players[i].connected&&n<room.players.length); }return i;}
+function nextIndex(room,steps=1){
+  const g=room.game;
+  const total=room.players.length;
+  if(!total)return 0;
+  let i=((Number(g.currentIndex)||0)%total+total)%total;
+  for(let n=0;n<steps;n++){
+    let checked=0;
+    do{
+      i=(i+g.direction+total)%total;
+      checked++;
+    }while(room.players[i]&&!room.players[i].connected&&checked<=total);
+    if(checked>total)return i;
+  }
+  return i;
+}
 function clearTurnGuard(room){if(room?.game?.turnTimer){clearTimeout(room.game.turnTimer);room.game.turnTimer=null;}}
 function aiDifficultyFromXp(xp){const n=Math.max(0,Number(xp)||0);return n>=5000?'hard':n>=1500?'medium':'easy';}
 function passTurn(room,reason='tempo'){if(!room?.started||!room.game)return;const p=room.players[room.game.currentIndex];if(!p)return;clearTurnGuard(room);if(!p.isHousePlayer){room.game.afkStreaks=room.game.afkStreaks||{};room.game.afkStreaks[p.userId]=(room.game.afkStreaks[p.userId]||0)+1;emitGameAction(room,{type:'pass',playerId:p.userId,username:p.username,reason,streak:room.game.afkStreaks[p.userId]});if(room.game.afkStreaks[p.userId]>=3){const sid=[...socketUsers.entries()].find(([,u])=>String(u.userId)===String(p.userId))?.[0];if(sid)io.to(sid).emit('toast',{type:'error',message:'Você saiu da partida por inatividade (3 turnos de 10 segundos).'});removePlayer(room,p.userId);if(rooms.has(room.code)&&room.started&&room.players.length>=2){room.game.currentIndex=nextIndex(room,1);room.game.turnStartedAt=Date.now();scheduleTurnGuard(room);emitGame(room);if(room.players[room.game.currentIndex]?.isHousePlayer)setTimeout(()=>housePlayerTurn(room),450);}return;}}
@@ -700,7 +776,7 @@ function housePlayerTurn(room){
   p.aiBusy=true;
   p.aiTimer=setTimeout(()=>{
     p.aiBusy=false;if(!room.started||room.game.winner||room.players[room.game.currentIndex]!==p)return;
-    let candidates=p.hand.filter(c=>playable(c,room.game.discard.at(-1),room.game.currentColor,p.hand));
+    let candidates=p.hand.filter(c=>playable(c,room.game.discard.at(-1),room.game.currentColor,p.hand,room.game.pendingDraw,room.options.stackDraw));
     if(room.game.pendingDraw>0&&!room.options.stackDraw)candidates=[];
     const card=candidates.sort((a,b)=>scoreCard(b)-scoreCard(a))[0];
     if(!card){drawCards(room,p,room.game.pendingDraw||1);room.game.pendingDraw=0;emitGameAction(room,{type:'draw',playerId:p.userId,username:p.username,count:1});room.game.currentIndex=nextIndex(room,1);room.game.turnStartedAt=Date.now();emitGame(room);scheduleTurnGuard(room);if(room.started&&room.players[room.game.currentIndex]?.isHousePlayer)setTimeout(()=>housePlayerTurn(room),450);return;}
@@ -710,7 +786,26 @@ function housePlayerTurn(room){
 function scoreCard(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?40:c.type==='reverse'?35:10;}
 function chooseHouseColor(hand){const counts={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(counts[c.color]!=null)counts[c.color]++;});return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];}
 async function checkRoomWinner(room,player){if(player.hand.length!==0)return;clearTurnGuard(room);room.game.winner=player.userId;room.started=false;room.locked=false;const realPlayers=room.players.filter(p=>!p.isHousePlayer);for(const p of realPlayers){const win=String(p.userId)===String(player.userId);await finishMatchPlayer(p,room,win);}emitGame(room);emitRoom(room);io.to(`room:${room.code}`).emit('game:winner',{username:player.username,userId:player.userId});}
-async function finishMatchPlayer(p,room,win){if(!usePostgres||p.isHousePlayer)return;const coins=win?150:25;const xp=win?250:60;try{await pool.query('BEGIN');await pool.query(`UPDATE users SET coins=coins+$1,xp=xp+$2,level=LEAST(100,$3),wins=wins+$4,losses=losses+$5,games_played=games_played+1 WHERE id=$6`,[coins,xp,levelForXp(Number((await pool.query('SELECT xp FROM users WHERE id=$1',[p.userId])).rows[0]?.xp||0)+xp),win?1:0,win?0:1,p.userId]);await pool.query('COMMIT');}catch{try{await pool.query('ROLLBACK')}catch{}}}
+async function finishMatchPlayer(p,room,win){
+  if(!usePostgres||p.isHousePlayer)return;
+  const coins=win?150:25;
+  const xp=win?250:60;
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const current=(await client.query('SELECT xp FROM users WHERE id=$1 FOR UPDATE',[p.userId])).rows[0];
+    if(!current)throw new Error('Jogador não encontrado.');
+    const nextXp=Number(current.xp||0)+xp;
+    await client.query(
+      `UPDATE users SET coins=coins+$1,xp=xp+$2,level=LEAST(100,$3),wins=wins+$4,losses=losses+$5,games_played=games_played+1 WHERE id=$6`,
+      [coins,xp,levelForXp(nextXp),win?1:0,win?0:1,p.userId]
+    );
+    await client.query('COMMIT');
+  }catch(err){
+    try{await client.query('ROLLBACK')}catch{}
+    console.error('finishMatchPlayer:',err.message);
+  }finally{client.release();}
+}
 
 async function getGlobalState(){if(!usePostgres)return {paused:false,message:''};const r=await pool.query('SELECT paused,message FROM global_game_state WHERE id=1');return r.rows[0]||{paused:false,message:''};}
 let globalState={paused:false,message:''};
@@ -756,7 +851,7 @@ io.on('connection',socket=>{
   if(globalState.paused && String(me.username||'').trim().toLowerCase()!=='ceovelho' && String(me.role||'').toUpperCase()!=='CEO') socket.emit('global:pause',globalState);
   socket.on('room:join',async({code,password}={})=>{const room=rooms.get(String(code||'').toUpperCase());if(!room)return socket.emit('toast',{type:'error',message:'Sala não encontrada.'});if(room.started)return socket.emit('toast',{type:'error',message:'Partida já iniciada.'});if(room.password&&room.password!==String(password||''))return socket.emit('toast',{type:'error',message:'Senha incorreta.'});if(room.players.length>=room.options.maxPlayers)return socket.emit('toast',{type:'error',message:'Sala cheia.'});if(!room.players.some(p=>p.userId===me.id)){const prof=await getProfile(me.id);room.players.push(makeRoomPlayer(me,prof.avatar));}socket.join(`room:${room.code}`);emitRoom(room);socket.emit('room:joined',roomSummary(room));});
   socket.on('room:leave',()=>{for(const room of rooms.values())if(room.players.some(p=>p.userId===me.id)){socket.leave(`room:${room.code}`);removePlayer(room,me.id);}});
-  socket.on('room:start',()=>{for(const room of rooms.values())if(room.ownerId===me.id&&room.players.some(p=>p.userId===me.id)){if(room.options.gameMode==='draw'&&room.players.length<2)return socket.emit('toast',{type:'error',message:'Adivinha o Desenho precisa de pelo menos 2 jogadores.'});if(globalState.paused)return socket.emit('toast',{type:'error',message:globalState.message});if(room.options.gameMode!=='draw')fillRoomWithHiddenOpponents(room);if(['checkers','chess'].includes(room.options.gameMode)&&room.players.length!==2)room.players=room.players.slice(0,2);room.starting=true;emitRoom(room);io.to(`room:${room.code}`).emit('room:countdown',{seconds:5});let sec=5;const tick=setInterval(()=>{sec--;io.to(`room:${room.code}`).emit('room:countdown',{seconds:Math.max(0,sec)});if(sec<=0){clearInterval(tick);if(!rooms.has(room.code))return;room.starting=false;startRoomGame(room);emitRoom(room);}},1000);return;}});
+  socket.on('room:start',()=>{for(const room of rooms.values())if(room.ownerId===me.id&&room.players.some(p=>p.userId===me.id)){if(room.starting)return socket.emit('toast',{type:'info',message:'A partida já está começando.'});if(room.options.gameMode==='draw'&&room.players.length<2)return socket.emit('toast',{type:'error',message:'Adivinha o Desenho precisa de pelo menos 2 jogadores.'});if(globalState.paused)return socket.emit('toast',{type:'error',message:globalState.message});if(room.options.gameMode!=='draw')fillRoomWithHiddenOpponents(room);if(['checkers','chess'].includes(room.options.gameMode)&&room.players.length!==2)room.players=room.players.slice(0,2);room.starting=true;emitRoom(room);io.to(`room:${room.code}`).emit('room:countdown',{seconds:5});let sec=5;const tick=setInterval(()=>{sec--;io.to(`room:${room.code}`).emit('room:countdown',{seconds:Math.max(0,sec)});if(sec<=0){clearInterval(tick);if(!rooms.has(room.code))return;room.starting=false;startRoomGame(room);emitRoom(room);}},1000);return;}});
   socket.on('mode:action',({action,from,to,cardId}={})=>{const room=findPlayerRoom(me.id);if(!room||!room.started||!room.game||!['truco','checkers','chess'].includes(room.game.mode))return socket.emit('toast',{type:'error',message:'Partida de modo não encontrada.'});let ok=false;if(room.game.mode==='truco'){if(action==='truco'){if(room.game.currentIndex===room.players.findIndex(p=>String(p.userId)===String(me.id))){room.game.bet=Math.min(12,room.game.bet*2);room.game.askedBy=me.id;room.game.message=`${me.username} pediu TRUCO! Valendo ${room.game.bet}.`;emitModeGame(room);}}else if(action==='play')ok=applyTrucoCard(room,me.id,cardId);}else if(room.game.mode==='checkers'&&action==='move')ok=applyCheckersMove(room,me.id,Number(from),Number(to));else if(room.game.mode==='chess'&&action==='move')ok=applyChessMove(room,me.id,{from:Number(from),to:Number(to)});if(!ok&&action==='play')socket.emit('toast',{type:'error',message:'Jogada inválida.'});});
   socket.on('game:uno',()=>{
     const room=findPlayerRoom(me.id);
@@ -776,7 +871,7 @@ io.on('connection',socket=>{
     for(const victim of room.players){if(victim.hand.length===1&&!room.game.unoCalled?.[victim.userId]&&String(victim.userId)!==String(me.id)){drawCards(room,victim,2);room.game.unoCalled[victim.userId]=true;emitGameAction(room,{type:'uno-penalty',playerId:victim.userId,username:victim.username,count:2});}}
     if(room.game.pendingDraw>0&&!room.options.stackDraw)return socket.emit('toast',{type:'error',message:`Você precisa comprar ${room.game.pendingDraw} cartas.`});
     const index=p.hand.findIndex(c=>c.id===cardId||c._clientId===cardId);if(index<0)return socket.emit('toast',{type:'error',message:'Carta inválida.'});
-    const card=p.hand[index];if(!playable(card,room.game.discard.at(-1),room.game.currentColor,p.hand))return socket.emit('toast',{type:'error',message:'Carta não pode ser jogada.'});
+    const card=p.hand[index];if(!playable(card,room.game.discard.at(-1),room.game.currentColor,p.hand,room.game.pendingDraw,room.options.stackDraw))return socket.emit('toast',{type:'error',message:'Carta não pode ser jogada.'});
     p.hand.splice(index,1);room.game.unoCalled[p.userId]=false;room.game.afkStreaks=room.game.afkStreaks||{};room.game.afkStreaks[p.userId]=0;applyCard(room,p,card,chosenColor);
     if(p.hand.length===1)room.game.unoCalled[p.userId]=false;
     emitGameAction(room,{type:'play',playerId:p.userId,username:p.username,card:{id:card.id,color:card.color,value:card.value,type:card.type},chosenColor:room.game.currentColor});
