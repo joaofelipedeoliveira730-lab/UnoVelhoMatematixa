@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '5.4.0';
+const VERSION = '5.5.0';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -89,7 +89,10 @@ async function init(){
   bindEvents();
   hide('#bootScreen'); hide('#appScreen'); hide('#authScreen');
   // Sempre mostra a escolha de plataforma ANTES do login.
-  applyPlatform(state.platform || (window.matchMedia('(pointer:coarse)').matches?'mobile':'computer'));
+  const initialPlatform=state.platform || (window.matchMedia('(pointer:coarse)').matches?'mobile':'computer');
+  applyPlatform(initialPlatform);
+  document.body.classList.toggle('mobile-adapted',initialPlatform==='mobile');
+  document.body.classList.toggle('desktop-adapted',initialPlatform==='computer');
   show('#platformScreen');
   const savedToken=localStorage.getItem('uv_token');
   if(savedToken){
@@ -127,29 +130,19 @@ async function choosePlatform(platform){
   state.platform=platform;
   localStorage.setItem('uv_platform',platform);localStorage.setItem('uv_platform_version',VERSION);
   applyPlatform(platform);
+  document.body.classList.toggle('mobile-adapted',platform==='mobile');
+  document.body.classList.toggle('desktop-adapted',platform==='computer');
+  document.body.classList.remove('landscape-mode','game-portrait-fallback');
+  hide('#orientationGuard');
   Sound.init();
-  // O clique do usuário libera fullscreen + orientação no celular.
-  await requestLandscape();
   document.body.classList.add('platform-ready');
   await continueAfterPlatform();
 }
-
-async function requestLandscape(){
-  try{ if(document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:'hide'}); }catch{}
-  try{ if(screen.orientation?.lock) await screen.orientation.lock('landscape'); }catch{}
-  document.body.classList.add('landscape-mode');
-  updateOrientationGuard();
-}
-async function forceLandscape(){
-  try{if(document.documentElement.requestFullscreen&&!document.fullscreenElement)await document.documentElement.requestFullscreen({navigationUI:'hide'});}catch{}
-  try{if(screen.orientation?.lock)await screen.orientation.lock('landscape');}catch{}
-  document.body.classList.add('landscape-mode');
-  enterGameViewport();
-  updateOrientationGuard();
-}
+async function requestLandscape(){ document.body.classList.remove('landscape-mode'); hide('#orientationGuard'); }
+async function forceLandscape(){ hide('#orientationGuard'); updateOrientationGuard(); }
 
 function enterGameViewport(){
-  document.body.classList.add('in-game','landscape-mode');
+  document.body.classList.add('in-game'); if(state.platform==='computer') document.body.classList.add('landscape-mode'); else document.body.classList.remove('landscape-mode');
   document.body.classList.remove('game-portrait-fallback');
   const gv=$('#gameView');
   if(gv){gv.style.width='100vw';gv.style.height='100dvh';gv.style.maxWidth='none';gv.style.minWidth='100vw';}
@@ -167,6 +160,33 @@ function updateOrientationGuard(){
 }
 
 function bindEvents(){
+  // Ilha de chat: captura de submit/click antes de qualquer navegação global.
+  document.addEventListener('submit',(e)=>{
+    const form=e.target?.closest?.('#gameChatForm,#roomChatForm,#globalChatFormLobby');
+    if(!form)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(form.id==='gameChatForm'){
+      const input=$('#gameChatInput');
+      const text=input?.value||'';
+      if(text.trim()) sendChat(text,'world');
+      if(input)input.value='';
+      try{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}catch{}
+    }else if(form.id==='roomChatForm'){
+      const input=$('#roomChatInput');
+      const text=input?.value||'';
+      if(text.trim()) sendChat(text,'room');
+      if(input)input.value='';
+    }else if(form.id==='globalChatFormLobby'){
+      const input=$('#globalChatInputLobby');
+      const text=input?.value||'';
+      if(text.trim()) sendChat(text,'world');
+      if(input)input.value='';
+    }
+  },true);
+  document.addEventListener('click',(e)=>{
+    const chat=e.target?.closest?.('#gameGlobalChat,#gameGlobalChat *,#gameChatForm,#gameChatForm *,#roomChatForm,#roomChatForm *,#globalChatPanel,#globalChatPanel *');
+    if(chat){ e.stopImmediatePropagation(); }
+  },true);
   // Navegação universal: qualquer botão de retorno usa o alvo declarado ou o mapa de fallback.
   document.addEventListener('click',(e)=>{
     const target=e.target.closest?.('.back-btn,[data-back],#btnBackGameAlt,#btnBackGame,#btnBackModeGame,#btnBackDraw,#btnLeaveRoom');
@@ -235,7 +255,7 @@ function bindEvents(){
   on('#btnUno','click',callUno);
   on('#btnBackGame','click',exitGame);on('#btnBackGameAlt','click',exitGame);
   on('#btnSound','click',toggleMute);
-  on('#btnLogout','click',logout);
+  on('#btnLogout','click',logout);on('#btnLogoutTop','click',(e)=>{e.preventDefault();e.stopImmediatePropagation();logout();});on('#btnLogoutGame','click',(e)=>{e.preventDefault();e.stopImmediatePropagation();logout();});
   on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
@@ -245,8 +265,8 @@ function bindEvents(){
   $$('.swatch').forEach(b=>b.addEventListener('click',()=>{state.profile.avatar.skinColor=b.dataset.skin;renderCharacter('#customCharacter',state.profile.avatar);if(state.currentView==='customize')renderCustomPage();persistCharacterSilently();}));
   ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>on('#'+id,'change',saveSettings));
   on('#setMusicVol','input',saveSettings);on('#setSfxVol','input',saveSettings);
-  on('#roomChatForm','submit',e=>{e.preventDefault();sendChat($('#roomChatInput')?.value,'room');if($('#roomChatInput'))$('#roomChatInput').value='';});
-  on('#gameChatForm','submit',e=>{e.preventDefault();e.stopPropagation();const input=$('#gameChatInput');sendChat(input?.value,'world');if(input){input.value='';state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}});
+  on('#roomChatForm','submit',e=>{e.preventDefault();e.stopImmediatePropagation();});
+  on('#gameChatForm','submit',e=>{e.preventDefault();e.stopImmediatePropagation();});
   ['#gameGlobalChat','#gameChatInput','#gameChatForm','#gameChatMessages'].forEach(sel=>{const el=$(sel);if(el){['pointerdown','mousedown','touchstart','click'].forEach(ev=>el.addEventListener(ev,e=>e.stopPropagation(),{passive:ev==='touchstart'}));}});
   $$('#emoteTray [data-emote]').forEach(b=>b.addEventListener('click',()=>sendEmote(b.dataset.emote)));
   on('#gameChatInput','input',()=>{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:true});clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}),900);});
@@ -569,15 +589,15 @@ function exitGame(){
   if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');return;}
   navigate('solo');
 }
-function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();g.message=count>1?`Você comprou ${count} cartas e passou a vez.`:'Você comprou 1 carta e passou a vez.';g.turn='oponente';renderSolo();scheduleSoloOpponent(g);}
-function opponentDelay(difficulty='medium'){const ranges={easy:[700,1200],medium:[850,1450],hard:[1000,1800]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
-function scheduleSoloOpponent(g){clearTimeout(state.aiTimer);state.aiTimer=setTimeout(()=>housePlayerTurn(),Math.min(9500,opponentDelay(g.difficulty)));}
+function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw>0?g.pendingDraw:1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();g.message=count>1?`Você comprou ${count} cartas e passou a vez.`:'Você comprou 1 carta e passou a vez.';g.turn='oponente';renderSolo();scheduleSoloOpponent(g);}
+function opponentDelay(difficulty='medium'){const ranges={easy:[450,850],medium:[600,1100],hard:[800,1500]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
+function scheduleSoloOpponent(g){clearTimeout(state.aiTimer);state.aiTimer=setTimeout(()=>housePlayerTurn(),Math.min(9000,opponentDelay(g.difficulty)));}
 
 function housePlayerTurn(){
   const g=state.solo;if(!g||g.turn!=='oponente')return;
   clearTimeout(state.aiTimer);
   const started=Date.now();
-  const delay=Math.min(9500,opponentDelay(g.difficulty));
+  const delay=Math.min(9000,opponentDelay(g.difficulty));
   setTimeout(()=>{
     if(!state.solo||state.solo!==g||g.turn!=='oponente')return;
     let cards=g.oponente.filter(c=>playable(c,g.discard,g.color));
@@ -1053,7 +1073,15 @@ function renderChatMessage(m){
 async function loadGlobalChatHistory(){try{const d=await get('/chat/global');const boxes=[$('#gameChatMessages'),$('#globalChatMessagesLobby')];boxes.forEach(box=>{if(!box)return;box.innerHTML='';(d.messages||[]).forEach(m=>{const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);});box.scrollTop=box.scrollHeight;});const last=d.messages?.at(-1);if(last&&$('#globalChatPreview'))$('#globalChatPreview').textContent=`${last.senderName}: ${last.body}`;}catch{}}
 async function openGlobalChat(){state.globalChatOpen=true;await loadGlobalChatHistory();if(state.currentView==='game'){show('#gameGlobalChat');$('#gameChatInput')?.focus();}else{show('#globalChatPanel');$('#globalChatInputLobby')?.focus();}$('#btnGameGlobalChat')?.classList.remove('has-message');}
 function closeGlobalChat(){state.globalChatOpen=false;hide('#gameGlobalChat');hide('#globalChatPanel');}
-async function logout(){try{await post('/logout');}catch{}try{state.socket?.disconnect();}catch{}localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;state.currentRoom=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
+async function logout(){
+  try{if(state.currentRoom?.code)state.socket?.emit('room:leave');}catch{}
+  try{await post('/logout');}catch{}
+  try{state.socket?.disconnect();}catch{}
+  clearTimeout(state.aiTimer);clearTimeout(state.turnGuardTimer);clearTimeout(soloMatchTimer);soloMatchTimer=null;
+  state.solo=null;state._onlineGame=null;state._pendingOnlineGame=null;state.currentRoom=null;
+  localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;
+  hide('#appScreen');show('#authScreen');switchAuth('login');
+}
 
 window.addEventListener('DOMContentLoaded',init);
 window.addEventListener('load',updateOrientationGuard);

@@ -1382,3 +1382,28 @@ body.in-game .first-person-center .draw-stack>b{
 @media(max-width:800px){.training-view .training-grid{grid-template-columns:1fr;max-width:560px;padding:18px}.table-center-3d{width:90vw!important;gap:10px!important;top:50%!important}.table-center-3d #discardPile,.table-center-3d .draw-stack{width:112px!important;height:156px!important}}
 
 .solo-view .solo-difficulty-row,.solo-difficulty-row{display:none!important}.training-view .difficulty.active{outline:2px solid rgba(110,190,255,.85);transform:translateY(-4px)}
+
+
+/* ===== PATCH 5.5 — MOBILE PORTRAIT / CHAT ISOLADO / SESSÃO ===== */
+.session-btn,.session-game-btn{border:1px solid rgba(255,255,255,.14);background:linear-gradient(135deg,rgba(124,58,237,.62),rgba(37,99,255,.62));color:#fff;border-radius:12px;padding:8px 11px;font-weight:1000;cursor:pointer;white-space:nowrap}.session-btn:hover,.session-game-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.game-chat-left{touch-action:auto!important;overscroll-behavior:contain!important}.game-chat-left input,.game-chat-left button{touch-action:manipulation!important}.game-chat-left form{position:relative!important;z-index:10003!important}
+body.mobile-adapted.in-game{width:100%!important;min-width:0!important;max-width:none!important;overflow:hidden!important}
+body.mobile-adapted.in-game #appScreen{width:100%!important;min-width:0!important;padding:0!important}
+body.mobile-adapted.in-game #gameView{position:relative!important;inset:auto!important;width:100%!important;min-width:0!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;overflow:hidden!important}
+body.mobile-adapted.in-game .game-stage-3d,body.mobile-adapted.in-game .first-person-stage{width:100%!important;min-width:0!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;grid-template-columns:1fr!important;padding:0!important}
+body.mobile-adapted.in-game .first-person-arena{width:100%!important;min-width:0!important;height:100%!important;border-radius:0!important}
+body.mobile-adapted.in-game .first-person-center{left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:96vw!important;gap:12px!important}
+body.mobile-adapted.in-game .table-center-3d .main-discard{width:150px!important;height:106px!important;min-width:150px!important;min-height:106px!important}
+body.mobile-adapted.in-game .table-center-3d #discardPile{width:146px!important;height:100px!important;min-width:146px!important;min-height:100px!important}
+body.mobile-adapted.in-game .table-center-3d .deck-area{width:120px!important;height:96px!important}
+body.mobile-adapted.in-game .table-center-3d .draw-stack{width:112px!important;height:82px!important}
+body.mobile-adapted.in-game .table-center-3d .draw-stack .back-card{width:108px!important;height:78px!important}
+body.mobile-adapted.in-game .first-person-player-zone{left:0!important;right:0!important;bottom:0!important;width:100%!important;height:185px!important;min-height:185px!important}
+body.mobile-adapted.in-game .first-person-player-zone #playerHand{width:96vw!important;max-width:96vw!important}
+body.mobile-adapted.in-game .first-person-player-zone #playerHand .hand-card{width:clamp(46px,14vw,64px)!important;height:clamp(70px,20vw,96px)!important}
+body.mobile-adapted.in-game .game-chat-left{left:7px!important;top:55px!important;width:min(280px,82vw)!important;height:min(330px,48vh)!important;z-index:10000!important}
+body.mobile-adapted.in-game .game-global-chat-toggle{left:7px!important;top:8px!important;z-index:10001!important}
+body.in-game .table-center-3d #discardPile{transform:perspective(1000px) rotateX(10deg) rotateY(-3deg) rotateZ(0deg)!important;transform-origin:center!important;box-shadow:0 20px 28px rgba(0,0,0,.42),0 2px 0 rgba(255,255,255,.16) inset,0 0 18px rgba(124,58,237,.16)!important}
+body.in-game .table-center-3d .draw-stack .back-card{transform:perspective(1000px) rotateX(10deg) rotateY(3deg) rotateZ(0deg)!important;box-shadow:0 20px 28px rgba(0,0,0,.42),0 2px 0 rgba(255,255,255,.16) inset,0 0 18px rgba(37,99,255,.18)!important}
+@media(min-width:701px){body.desktop-adapted.in-game #gameView{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}.session-game-btn{display:inline-flex!important}}
+@media(max-width:700px){.top-actions .session-btn{display:none!important}.session-game-btn{padding:7px 9px;font-size:10px}.game-chat-left,.game-chat-left *{pointer-events:auto!important}}

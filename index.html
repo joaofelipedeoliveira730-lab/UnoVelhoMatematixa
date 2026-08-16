@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260816-5.4.0">
+<link rel="stylesheet" href="style.css?v=20260816-5.5.0">
 </head>
 <body>
 
@@ -15,9 +15,9 @@
     <div class="platform-logo"><span>U</span><div>UNO VELHO<small>MATEMATIXA</small></div></div>
     <div class="platform-kicker">ANTES DE ENTRAR NA MESA</div>
     <h1>Escolha sua plataforma</h1>
-    <p>O jogo se adapta ao modo escolhido. No celular, a partida usa a tela deitada para ficar igual a uma mesa de cartas.</p>
+    <p>O jogo se adapta ao modo escolhido. No celular, a interface se adapta ao retrato; no computador, ocupa a tela ampla.</p>
     <div class="platform-options">
-      <button id="btnPlatformMobile" class="platform-option mobile" type="button"><span class="platform-icon">📱</span><b>CELULAR</b><small>Tela deitada • toque • interface compacta</small></button>
+      <button id="btnPlatformMobile" class="platform-option mobile" type="button"><span class="platform-icon">📱</span><b>CELULAR</b><small>Retrato • toque • interface adaptada</small></button>
       <button id="btnPlatformComputer" class="platform-option computer" type="button"><span class="platform-icon">🖥️</span><b>COMPUTADOR</b><small>Mouse • teclado • tela ampla</small></button>
     </div>
     <small class="platform-note">Você poderá trocar essa opção em Configurações.</small>
@@ -60,7 +60,7 @@
 <main id="appScreen" class="screen app-screen hidden">
 <header class="topbar glass">
   <button id="brandHome" class="brand-button" type="button"><span class="mini-logo">U</span><span><b>UNO VELHO</b><small>MATEMATIXA</small></span></button>
-  <div class="top-actions"><button id="btnMail" class="mail-btn" type="button" title="Correio">✉️<span id="mailBadge" class="mail-badge hidden">0</span></button><div class="currency">🪙 <b id="coinValueTop">0</b></div><div class="level-chip"><span>NÍVEL</span><b id="levelValueTop">1</b></div><button id="btnOpenProfile" class="avatar-mini" type="button">🙂</button><button id="btnOpenSettings" class="icon-btn" type="button">⚙️</button></div>
+  <div class="top-actions"><button id="btnMail" class="mail-btn" type="button" title="Correio">✉️<span id="mailBadge" class="mail-badge hidden">0</span></button><div class="currency">🪙 <b id="coinValueTop">0</b></div><div class="level-chip"><span>NÍVEL</span><b id="levelValueTop">1</b></div><button id="btnOpenProfile" class="avatar-mini" type="button">🙂</button><button id="btnOpenSettings" class="icon-btn" type="button">⚙️</button><button id="btnLogoutTop" class="session-btn" type="button">⏻ SAIR</button></div>
 </header>
 
 <section id="lobbyView" class="view lobby-v2">
@@ -159,7 +159,7 @@
   </div>
 </section>
 <section id="roomsView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="onlineModeView" type="button">← Modos</button><div><h2 id="roomsHeading">SALAS DE UNO</h2><small id="roomsModeSubtitle" class="subnav-subtitle">Escolha uma sala para entrar.</small></div><div class="subnav-actions"><button id="btnRefreshRooms" class="btn btn-secondary" type="button">↻ Atualizar</button><button id="btnCreateRoom" class="btn btn-primary" type="button">＋ CRIAR SALA</button></div></div><div id="roomsList" class="rooms-list"></div></section>
-<section id="roomView" class="view hidden"><div class="subnav"><button id="btnLeaveRoom" class="back-btn" type="button">← Sair da sala</button><h2 id="roomTitle">SALA</h2><span id="roomCodeBadge" class="code-badge">MATX-0000</span></div><div class="room-layout"><div class="room-main glass"><div class="room-options-bar"><span id="roomOptionsText">Sala</span><button id="btnStartRoom" class="btn btn-primary" type="button">▶ COMEÇAR</button></div><div id="roomPlayers" class="room-players"></div><div id="roomMapBanner" class="room-map-banner"></div></div><aside class="chat-panel glass"><div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div><div id="roomChatMessages" class="chat-messages"></div><form id="roomChatForm" class="chat-form"><input id="roomChatInput" maxlength="500" placeholder="Digite uma mensagem..."><button type="submit">➤</button></form></aside></div></section>
+<section id="roomView" class="view hidden"><div class="subnav"><button id="btnLeaveRoom" class="back-btn" type="button">← Sair da sala</button><h2 id="roomTitle">SALA</h2><span id="roomCodeBadge" class="code-badge">MATX-0000</span></div><div class="room-layout"><div class="room-main glass"><div class="room-options-bar"><span id="roomOptionsText">Sala</span><button id="btnStartRoom" class="btn btn-primary" type="button">▶ COMEÇAR</button></div><div id="roomPlayers" class="room-players"></div><div id="roomMapBanner" class="room-map-banner"></div></div><aside class="chat-panel glass"><div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div><div id="roomChatMessages" class="chat-messages"></div><form id="roomChatForm" class="chat-form" novalidate><input id="roomChatInput" maxlength="500" autocomplete="off" placeholder="Digite uma mensagem..."><button type="submit">➤</button></form></aside></div></section>
 
 <section id="gameView" class="view hidden game-view">
   <div id="globalPauseBanner" class="pause-banner hidden"></div><div id="podiumOverlay" class="podium-overlay hidden" aria-modal="true"></div>
@@ -168,7 +168,7 @@
       <div class="chat-head"><b>🌎 CHAT GLOBAL</b><button id="btnCloseGlobalChat" type="button">×</button></div>
       <div id="gameChatTyping" class="game-chat-typing hidden"></div>
       <div id="gameChatMessages" class="chat-messages"></div>
-      <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem global..."><button type="submit">➤</button></form>
+      <form id="gameChatForm" class="chat-form" novalidate><input id="gameChatInput" maxlength="500" autocomplete="off" enterkeyhint="send" placeholder="Mensagem global..."><button type="submit">➤</button></form>
     </aside>
     <button id="btnGameGlobalChat" class="game-global-chat-toggle" type="button" aria-label="Abrir chat global">💬</button>
 
@@ -176,7 +176,7 @@
       <header class="arena-top">
         <div class="game-stat game-stat-match"><span>PARTIDA</span><b id="roundText">2 VS 2</b></div>
         <div id="turnStatus" class="turn-badge">SUA VEZ!</div><div class="arena-live-badge"><i></i> AO VIVO</div>
-        <div class="arena-tools"><button id="btnBackGameAlt" class="back-game-btn" type="button">← VOLTAR</button><button id="btnReportPlayer" class="report-game-btn" type="button" title="Denunciar jogador">⚑ DENUNCIAR</button><button id="btnSound" class="icon-btn" type="button" aria-label="Som">🔊</button></div>
+        <div class="arena-tools"><button id="btnBackGameAlt" class="back-game-btn" type="button">← VOLTAR</button><button id="btnLogoutGame" class="session-game-btn" type="button" title="Encerrar sessão">⏻ SAIR</button><button id="btnReportPlayer" class="report-game-btn" type="button" title="Denunciar jogador">⚑ DENUNCIAR</button><button id="btnSound" class="icon-btn" type="button" aria-label="Som">🔊</button></div>
       </header>
 
       <div id="mapScene" class="saloon-map map-saloon first-person-map">
