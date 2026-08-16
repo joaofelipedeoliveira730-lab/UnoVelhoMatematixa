@@ -226,7 +226,7 @@ async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
   // Abre o lobby primeiro. Loja, inventário e ranking são carregados em segundo plano.
   updateUserUI();applySettings();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
-  renderMapPreview();renderAchievementsPreview();connectSocket();navigate('lobby');
+  renderMapPreview();renderAchievementsPreview();void connectSocket();navigate('lobby');
   void Promise.allSettled([get('/items'),get('/inventory')]).then(([itemsRes,inventoryRes])=>{
     state.items=itemsRes.status==='fulfilled'?(itemsRes.value.items||[]):[];
     state.inventory=inventoryRes.status==='fulfilled'?(inventoryRes.value.items||[]):[];
@@ -255,9 +255,28 @@ function navigate(view){
   if(view==='settings')applySettings();
 }
 
-function connectSocket(){
-  if(!window.io||!state.token)return;if(state.socket?.connected)return;
-  try{state.socket=io({withCredentials:true,auth:{token:state.token},transports:['websocket','polling']});}catch(e){toast('Não foi possível iniciar o multiplayer.','error');return;}
+let socketLoaderPromise=null;
+function loadSocketIO(){
+  if(window.io)return Promise.resolve(true);
+  if(socketLoaderPromise)return socketLoaderPromise;
+  socketLoaderPromise=new Promise(resolve=>{
+    const script=document.createElement('script');
+    let done=false;
+    const finish=ok=>{if(done)return;done=true;clearTimeout(timer);resolve(ok);};
+    const timer=setTimeout(()=>finish(false),4500);
+    script.src='/socket.io/socket.io.js';
+    script.async=true;
+    script.onload=()=>finish(!!window.io);
+    script.onerror=()=>finish(false);
+    document.head.appendChild(script);
+  });
+  return socketLoaderPromise;
+}
+async function connectSocket(){
+  if(!state.token||state.socket?.connected)return;
+  const loaded=await loadSocketIO();
+  if(!loaded||!window.io)return;
+  try{state.socket=window.io({withCredentials:true,auth:{token:state.token},transports:['websocket','polling']});}catch(e){toast('Não foi possível iniciar o multiplayer.','error');return;}
   state.socket.on('connect',()=>{});state.socket.on('connect_error',e=>toast('Multiplayer indisponível: '+(e.message||'erro'),'error',3500));
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
   state.socket.on('room:joined',room=>{state.currentRoom=room;renderRoom(room);navigate('room');if(room.started&&room.options?.gameMode==='draw')navigate('draw');else if(room.started&&['truco','checkers','chess'].includes(room.options?.gameMode))navigate('modeGameView');});
