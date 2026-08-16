@@ -524,11 +524,3 @@ body.in-game .game-global-chat-toggle{left:8px!important;top:8px!important;}
 @keyframes dealFly{0%{opacity:1;transform:translate(-50%,0) rotate(calc((var(--d) - 4.5)*8deg)) scale(1)}100%{opacity:0;transform:translate(calc((var(--d) - 4.5)*120px),-210px) rotate(calc((var(--d) - 4.5)*32deg)) scale(.45)}}
 @keyframes dealSpin{to{transform:rotate(360deg)}}
 @media(max-width:700px){.game-start-card{width:calc(100vw - 28px);min-height:310px;border-radius:22px}.game-start-deck{width:300px}.game-start-deck span{width:54px;height:76px;font-size:18px}.game-start-number{letter-spacing:-5px}}
-
-/* AJUSTES FINAIS — mesa UNO: carta do descarte sempre central e grande */
-.table-center-3d .discard-area.main-discard{position:relative;display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-width:150px;min-height:210px;z-index:80;}
-.table-center-3d #discardPile.big-card{width:128px!important;height:184px!important;border-width:4px!important;font-size:54px!important;transform:rotate(0deg)!important;box-shadow:0 20px 45px rgba(0,0,0,.55),0 0 35px rgba(255,255,255,.10)!important;z-index:90;}
-.table-center-3d #discardPile.big-card:hover{transform:scale(1.02)!important;}
-.table-center-3d .center-card-shadow{position:absolute;inset:30px 18px 8px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.5),transparent 68%);filter:blur(12px);z-index:-1;}
-@media(max-width:760px){.table-center-3d #discardPile.big-card{width:104px!important;height:150px!important;font-size:46px!important}.table-center-3d .discard-area.main-discard{min-width:120px;min-height:175px}.table-center-3d{gap:18px!important}}
-@media(max-width:390px){.table-center-3d #discardPile.big-card{width:94px!important;height:136px!important;font-size:40px!important}}
