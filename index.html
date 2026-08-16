@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260816-5.0.0">
+<link rel="stylesheet" href="style.css?v=20260816-5.3.0">
 </head>
 <body>
 
@@ -111,13 +111,21 @@
 </section>
 
 <section id="playView" class="view hidden modes-view">
-  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>JOGAR UNO</h2><small class="subnav-subtitle">Escolha como quer jogar o UNO dos Idosos.</small></div></div>
+  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>JOGAR UNO</h2><small class="subnav-subtitle">Escolha um modo de jogo.</small></div></div>
   <div class="mode-hub-actions uno-only-play">
-    <button id="btnSolo" class="mode-hub-btn solo" type="button"><span>🤖</span><b>SOLO</b><small>Jogue contra o oponente</small></button>
+    <button id="btnClassic" class="mode-hub-btn classic" type="button"><span>🃏</span><b>MODO CLÁSSICO</b><small>Solo • Duo • Trio</small></button>
     <button id="btnOnline" class="mode-hub-btn online" type="button"><span>🌎</span><b>ONLINE</b><small>Crie ou entre em uma sala</small></button>
   </div>
   <div class="mode-showcase compact uno-only-showcase">
-    <article class="game-mode-card mode-uno"><div class="mode-art">🃏</div><div><span class="mode-pill live">UNO</span><h3>UNO VELHO MATEMATIXA</h3><p>Cartas, oponente jogando, mapas, chat e UNOOO!</p></div></article>
+    <article class="game-mode-card mode-uno"><div class="mode-art">🃏</div><div><span class="mode-pill live">CLÁSSICO</span><h3>UNO VELHO MATEMATIXA</h3><p>A mesma mesa para jogar sozinho ou com 2 e 3 jogadores.</p></div></article>
+  </div>
+</section>
+<section id="classicView" class="view hidden classic-modes-view">
+  <div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><div><h2>MODO CLÁSSICO</h2><small class="subnav-subtitle">Escolha o tamanho da mesa.</small></div></div>
+  <div class="classic-format-grid">
+    <button class="classic-mode-card" data-classic-format="solo" type="button"><span>🃏</span><b>SOLO</b><small>1 jogador + oponente</small><em>1 JOGADOR</em></button>
+    <button class="classic-mode-card" data-classic-format="duo" type="button"><span>⚡</span><b>DUO</b><small>2 lugares na mesa</small><em>2 JOGADORES</em></button>
+    <button class="classic-mode-card" data-classic-format="trio" type="button"><span>💠</span><b>TRIO</b><small>3 lugares na mesa</small><em>3 JOGADORES</em></button>
   </div>
 </section>
 <section id="onlineModeView" class="view hidden">
@@ -129,7 +137,7 @@
   </div>
 </section>
 <section id="soloView" class="view hidden">
-  <div class="subnav"><button class="back-btn" data-back="play" type="button">← VOLTAR</button><div><h2>JOGAR UNO SOLO</h2><small class="subnav-subtitle">Encontre uma mesa em até 30 segundos.</small></div><span class="version-chip">1.3.0</span></div>
+  <div class="subnav"><button class="back-btn" data-back="play" type="button">← VOLTAR</button><div><h2>SOLO CLÁSSICO</h2><small class="subnav-subtitle">Escolha a dificuldade e entre na mesa.</small></div><span class="version-chip">1.3.0</span></div>
   <div class="solo-page-grid">
     <div class="solo-main-panel">
       <div class="solo-match-card glass"><span class="pill">🎯 MATCHMAKING</span><h3>Partida solo</h3><p>Um tempo aleatório de até <b>30s</b> encontra sua mesa. Ao encontrar, o celular vibra, uma voz anuncia <b>“Partida encontrada!”</b> e começa a contagem de 5 segundos.</p></div>
@@ -274,7 +282,7 @@
   } catch(e) {}
 })();
 </script>
-<script src="app.js?v=20260816-5.0.0" defer></script>
+<script src="app.js?v=20260816-5.3.0" defer></script>
 
 
 <div id="mailModal" class="modal-overlay hidden"><div class="modal modal-wide"><div class="modal-head"><div><span class="pill">✉️ CORREIO</span><h2>Convites</h2></div><button class="close-modal" data-close="mailModal" type="button">×</button></div><div id="mailContent" class="mail-content"></div></div></div>

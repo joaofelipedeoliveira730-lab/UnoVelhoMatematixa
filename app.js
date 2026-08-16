@@ -194,7 +194,8 @@ function bindEvents(){
   on('#btnOpenProfile','click',()=>openInventory('items'));
   on('#btnOpenSettings','click',()=>navigate('settings'));on('#btnOpenSettingsRail','click',()=>navigate('settings'));
   on('#btnRankSmall','click',openRank);
-  on('#btnSolo','click',()=>{state.soloDifficulty=state.soloDifficulty||'medium';navigate('solo');$$('.difficulty').forEach(x=>x.classList.toggle('active',x.dataset.difficulty===state.soloDifficulty));});
+  on('#btnClassic','click',()=>navigate('classic'));
+  $$('.classic-mode-card').forEach(b=>b.addEventListener('click',()=>{const format=b.dataset.classicFormat;if(format==='solo'){state.soloDifficulty=state.soloDifficulty||'medium';navigate('solo');$$('.difficulty').forEach(x=>x.classList.toggle('active',x.dataset.difficulty===state.soloDifficulty));}else{selectOnlineMode('uno',format);}}));
   $$('.solo-mode-card').forEach(b=>b.addEventListener('click',()=>startSoloMode(b.dataset.soloMode,state.soloDifficulty||'medium')));
   $$('.difficulty').forEach(b=>b.addEventListener('click',()=>{state.soloDifficulty=b.dataset.difficulty;$$('.difficulty').forEach(x=>x.classList.toggle('active',x===b));}));
   on('#soloView','click',e=>{const invite=e.target.closest('[data-invite-friend]');if(invite)inviteFriend(invite.dataset.inviteFriend);});
@@ -303,7 +304,7 @@ function xpLevel(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45)
 
 function navigateBack(explicitTarget){
   const fallback={
-    play:'lobby',onlineModeView:'play',solo:'play',rooms:'onlineModeView',room:'rooms',
+    play:'lobby',classic:'play',onlineModeView:'play',solo:'classic',rooms:'onlineModeView',room:'rooms',
     characters:'lobby',customize:'characters',battlePass:'lobby',shop:'lobby',inventory:'lobby',
     rank:'play',settings:'lobby',modeGameView:'solo',draw:'rooms',game:'solo'
   };
@@ -582,7 +583,7 @@ function dancePodiumCharacters(entries){
 function showPodium(entries){
   const overlay=$('#podiumOverlay');if(!overlay)return;const top=[...entries].slice(0,3);overlay.innerHTML=`<div class="podium-card"><button class="podium-close" id="btnClosePodium" type="button">×</button><span class="pill">🏆 PARTIDA ENCERRADA</span><h2>O PÓDIO DO BARALHO!</h2><p>Os campeões estão comemorando!</p><div class="podium-stage">${dancePodiumCharacters(top)}</div><button class="btn btn-primary btn-wide" id="btnPodiumLobby" type="button">🏠 VOLTAR AO LOBBY</button></div>`;overlay.classList.remove('hidden');Sound.win();[0,1,2].forEach(i=>setTimeout(()=>Sound.emote(),i*180));on('#btnClosePodium','click',closePodium);on('#btnPodiumLobby','click',closePodium);}
 function closePodium(){hide('#podiumOverlay');state.solo=null;state._onlineGame=null;if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;}navigate('lobby');}
-async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}const playerEntry={name:state.user?.username||'Jogador',avatar:state.profile?.avatar||DEFAULT_AVATAR,label:win?'CAMPEÃO':'JOGADOR'};const oponenteAvatar={...DEFAULT_AVATAR,character:['barman','robo','rei'][Math.floor(Math.random()*3)]};const others=[{name:'Oponente',avatar:oponenteAvatar,label:'Vice-campeão'},{name:'Oponente',avatar:{...DEFAULT_AVATAR,character:['rainha','astronauta','velhinho'][Math.floor(Math.random()*3)]},label:'3º lugar'}];const entries=win?[playerEntry,others[0],others[1]]:[others[0],playerEntry,others[1]];showPodium(entries);}
+async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}const playerEntry={name:state.user?.username||'Jogador',avatar:state.profile?.avatar||DEFAULT_AVATAR,label:win?'CAMPEÃO':'JOGADOR'};const oponenteAvatar={...DEFAULT_AVATAR,character:['barman','rei','astronauta'][Math.floor(Math.random()*3)]};const others=[{name:'Oponente',avatar:oponenteAvatar,label:'Vice-campeão'},{name:'Oponente',avatar:{...DEFAULT_AVATAR,character:['rainha','astronauta','velhinho'][Math.floor(Math.random()*3)]},label:'3º lugar'}];const entries=win?[playerEntry,others[0],others[1]]:[others[0],playerEntry,others[1]];showPodium(entries);}
 
 function initDrawingCanvas(){
   const canvas=$('#drawCanvas');if(!canvas)return;
@@ -738,7 +739,6 @@ function characterMarkup(a,name=''){
     velhinho:{name:'Velhinho',power:'Compra sortuda',shirt:'#2f80ed',pants:'#23324a',accent:'#73d6ff'},
     barman:{name:'Barman',power:'+1 compra especial',shirt:'#9b5a2e',pants:'#34251d',accent:'#ffd166'},
     rainha:{name:'Rainha da Mesa',power:'Aura de sorte',shirt:'#8b5cf6',pants:'#3b2d75',accent:'#f0abfc'},
-    robo:{name:'Robô Barulhento',power:'Emote exclusivo',shirt:'#64748b',pants:'#263242',accent:'#67e8f9'},
     astronauta:{name:'Astronauta',power:'Efeito espacial',shirt:'#e8eef7',pants:'#64748b',accent:'#60a5fa'},
     rei:{name:'Rei do Baralho',power:'Título dourado',shirt:'#b7791f',pants:'#4a2808',accent:'#fde68a'}
   };
@@ -767,7 +767,6 @@ const ORIGINAL_CHARACTERS={
   velhinho:{name:'Velhinho',icon:'🧓',power:'Compra sortuda',req:'Inicial',unlock:true},
   barman:{name:'Barman',icon:'🍺',power:'+1 compra especial',req:'Loja • 650 moedas'},
   rainha:{name:'Rainha da Mesa',icon:'👑',power:'Aura de sorte',req:'Passe • nível 25'},
-  robo:{name:'Robô Barulhento',icon:'🤖',power:'Emote exclusivo',req:'XP • 3.000 XP'},
   astronauta:{name:'Astronauta',icon:'🚀',power:'Efeito espacial',req:'Loja • 1.200 moedas'},
   rei:{name:'Rei do Baralho',icon:'🃏',power:'Título dourado',req:'Passe • nível 75'}
 };
@@ -776,7 +775,6 @@ function characterOwned(id){
   const u=state.user||{};const inv=new Set((state.inventory||[]).map(i=>i.id));
   if(id==='barman')return inv.has('character_barman')||Number(u.coins||0)>=650;
   if(id==='rainha')return inv.has('character_rainha')||Number(u.level||1)>=25;
-  if(id==='robo')return inv.has('character_robo')||Number(u.xp||0)>=3000;
   if(id==='astronauta')return inv.has('character_astronauta')||Number(u.coins||0)>=1200;
   if(id==='rei')return inv.has('character_rei')||Number(u.level||1)>=75;
   return false;

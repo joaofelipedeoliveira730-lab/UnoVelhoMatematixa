@@ -1162,3 +1162,202 @@ body.in-game .table-center-3d .draw-stack>b{
   body.in-game .table-center-3d .draw-stack{width:68px!important;height:94px!important}
   body.in-game .table-center-3d .draw-stack .back-card{width:63px!important;height:90px!important}
 }
+
+
+/* =========================================================
+   UNO VELHO 5.3 — ARENA DEFINITIVA / MODO CLÁSSICO
+   Correção final: cartas horizontais, centro limpo e sem faixa
+   desfocada. Estas regras ficam por último para vencer estilos
+   antigos do arquivo e evitar regressões por cascata.
+   ========================================================= */
+body.in-game .table-status,
+body.in-game .table-shadow,
+body.in-game .first-person-center .deck-area:before,
+body.in-game .first-person-center .draw-stack:before,
+body.in-game .first-person-center .draw-stack:after,
+body.in-game .first-person-table:after,
+body.in-game .first-person-table .table-felt:after,
+body.in-game .first-person-center .main-discard:after{
+  display:none!important;
+  content:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  box-shadow:none!important;
+}
+body.in-game .first-person-center{
+  position:absolute!important;
+  left:50%!important;
+  top:52%!important;
+  width:auto!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:clamp(18px,4vw,52px)!important;
+  transform:translate(-50%,-50%)!important;
+  perspective:none!important;
+  filter:none!important;
+  z-index:200!important;
+}
+body.in-game .first-person-center .main-discard{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:clamp(132px,13vw,190px)!important;
+  min-width:clamp(132px,13vw,190px)!important;
+  height:clamp(88px,8.8vw,126px)!important;
+  min-height:clamp(88px,8.8vw,126px)!important;
+  margin:0!important;
+  transform:none!important;
+  z-index:220!important;
+}
+body.in-game .first-person-center #discardPile.big-card,
+body.in-game .first-person-center #discardPile.center-card{
+  width:100%!important;
+  min-width:0!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  border-width:3px!important;
+  border-radius:15px!important;
+  transform:none!important;
+  rotate:0deg!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.16)!important;
+  filter:none!important;
+  overflow:hidden!important;
+  font-size:clamp(32px,4vw,50px)!important;
+}
+body.in-game .first-person-center #discardPile .card-symbol{font-size:clamp(36px,4.4vw,54px)!important}
+body.in-game .first-person-center #discardPile .card-corner{font-size:clamp(13px,1.6vw,19px)!important}
+body.in-game .first-person-center #discardPile .card-corner.oponentetom{bottom:4px!important;right:7px!important}
+body.in-game .first-person-center .color-indicator{
+  display:none!important;
+}
+body.in-game .first-person-center .deck-area{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:clamp(100px,11vw,150px)!important;
+  height:clamp(78px,8vw,108px)!important;
+  margin:0!important;
+  gap:5px!important;
+  filter:none!important;
+  z-index:210!important;
+}
+body.in-game .first-person-center .draw-stack{
+  position:relative!important;
+  width:clamp(104px,10.5vw,148px)!important;
+  height:clamp(76px,7.8vw,104px)!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  filter:none!important;
+  transform:none!important;
+}
+body.in-game .first-person-center .draw-stack .back-card{
+  display:grid!important;
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  border:3px solid #fff!important;
+  border-radius:14px!important;
+  background:radial-gradient(ellipse at center,#6d3cff 0 18%,#090b15 19% 72%,#236cff 73% 100%)!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.32),0 0 0 1px rgba(124,58,237,.25)!important;
+  transform:none!important;
+  rotate:0deg!important;
+}
+body.in-game .first-person-center .draw-stack .back-card:after{
+  content:'COMPRAR'!important;
+  position:absolute!important;
+  left:50%!important;
+  bottom:7px!important;
+  transform:translateX(-50%)!important;
+  width:auto!important;
+  padding:4px 8px!important;
+  border-radius:999px!important;
+  background:rgba(4,7,20,.78)!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  color:#fff!important;
+  font-size:9px!important;
+  font-weight:1000!important;
+  letter-spacing:.8px!important;
+}
+body.in-game .first-person-center .draw-stack:hover .back-card{transform:translateY(-4px) scale(1.025)!important}
+body.in-game .first-person-center .draw-stack:active .back-card{transform:translateY(2px) scale(.97)!important}
+body.in-game .first-person-center .deck-area>small{
+  display:none!important;
+}
+body.in-game .first-person-center .draw-stack>b{
+  position:absolute!important;
+  top:-7px!important;
+  right:-7px!important;
+  z-index:10!important;
+  min-width:22px!important;
+  text-align:center!important;
+}
+.classic-modes-view{padding-bottom:30px}
+.classic-format-grid{
+  width:min(1100px,94vw);
+  margin:30px auto 0;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+}
+.classic-mode-card{
+  min-height:245px;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:24px;
+  border-radius:26px;
+  color:#fff;
+  background:linear-gradient(145deg,rgba(37,99,235,.28),rgba(124,58,237,.24));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 22px 60px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.08);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  cursor:pointer;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.classic-mode-card:before{content:"";position:absolute;inset:-50%;background:radial-gradient(circle,rgba(255,255,255,.12),transparent 42%);animation:classicGlow 5s ease-in-out infinite alternate;pointer-events:none}
+.classic-mode-card:hover{transform:translateY(-7px);border-color:rgba(125,211,252,.55);box-shadow:0 28px 70px rgba(37,99,235,.2),0 0 0 1px rgba(124,58,237,.2)}
+.classic-mode-card>span{font-size:54px;position:relative;z-index:1}
+.classic-mode-card>b{font-size:24px;letter-spacing:2px;position:relative;z-index:1}
+.classic-mode-card>small{color:#bcd5ff;position:relative;z-index:1}
+.classic-mode-card>em{font-style:normal;font-size:9px;font-weight:1000;letter-spacing:1.5px;color:#7dd3fc;position:relative;z-index:1}
+@keyframes classicGlow{to{transform:translate(10%,7%) scale(1.08);opacity:.55}}
+.mode-hub-btn.classic{background:linear-gradient(135deg,rgba(37,99,235,.82),rgba(124,58,237,.82))!important}
+@media(max-width:800px){
+  .classic-format-grid{grid-template-columns:1fr;max-width:520px;margin-top:18px}
+  .classic-mode-card{min-height:150px;display:grid;grid-template-columns:70px 1fr;grid-template-rows:auto auto auto;column-gap:12px;text-align:left;padding:18px}
+  .classic-mode-card>span{grid-row:1/4;grid-column:1;font-size:42px;text-align:center}
+  .classic-mode-card>b,.classic-mode-card>small,.classic-mode-card>em{grid-column:2}
+}
+@media(max-width:900px) and (orientation:landscape){
+  body.in-game .first-person-center{top:50%!important;gap:clamp(12px,3vw,28px)!important}
+  body.in-game .first-person-center .main-discard{width:clamp(120px,16vw,165px)!important;height:clamp(80px,10vw,110px)!important}
+  body.in-game .first-person-center .deck-area{width:clamp(90px,13vw,120px)!important;height:clamp(68px,9vw,90px)!important}
+  body.in-game .first-person-center .draw-stack{width:clamp(92px,13vw,124px)!important;height:clamp(68px,9vw,88px)!important}
+}
+@media(max-width:650px) and (orientation:landscape){
+  body.in-game .first-person-center{gap:10px!important}
+  body.in-game .first-person-center .main-discard{width:132px!important;height:88px!important}
+  body.in-game .first-person-center .deck-area{width:94px!important;height:70px!important}
+  body.in-game .first-person-center .draw-stack{width:92px!important;height:66px!important}
+  body.in-game .first-person-center .draw-stack .back-card{border-width:2px!important}
+  body.in-game .first-person-center .draw-stack .back-card:after{font-size:7px!important;padding:3px 6px!important;bottom:5px!important}
+}

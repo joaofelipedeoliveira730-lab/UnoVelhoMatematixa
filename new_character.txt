@@ -9,7 +9,6 @@ function characterMarkup(a,name=''){
     velhinho:{name:'Velhinho',power:'Compra sortuda',shirt:'#2f80ed',pants:'#23324a',accent:'#73d6ff'},
     barman:{name:'Barman',power:'+1 compra especial',shirt:'#9b5a2e',pants:'#34251d',accent:'#ffd166'},
     rainha:{name:'Rainha da Mesa',power:'Aura de sorte',shirt:'#8b5cf6',pants:'#3b2d75',accent:'#f0abfc'},
-    robo:{name:'Robô Barulhento',power:'Emote exclusivo',shirt:'#64748b',pants:'#263242',accent:'#67e8f9'},
     astronauta:{name:'Astronauta',power:'Efeito espacial',shirt:'#e8eef7',pants:'#64748b',accent:'#60a5fa'},
     rei:{name:'Rei do Baralho',power:'Título dourado',shirt:'#b7791f',pants:'#4a2808',accent:'#fde68a'}
   };
