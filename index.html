@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260816-final">
+<link rel="stylesheet" href="style.css?v=20260816-4.0.0">
 </head>
 <body>
 
@@ -153,8 +153,8 @@
 
     <div id="arenaShell" class="arena-shell arena-3d first-person-arena" data-map-theme="velho-bar">
       <header class="arena-top">
-        <div class="game-stat"><span>PARTIDA</span><b id="roundText">1 / 1</b></div>
-        <div id="turnStatus" class="turn-badge">SUA VEZ!</div>
+        <div class="game-stat game-stat-match"><span>PARTIDA</span><b id="roundText">2 VS 2</b></div>
+        <div id="turnStatus" class="turn-badge">SUA VEZ!</div><div class="arena-live-badge"><i></i> AO VIVO</div>
         <div class="arena-tools"><button id="btnBackGameAlt" class="back-game-btn" type="button">← VOLTAR</button><button id="btnSound" class="icon-btn" type="button">🔊</button></div>
       </header>
 
@@ -188,7 +188,7 @@
       </div>
 
       <div class="player-zone first-person-player-zone">
-        <div class="player-self"><div class="self-emote player-emote" data-emote-for="self"></div><div class="self-profile"><div id="gameAvatar" class="avatar-game"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerId">ID: 0</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
+        <div class="player-self"><div class="self-emote player-emote" data-emote-for="self"></div><div class="self-profile"><div id="gameAvatar" class="avatar-game avatar-photo-frame-self"></div><div><b id="gamePlayerName">Jogador</b><small id="gamePlayerId">ID: 0</small></div></div><button id="btnUno" class="uno-call" type="button">UNO!</button></div>
         <div id="playerHand" class="hand-cards hand-fan-3d"></div>
         <div class="game-emotes" id="emoteTray"><button data-emote="😀" type="button">😀</button><button data-emote="😂" type="button">😂</button><button data-emote="😡" type="button">😡</button><button data-emote="🔥" type="button">🔥</button><button data-emote="👏" type="button">👏</button><button data-emote="🎉" type="button">🎉</button></div>
         <div id="gameToast" class="game-toast"></div>
@@ -272,7 +272,7 @@
   } catch(e) {}
 })();
 </script>
-<script src="app.js?v=20260816-final" defer></script>
+<script src="app.js?v=20260816-4.0.0" defer></script>
 
 
 <div id="mailModal" class="modal-overlay hidden"><div class="modal modal-wide"><div class="modal-head"><div><span class="pill">✉️ CORREIO</span><h2>Convites</h2></div><button class="close-modal" data-close="mailModal" type="button">×</button></div><div id="mailContent" class="mail-content"></div></div></div>

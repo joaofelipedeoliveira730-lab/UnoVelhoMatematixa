@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-final';
+const VERSION = '4.0.0';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -444,8 +444,30 @@ async function startSolo(difficulty){
     toast('Não foi possível iniciar o UNO. Tente novamente.','error',4500);
   }
 }
-function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:'Oponente'};}
-function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>OPONENTE</b><small>ID: BOT • ${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();applyCamera();}
+function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}const names=['Zé do Baralho','Dona Cartolina','Mestre 7','Vó do UNO','Neto Relâmpago','Capitão Coringa'];return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:names[Math.floor(Math.random()*names.length)]};}
+function renderSolo(){
+  const g=state.solo;if(!g)return;
+  $('#roundText')&&($('#roundText').textContent='2 JOGADORES');
+  $('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO OPONENTE');
+  $('#turnStatus')?.classList.toggle('bot',g.turn!=='player');
+  renderArenaCard(g.discard,g.color);
+  $('#deckCount')&&($('#deckCount').textContent=g.deck.length);
+  if($('#opponents'))$('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="opponent">
+    <div class="player-emote" data-emote-for="opponent"></div>
+    ${gamePortraitMarkup(DEFAULT_AVATAR,g.botName)}
+    <div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} CARTAS</small></div>
+    <div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div>
+  </div>`;
+  const hand=$('#playerHand');
+  if(hand){
+    const cards=Array.isArray(g.player)?g.player:[];
+    hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';
+    bindRenderedHand();
+  }
+  updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);
+  if(g.player.length!==1)clearUnoTimer();
+  applyCamera();
+}
 function renderArenaCard(card,color){
   const el=$('#discardPile');if(el){
     const value=String(card?.value??'?');
@@ -587,21 +609,57 @@ function applyCamera(){
   seats.forEach((el,i)=>{const pos=positions[i%positions.length];el.style.setProperty('--seat-x',pos[0]+'%');el.style.setProperty('--seat-y',pos[1]+'%');el.style.setProperty('--seat-scale','1');el.style.zIndex=String(30+i);el.classList.remove('camera-near');});
 }
 function setupTableCamera(){state.cameraYaw=0;state.cameraPitch=0;state.cameraDragging=false;applyCamera();}
+
+function gamePortraitMarkup(avatar,name='Jogador',count=''){
+  return `<div class="avatar-photo-frame" aria-label="${escapeHtml(name)}">
+    <div class="avatar-photo-bg"></div>
+    <div class="avatar-photo-art">${characterMarkup(avatar||DEFAULT_AVATAR,name)}</div>
+    <div class="avatar-photo-shine"></div>
+  </div>`;
+}
 function renderOnlineGame(game){
-  state._onlineGame=game;state.solo=null;if(state.currentView!=='game')navigate('game');setupTableCamera();
-  $('#roundText')&&($('#roundText').textContent='AO VIVO');
+  state._onlineGame=game;state.solo=null;
+  if(state.currentView!=='game')navigate('game');
+  setupTableCamera();
+  const players=Array.isArray(game.players)?game.players:[];
+  const playerCount=Math.max(2,players.length);
+  $('#roundText')&&($('#roundText').textContent=playerCount===4?'2 VS 2':`${playerCount} JOGADORES`);
   const mine=String(game.currentPlayerId)===String(state.user.id);
-  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');$('#turnStatus')?.classList.toggle('bot',!mine);
-  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;state.currentMapTheme=theme.music||'saloon';applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
-  renderArenaCard(game.top,game.currentColor);$('#deckCount')&&($('#deckCount').textContent=game.deckCount);
+  $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');
+  $('#turnStatus')?.classList.toggle('bot',!mine);
+  const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;
+  state.currentMapTheme=theme.music||'saloon';
+  applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');
+  renderArenaCard(game.top,game.currentColor);
+  $('#deckCount')&&($('#deckCount').textContent=game.deckCount);
   renderPlayedCards(game.recentDiscard||[]);
-  const hand=$('#playerHand');if(hand){const cards=Array.isArray(game.hand)?game.hand:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}
+  const hand=$('#playerHand');
+  if(hand){
+    const cards=Array.isArray(game.hand)?game.hand:[];
+    hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';
+    bindRenderedHand();
+  }
   const ops=$('#opponents');
-  if(ops){const others=(game.players||[]).filter(p=>String(p.userId)!==String(state.user.id));ops.innerHTML=others.map((p,i)=>{
-    const seat=i%4;const active=String(p.userId)===String(game.currentPlayerId);const char=characterMarkup(p.avatar||DEFAULT_AVATAR,p.username);return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}"><div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div><div class="player-character">${char}</div><div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>ID: ${escapeHtml(p.userId)} • ${p.cardCount} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`;
-  }).join('');}
-  const self=$('.player-self');if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
-  updateUnoButton(!!game.unoRequired,game.unoRequired?Date.now()+3200:null);renderCharacter('#gameAvatar',state.profile.avatar);$('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);$('#gamePlayerId')&&($('#gamePlayerId').textContent='ID: '+state.user.id);
+  if(ops){
+    const others=players.filter(p=>String(p.userId)!==String(state.user.id));
+    ops.innerHTML=others.slice(0,3).map((p,i)=>{
+      const seat=i%3;
+      const active=String(p.userId)===String(game.currentPlayerId);
+      const char=gamePortraitMarkup(p.avatar||DEFAULT_AVATAR,p.username);
+      return `<div class="opponent-seat player-seat seat-${seat} ${active?'active':''}" data-player-id="${escapeHtml(p.userId)}">
+        <div class="player-emote" data-emote-for="${escapeHtml(p.userId)}"></div>
+        ${char}
+        <div class="player-nameplate"><b>${escapeHtml(p.username)}</b><small>${p.cardCount||0} CARTAS</small></div>
+        <div class="mini-hand">${Array.from({length:Math.min(7,p.cardCount||0)},()=>'<span class="back-mini">UNO</span>').join('')}</div>
+      </div>`;
+    }).join('');
+  }
+  const self=$('.player-self');
+  if(self){self.dataset.playerId=state.user.id;self.querySelector('.player-emote')?.setAttribute('data-emote-for','self');}
+  updateUnoButton(!!game.unoRequired,game.unoRequired?Date.now()+3200:null);
+  renderCharacter('#gameAvatar',state.profile.avatar);
+  $('#gamePlayerName')&&($('#gamePlayerName').textContent=state.user.username);
+  $('#gamePlayerId')&&($('#gamePlayerId').textContent='ID: '+state.user.id);
 }
 function characterMarkup(a,name=''){
   const x={...DEFAULT_AVATAR,...(a||{})};
