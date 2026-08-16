@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '4.0.0';
+const VERSION = '5.0.0';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,anim
 const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? localStorage.getItem('uv_platform') : localStorage.getItem('uv_platform') || null;
 const state = {
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
-  currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
+  currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedFormat:'quad', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
   solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null, friends:[], invites:[]
 };
 
@@ -125,24 +125,28 @@ async function choosePlatform(platform){
   localStorage.setItem('uv_platform',platform);localStorage.setItem('uv_platform_version',VERSION);
   applyPlatform(platform);
   Sound.init();
-  // No celular, mantenha a partida em tela cheia na orientação atual.
-  // O navegador nem sempre permite lock/fullscreen programático antes de um gesto.
+  // O clique do usuário libera fullscreen + orientação no celular.
+  await requestLandscape();
+  document.body.classList.add('platform-ready');
   await continueAfterPlatform();
 }
 
 async function requestLandscape(){
   try{ if(document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:'hide'}); }catch{}
   try{ if(screen.orientation?.lock) await screen.orientation.lock('landscape'); }catch{}
+  document.body.classList.add('landscape-mode');
   updateOrientationGuard();
 }
 async function forceLandscape(){
-  if(state.platform!=='mobile')return;
   try{if(document.documentElement.requestFullscreen&&!document.fullscreenElement)await document.documentElement.requestFullscreen({navigationUI:'hide'});}catch{}
+  try{if(screen.orientation?.lock)await screen.orientation.lock('landscape');}catch{}
+  document.body.classList.add('landscape-mode');
   enterGameViewport();
+  updateOrientationGuard();
 }
 
 function enterGameViewport(){
-  document.body.classList.add('in-game');
+  document.body.classList.add('in-game','landscape-mode');
   document.body.classList.remove('game-portrait-fallback');
   const gv=$('#gameView');
   if(gv){gv.style.width='100vw';gv.style.height='100dvh';gv.style.maxWidth='none';gv.style.minWidth='100vw';}
@@ -185,7 +189,7 @@ function bindEvents(){
   on('#btnBackModeGame','click',exitModeGame);
   on('#btnOnline','click',()=>{state.selectedGameMode='uno';openOnlineModes();});
   on('#btnRank','click',openRank);
-  $$('.online-mode-card').forEach(b=>b.addEventListener('click',()=>selectOnlineMode(b.dataset.onlineMode)));
+  $$('.online-mode-card').forEach(b=>b.addEventListener('click',()=>selectOnlineMode(b.dataset.onlineMode,b.dataset.format||'quad')));
   on('#btnBackDraw','click',leaveDrawingGame);
   on('#btnDrawClear','click',()=>state.socket?.emit('drawing:clear',{roomCode:state.currentRoom?.code}));
   on('#btnDrawEraser','click',()=>toggleDrawEraser());
@@ -349,9 +353,9 @@ function renderAchievementsPreview(){const el=$('#achievementPreview');if(!el)re
 
 const GAME_MODES={uno:{label:'UNO',name:'Uno dos Idosos',icon:'🃏'}};
 function openOnlineModes(){state.selectedGameMode='uno';navigate('onlineModeView');}
-function selectOnlineMode(mode){state.selectedGameMode='uno';navigate('rooms');renderRoomsHeader();loadRooms();}
-function renderRoomsHeader(){const m=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;if($('#roomsHeading'))$('#roomsHeading').textContent=`SALAS DE ${m.label}`;if($('#roomsModeSubtitle'))$('#roomsModeSubtitle').textContent=`${m.icon} ${m.name} • escolha uma mesa ou crie a sua.`;}
-function openCreateRoom(){if(!state.socket)connectSocket();populateRoomMaps();if($('#roomGameMode'))$('#roomGameMode').value=state.selectedGameMode||'uno';show('#createRoomModal');}
+function selectOnlineMode(mode,format='quad'){state.selectedGameMode='uno';state.selectedFormat=format;navigate('rooms');renderRoomsHeader();loadRooms();}
+function renderRoomsHeader(){const m=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;const f={duo:'DUO • 2 jogadores',trio:'TRIO • 3 jogadores',quad:'QUARTETO • 4 jogadores'}[state.selectedFormat]||'QUARTETO';if($('#roomsHeading'))$('#roomsHeading').textContent=`${f} • SALAS DE ${m.label}`;if($('#roomsModeSubtitle'))$('#roomsModeSubtitle').textContent=`${m.icon} ${m.name} • salas rápidas e matchmaking automático.`;}
+function openCreateRoom(){if(!state.socket)connectSocket();populateRoomMaps();if($('#roomGameMode'))$('#roomGameMode').value=state.selectedGameMode||'uno';const max={duo:2,trio:3,quad:4}[state.selectedFormat]||4;if($('#roomMax'))$('#roomMax').value=String(max);show('#createRoomModal');}
 function populateRoomMaps(){const el=$('#roomMap');if(!el)return;el.innerHTML=MAPS.filter(m=>m.id!=='map_ceo'||state.user?.role==='CEO').map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');}
 async function openRooms(){state.selectedGameMode=state.selectedGameMode||'uno';navigate('rooms');renderRoomsHeader();await loadRooms();}
 async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const rooms=d.rooms||[];const mode=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;el.innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${mapTheme(r.options?.mapId)}">${r.locked?'🔒':mode.icon}</div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers}</small></div><div class="room-tags"><span>${escapeHtml(mode.label)}</span><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span></div><button class="btn btn-primary btn-wide" data-join-room="${r.code}" type="button">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):`<div class="empty-state glass"><span>${mode.icon}</span><b>Nenhuma sala de ${escapeHtml(mode.label)} aberta.</b><small>Crie a primeira mesa desse modo.</small></div>`;}catch(e){el.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível carregar as salas.</b><small>${escapeHtml(e.message)}</small></div>`;}}
@@ -365,7 +369,7 @@ function leaveDrawingGame(){
 }
 function renderRoom(room){
   if(!room)return;$('#roomTitle')&&($('#roomTitle').textContent=room.name);$('#roomCodeBadge')&&($('#roomCodeBadge').textContent=room.code);$('#roomOptionsText')&&($('#roomOptionsText').textContent=`${GAME_MODES[room.options?.gameMode]?.icon||'🎮'} ${GAME_MODES[room.options?.gameMode]?.label||'JOGO'} • ${room.players.length}/${room.options.maxPlayers} jogadores • ${room.options.turnSeconds}s`);if($('#btnStartRoom'))$('#btnStartRoom').style.display=String(room.ownerId)===String(state.user.id)&&!room.started?'inline-flex':'none';
-  const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
+  const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">🙂</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'} </small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
   const banner=$('#roomMapBanner');if(banner){banner.className=`room-map-banner map-${mapTheme(room.options.mapId)}`;banner.innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(MAPS.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
 }
 function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
@@ -385,7 +389,7 @@ function showGameIntro(onDone,opts={}){
   if(gameIntroBusy){onDone?.();return;}
   gameIntroBusy=true;
   const overlay=$('#gameStartOverlay');if(!overlay){gameIntroBusy=false;onDone?.();return;}
-  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card"><div class="game-start-kicker">${opts.online?'🌎 PARTIDA ONLINE':'🤖 PARTIDA SOLO'}</div><div id="gameStartNumber" class="game-start-number">5</div><div class="game-start-label">PREPARE A MESA!</div><div id="gameStartDeck" class="game-start-deck" aria-hidden="true">${Array.from({length:10},(_,i)=>`<span style="--d:${i}">${['7','+2','3','🌈','9','0','+4','5','↻','2'][i]}</span>`).join('')}</div></div>`;
+  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card"><div class="game-start-kicker">${opts.online?'🌎 PARTIDA ONLINE':'🎯 PARTIDA'}</div><div id="gameStartNumber" class="game-start-number">5</div><div class="game-start-label">PREPARE A MESA!</div><div id="gameStartDeck" class="game-start-deck" aria-hidden="true">${Array.from({length:10},(_,i)=>`<span style="--d:${i}">${['7','+2','3','🌈','9','0','+4','5','↻','2'][i]}</span>`).join('')}</div></div>`;
   const n=$('#gameStartNumber');let value=5;playCountdownSound();
   const timer=setInterval(()=>{
     value--;
@@ -403,7 +407,7 @@ function showSoloMatchmaking(onFound){
   if(soloMatchTimer)clearTimeout(soloMatchTimer);
   const limit=8000+Math.floor(Math.random()*22001);
   const started=Date.now();
-  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card matchmaking-card"><div class="game-start-kicker">🤖 BUSCANDO PARTIDA SOLO</div><div class="matchmaking-spinner">🃏</div><div class="matchmaking-title">Procurando uma mesa...</div><div id="matchmakingSeconds" class="matchmaking-seconds">${Math.ceil(limit/1000)}s</div><div class="matchmaking-bar"><i></i></div></div>`;
+  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card matchmaking-card"><div class="game-start-kicker">🎯 BUSCANDO MESA</div><div class="matchmaking-spinner">🃏</div><div class="matchmaking-title">Procurando uma mesa...</div><div id="matchmakingSeconds" class="matchmaking-seconds">${Math.ceil(limit/1000)}s</div><div class="matchmaking-bar"><i></i></div></div>`;
   const tick=setInterval(()=>{const left=Math.max(0,limit-(Date.now()-started));const el=$('#matchmakingSeconds');if(el)el.textContent=`${Math.ceil(left/1000)}s`;if(left<=0)clearInterval(tick);},120);
   soloMatchTimer=setTimeout(()=>{clearInterval(tick);overlay.innerHTML=`<div class="game-start-card match-found-card"><div class="game-start-kicker">🎯 OPONENTE ENCONTRADO</div><div class="match-found-icon">✓</div><div class="matchmaking-title">PARTIDA ENCONTRADA!</div><div class="match-found-sub">Preparando a mesa...</div></div>`;vibrate([250,100,250,100,400]);speakMatchFound();Sound.ok();setTimeout(()=>{showGameIntro(onFound,{online:false});},850);},limit);
 }
@@ -426,10 +430,10 @@ function startSoloMode(mode,difficulty='medium'){
   startTableSolo(mode,difficulty);
 }
 function startLocalDrawGame(difficulty){state._localDraw={mode:'draw',difficulty,round:1,score:0,word:['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)],drawing:false};navigate('modeGameView');renderLocalDraw();}
-function startTableSolo(mode,difficulty){state._tableSolo={mode,difficulty,turn:'player',selected:null,botName:mode==='truco'?'Truquinho':mode==='checkers'?'Daminha': 'Xadrezinho',message:'Começou! Faça sua jogada.'};navigate('modeGameView');renderTableSolo();}
+function startTableSolo(mode,difficulty){state._tableSolo={mode,difficulty,turn:'player',selected:null,botName:mode==='truco'?'Mestre da Mesa':mode==='checkers'?'Estrategista':'Mestre do Tabuleiro',message:'Começou! Faça sua jogada.'};navigate('modeGameView');renderTableSolo();}
 function exitModeGame(){state._tableSolo=null;state._localDraw=null;navigate(state.currentRoom?'room':'solo');}
 function renderLocalDraw(){const g=state._localDraw;if(!g)return;$('#modeGameBadge').textContent='🎨 GARTIC SOLO';$('#modeGameTitle').textContent='Adivinha o Desenho';$('#modeGameTurn').textContent='VOCÊ DESENHA';$('#modeGameMessage').textContent=`Palavra secreta: ${g.word} • desenhe e depois clique em REVELAR.`;$('#modeGameBody').innerHTML=`<div class="local-draw-board glass"><div class="local-draw-toolbar"><span>🎨 Quadro</span><button id="localReveal" class="btn btn-primary">REVELAR</button><button id="localClear" class="btn btn-secondary">LIMPAR</button></div><canvas id="localDrawCanvas" width="1000" height="560"></canvas><div id="localDrawReveal" class="local-reveal hidden"></div></div>`;const c=$('#localDrawCanvas'),ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);let down=false;const pos=e=>{const r=c.getBoundingClientRect();const p=e.touches?.[0]||e;return{x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height}};const start=e=>{down=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y)};const move=e=>{if(!down)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#111827';ctx.lineWidth=9;ctx.lineCap='round';ctx.stroke()};['mousedown','touchstart'].forEach(x=>c.addEventListener(x,start,{passive:true}));['mousemove','touchmove'].forEach(x=>c.addEventListener(x,move,{passive:true}));['mouseup','mouseleave','touchend'].forEach(x=>c.addEventListener(x,()=>down=false));on('#localClear','click',()=>{ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height)});on('#localReveal','click',()=>{const r=$('#localDrawReveal');r.classList.remove('hidden');r.textContent=`🔎 Era: ${g.word}`;g.round++;setTimeout(()=>{g.word=['cachorro','avião','pizza','violão','robô','sorvete'][Math.floor(Math.random()*6)];renderLocalDraw()},1800)});}
-function renderTableSolo(){const g=state._tableSolo;if(!g)return;const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};$('#modeGameBadge').textContent=labels[g.mode][0];$('#modeGameTitle').textContent=labels[g.mode][1];$('#modeGameTurn').textContent=g.turn==='player'?'SUA VEZ':'BOT PENSANDO';$('#modeGameMessage').textContent=g.message;const body=$('#modeGameBody');if(g.mode==='truco'){body.innerHTML=`<div class="truco-solo-board glass"><div class="table-opponent"><div class="solo-code-character">🤠</div><b>${g.botName}</b><small>Bot • ${g.difficulty}</small></div><div class="truco-center">🃏<strong>TRUCO!</strong><small>Rodada ${Math.floor(Math.random()*3)+1}</small></div><div class="truco-hand">${['A♥','K♣','7♦'].map((x,i)=>`<button class="playing-card-mini" data-card="${i}">${x}</button>`).join('')}</div><button id="callTruco" class="btn btn-primary">TRUCO!</button></div>`;$$('[data-card]').forEach(b=>b.onclick=()=>{g.message=`Você jogou ${b.textContent}. O bot está pensando...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez!';renderTableSolo()},3000)});on('#callTruco','click',()=>{g.message='VOCÊ GRITOU TRUCO! O bot está decidindo...';g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message=Math.random()>.35?'O bot aceitou! Sua vez.':'O bot correu! Você ganhou a mão.';renderTableSolo()},3000)});return;}const pieces=g.mode==='chess'?['♜','♞','♝','♛','♚','♝','♞','♜']:['⚫','⚫','⚫','⚫','⚫','⚫','⚫','⚫'];body.innerHTML=`<div class="board-solo glass"><div class="board-grid ${g.mode}">${Array.from({length:64},(_,i)=>`<button class="board-cell ${((Math.floor(i/8)+i)%2?'dark':'light')}" data-cell="${i}">${g.mode==='chess'&&i<8?pieces[i]:g.mode==='chess'&&i>=48?['♜','♞','♝','♛','♚','♝','♞','♜'][i-48]:g.mode==='checkers'&&(Math.floor(i/8)<3||Math.floor(i/8)>4)&&((Math.floor(i/8)+i)%2)?'⚫':''}</button>`).join('')}</div></div>`;$$('.board-cell').forEach(b=>b.onclick=()=>{g.message=`Jogada em ${Number(b.dataset.cell)+1}. O bot pensa por alguns segundos...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez! Escolha outra casa.';renderTableSolo()},2500)});}
+function renderTableSolo(){const g=state._tableSolo;if(!g)return;const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};$('#modeGameBadge').textContent=labels[g.mode][0];$('#modeGameTitle').textContent=labels[g.mode][1];$('#modeGameTurn').textContent=g.turn==='player'?'SUA VEZ':'OPONENTE PENSANDO';$('#modeGameMessage').textContent=g.message;const body=$('#modeGameBody');if(g.mode==='truco'){body.innerHTML=`<div class="truco-solo-board glass"><div class="table-opponent"><div class="solo-code-character">🤠</div><b>${g.botName}</b><small>Nível • ${g.difficulty}</small></div><div class="truco-center">🃏<strong>TRUCO!</strong><small>Rodada ${Math.floor(Math.random()*3)+1}</small></div><div class="truco-hand">${['A♥','K♣','7♦'].map((x,i)=>`<button class="playing-card-mini" data-card="${i}">${x}</button>`).join('')}</div><button id="callTruco" class="btn btn-primary">TRUCO!</button></div>`;$$('[data-card]').forEach(b=>b.onclick=()=>{g.message=`Você jogou ${b.textContent}. O oponente está pensando...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez!';renderTableSolo()},520)});on('#callTruco','click',()=>{g.message='VOCÊ GRITOU TRUCO! O oponente está decidindo...';g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message=Math.random()>.35?'O oponente aceitou! Sua vez.':'O oponente recuou! Você ganhou a mão.';renderTableSolo()},520)});return;}const pieces=g.mode==='chess'?['♜','♞','♝','♛','♚','♝','♞','♜']:['⚫','⚫','⚫','⚫','⚫','⚫','⚫','⚫'];body.innerHTML=`<div class="board-solo glass"><div class="board-grid ${g.mode}">${Array.from({length:64},(_,i)=>`<button class="board-cell ${((Math.floor(i/8)+i)%2?'dark':'light')}" data-cell="${i}">${g.mode==='chess'&&i<8?pieces[i]:g.mode==='chess'&&i>=48?['♜','♞','♝','♛','♚','♝','♞','♜'][i-48]:g.mode==='checkers'&&(Math.floor(i/8)<3||Math.floor(i/8)>4)&&((Math.floor(i/8)+i)%2)?'⚫':''}</button>`).join('')}</div></div>`;$$('.board-cell').forEach(b=>b.onclick=()=>{g.message=`Jogada em ${Number(b.dataset.cell)+1}. O oponente está analisando a jogada...`;g.turn='bot';renderTableSolo();setTimeout(()=>{g.turn='player';g.message='Sua vez! Escolha outra casa.';renderTableSolo()},2500)});}
 async function startSolo(difficulty){
   try {
     const g=makeSolo(difficulty);
@@ -449,7 +453,7 @@ function renderSolo(){
   const g=state.solo;if(!g)return;
   $('#roundText')&&($('#roundText').textContent='2 JOGADORES');
   $('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO OPONENTE');
-  $('#turnStatus')?.classList.toggle('bot',g.turn!=='player');
+  $('#turnStatus')?.classList.remove('bot');
   renderArenaCard(g.discard,g.color);
   $('#deckCount')&&($('#deckCount').textContent=g.deck.length);
   if($('#opponents'))$('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="opponent">
@@ -498,11 +502,11 @@ function exitGame(){
   navigate('solo');
 }
 function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();const drawn=g.player[g.player.length-1];if(count===1&&drawn&&playable(drawn,g.discard,g.color)){g.message='Você comprou uma carta jogável. Escolha se quer jogar.';renderSolo();return;}g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));}
-function soloBotDelay(difficulty='medium'){const ranges={easy:[900,1600],medium:[1200,2200],hard:[1700,3000]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
+function soloBotDelay(difficulty='medium'){const ranges={easy:[280,520],medium:[360,680],hard:[480,850]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
 function botTurn(){
   const g=state.solo;if(!g||g.turn!=='bot')return;
   const delay=soloBotDelay(g.difficulty);
-  toast(`🤔 Oponente está pensando...`,'info',Math.min(2200,Math.max(700,delay-200)));
+  toast(`🧠 Oponente analisando...`,'info',Math.min(2200,Math.max(700,delay-200)));
   setTimeout(()=>{
     if(!state.solo||state.solo!==g||g.turn!=='bot')return;
     let cards=g.bot.filter(c=>playable(c,g.discard,g.color));if(g.pendingDraw>0)cards=[];let card=null;
@@ -572,6 +576,17 @@ function renderDrawingGuess(g){
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseColorBot(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
 
+function handleGameAction(action={}){
+  if(action.type==='play'){Sound.play();toast(`🃏 ${escapeHtml(action.username||'Jogador')} jogou uma carta.`,'info',1200);}
+  else if(action.type==='draw'){Sound.cardDraw();}
+  else if(action.type==='uno-penalty'){Sound.bad();toast(`⚠️ ${escapeHtml(action.username||'Jogador')} recebeu ${action.count||2} cartas.`,'error',1800);}
+}
+function handleGameEmote(m={}){
+  const id=String(m.playerId||'');
+  const target=$$('#opponents [data-emote-for]').find(el=>String(el.dataset.emoteFor||'')===id)||$('.self-emote');
+  if(target){target.textContent=m.emote||'😀';target.classList.add('show');setTimeout(()=>target.classList.remove('show'),1600);}
+}
+
 function renderModeGameState(g){
   if(!g)return; state._modeGame=g; state.solo=null; if(state.currentView!=='modeGameView')navigate('modeGameView');
   const labels={truco:['🂡 TRUCO','Truco do Velho'],checkers:['⚫ DAMAS','Damas de Botecão'],chess:['♟️ XADREZ','Xadrez do Bar']};
@@ -626,7 +641,7 @@ function renderOnlineGame(game){
   $('#roundText')&&($('#roundText').textContent=playerCount===4?'2 VS 2':`${playerCount} JOGADORES`);
   const mine=String(game.currentPlayerId)===String(state.user.id);
   $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');
-  $('#turnStatus')?.classList.toggle('bot',!mine);
+  $('#turnStatus')?.classList.remove('bot');
   const theme=MAP_PERSONALITY[mapTheme(game.mapId)]||MAP_PERSONALITY.saloon;
   state.currentMapTheme=theme.music||'saloon';
   applyMapScene(game.mapId);startMapMusic(theme.music||'saloon');

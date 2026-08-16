@@ -926,3 +926,44 @@ body{background:#020711;color:#edf7ff}body:before{content:"";position:fixed;inse
   .first-person-center .draw-stack .uno-card{width:68px!important;height:100px!important}
   .discard-area .center-card{width:72px!important;height:106px!important}
 }
+
+
+/* ===== MATEMATIXA 5.0 — PURPLE / BLUE / WHITE GLASS SYSTEM ===== */
+:root{
+  --uv-blue:#2563ff; --uv-blue-2:#38bdf8; --uv-purple:#7c3aed; --uv-purple-2:#a855f7;
+  --uv-white:#f8fbff; --uv-bg:#050817; --uv-glass:rgba(10,16,42,.52); --uv-border:rgba(168,85,247,.28);
+  --uv-shadow:0 24px 80px rgba(0,0,0,.42),0 0 45px rgba(37,99,255,.12);
+}
+html,body{background:radial-gradient(circle at 15% 10%,rgba(124,58,237,.22),transparent 34%),radial-gradient(circle at 85% 20%,rgba(37,99,255,.22),transparent 36%),linear-gradient(135deg,#030512,#07122f 48%,#11052c)!important;color:var(--uv-white)}
+body:before{content:"";position:fixed;inset:-30%;pointer-events:none;z-index:-1;background:conic-gradient(from 0deg,transparent,rgba(124,58,237,.09),transparent,rgba(37,99,255,.1),transparent);filter:blur(60px);animation:uvAurora 18s linear infinite}
+@keyframes uvAurora{to{transform:rotate(360deg)}}
+.glass,.glass-inner,.panel,.modal,.topbar,.platform-card,.auth-shell,.room-card,.chat-panel,.character-hero-panel,.characters-catalog,.custom-showcase,.custom-picker,.rank-table,.pass-hero,.pass-progress,.global-chat-v2{background:linear-gradient(135deg,rgba(12,19,50,.72),rgba(52,25,91,.40))!important;border:1px solid rgba(255,255,255,.13)!important;box-shadow:var(--uv-shadow)!important;backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%)}
+.btn-primary,.big-menu-btn.blue,.mode-hub-btn.online,.rail-btn:hover,.platform-option:hover,.platform-option.selected{background:linear-gradient(135deg,var(--uv-blue),var(--uv-purple))!important;border-color:rgba(255,255,255,.24)!important;color:#fff!important;box-shadow:0 12px 35px rgba(37,99,255,.28),0 0 28px rgba(124,58,237,.16)!important}
+.btn-cyan,.big-menu-btn.green,.big-menu-btn.gold,.big-menu-btn.purple,.mode-hub-btn.solo,.solo-mode-card,.online-mode-card{background:linear-gradient(135deg,rgba(37,99,255,.72),rgba(124,58,237,.72))!important;border-color:rgba(255,255,255,.16)!important;color:#fff!important}
+.big-menu-btn,.mode-hub-btn,.platform-option,.online-mode-card,.solo-mode-card,.rail-btn{backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.pill,.mode-pill,.code-badge,.version-chip{background:linear-gradient(135deg,rgba(37,99,255,.35),rgba(168,85,247,.35))!important;border-color:rgba(255,255,255,.16)!important;color:#fff!important}
+.platform-screen{background:radial-gradient(circle at 20% 20%,rgba(124,58,237,.55),transparent 32%),radial-gradient(circle at 80% 15%,rgba(37,99,255,.55),transparent 35%),linear-gradient(135deg,#02040e,#080d28 50%,#18052f)!important}
+.platform-card{max-width:760px!important;border-radius:32px!important;padding:clamp(22px,5vw,52px)!important}
+.platform-options{gap:18px!important}.platform-option{border-radius:24px!important;min-height:180px!important}
+.game-view,.game-stage-3d,.first-person-arena{background:linear-gradient(135deg,#05071a,#0a1640 52%,#1b0a3b)!important}
+.first-person-map{background:radial-gradient(circle at 50% 45%,rgba(37,99,255,.32),transparent 42%),linear-gradient(135deg,#080c26,#15134a 50%,#250b42)!important}
+.first-person-map:before{background:radial-gradient(ellipse at 50% 35%,rgba(168,85,247,.28),transparent 40%),linear-gradient(180deg,#0b1030,#111a4c 45%,#100722)!important}
+.far-wall{background:linear-gradient(180deg,#111942,#090e28 72%,#07091a)!important}.far-wall:before,.far-wall:after{background:linear-gradient(90deg,#070a1c,#263b91,#12072b)!important}.map-sign{border-color:rgba(168,85,247,.8)!important;background:linear-gradient(135deg,#121d55,#32116b)!important;color:#fff!important;box-shadow:0 0 30px rgba(124,58,237,.35)!important}
+.wood-table{filter:hue-rotate(190deg) saturate(.7)!important}.table-felt{background:radial-gradient(circle at 50% 50%,#1d62d7,#121b64 70%,#080b25)!important;box-shadow:inset 0 0 100px rgba(124,58,237,.4)!important}.table-rim{background:linear-gradient(135deg,#7c3aed,#2563ff)!important}
+.arena-top,.player-zone,.table-status{background:linear-gradient(90deg,rgba(4,7,22,.7),rgba(30,15,65,.55),rgba(4,7,22,.7))!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.turn-badge{background:linear-gradient(135deg,#2563ff,#7c3aed)!important;color:#fff!important;box-shadow:0 0 28px rgba(37,99,255,.35)!important}.arena-live-badge{color:#fff!important;border-color:rgba(168,85,247,.45)!important;background:rgba(124,58,237,.18)!important}
+.avatar-photo-frame,.player-nameplate,.self-profile{border-color:rgba(255,255,255,.16)!important;box-shadow:0 12px 35px rgba(0,0,0,.34),0 0 25px rgba(37,99,255,.12)!important}
+.hand-fan-3d .hand-card{box-shadow:0 14px 30px rgba(0,0,0,.48),0 0 18px rgba(37,99,255,.12)!important}
+.game-emotes button,.uno-call,.draw-stack{background:linear-gradient(135deg,rgba(37,99,255,.85),rgba(124,58,237,.85))!important;color:#fff!important;border-color:rgba(255,255,255,.2)!important;backdrop-filter:blur(16px)}
+.toast{background:linear-gradient(135deg,rgba(9,16,44,.92),rgba(50,19,87,.92))!important;border:1px solid rgba(168,85,247,.3)!important;backdrop-filter:blur(18px)}
+/* Full landscape shell after platform choice */
+body.platform-ready{min-height:100dvh!important} body.landscape-mode #authScreen,body.landscape-mode #appScreen{min-height:100dvh!important}
+body.landscape-mode .screen{min-height:100dvh!important}
+body.in-game .game-view{width:100vw!important;height:100dvh!important;inset:0!important}
+@media(max-width:900px) and (orientation:portrait){body.landscape-mode:not(.in-game) #authScreen,body.landscape-mode:not(.in-game) #appScreen{width:100vw;min-height:100dvh}body.landscape-mode.in-game .game-view{min-width:100vw!important}}
+@media(max-width:900px){.menu-main-v2,.solo-page-grid,.room-layout,.characters-layout,.custom-page-layout{min-height:calc(100dvh - 90px)}.topbar{border-radius:0!important}.game-view{border-radius:0!important}}
+@media(max-width:900px) and (orientation:landscape){.first-person-stage{grid-template-columns:0 minmax(0,1fr)!important}.arena-top{height:46px!important}.player-zone{padding-bottom:max(5px,env(safe-area-inset-bottom))!important}.hand-fan-3d{max-width:76vw!important}.opponent-seat{transform:scale(.86)} }
+@media(max-width:650px) and (orientation:landscape){.first-person-center{transform:scale(.9)}.hand-fan-3d .hand-card{width:48px!important;height:72px!important}.player-self{transform:scale(.86);transform-origin:left bottom}.table-status{display:none!important}}
+/* Duo / Trio cards */
+.uno-online-formats{grid-template-columns:repeat(3,minmax(0,1fr))!important;max-width:1100px;margin:0 auto}.format-card{min-height:250px!important}.format-card:after{content:"";position:absolute;inset:-40%;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 42%);filter:blur(20px);animation:formatGlow 5s ease-in-out infinite alternate;pointer-events:none}@keyframes formatGlow{to{transform:translate(18%,8%) scale(1.15);opacity:.55}}
+@media(max-width:760px){.uno-online-formats{grid-template-columns:1fr!important}.format-card{min-height:180px!important}}
