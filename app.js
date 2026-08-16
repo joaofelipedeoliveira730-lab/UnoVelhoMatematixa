@@ -219,6 +219,7 @@ function bindEvents(){
   on('#btnLeaveRoom','click',leaveRoom);
   on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);on('#btnSaveCharacterModal','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
+  on('#btnReportPlayer','click',reportCurrentOpponent);
   on('#btnUno','click',callUno);
   on('#btnBackGame','click',exitGame);on('#btnBackGameAlt','click',exitGame);
   on('#btnSound','click',toggleMute);
@@ -525,6 +526,25 @@ function drawGameCard(){
   const mine=String(game.currentPlayerId)===String(state.user?.id);if(!mine)return toast('Aguarde sua vez.','info');
   Sound.cardDraw();state.socket?.emit('game:draw');
 }
+async function reportCurrentOpponent(){
+  const game=state._onlineGame;
+  const opponents=Array.isArray(game?.players)?game.players.filter(p=>String(p.userId)!==String(state.user?.id)):[];
+  const target=opponents[0];
+  if(!target?.userId){
+    return toast('A denúncia fica disponível quando houver outro jogador identificado na mesa.','info',2600);
+  }
+  const reason=window.prompt(`Por que você quer denunciar ${target.username||'este jogador'}?`, 'Comportamento inadequado na partida');
+  if(reason===null)return;
+  const clean=String(reason).trim().slice(0,255);
+  if(!clean)return toast('Informe um motivo para a denúncia.','error');
+  try{
+    await post('/report',{targetId:Number(target.userId),reason:clean});
+    toast('Denúncia enviada para análise.','success',3000);
+  }catch(err){
+    toast(err.message||'Não foi possível enviar a denúncia.','error',3200);
+  }
+}
+
 function exitGame(){
   if(soloMatchTimer){clearTimeout(soloMatchTimer);soloMatchTimer=null;}
   if(gameIntroBusy){gameIntroBusy=false;hide('#gameStartOverlay');}
