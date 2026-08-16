@@ -1407,3 +1407,13 @@ body.in-game .table-center-3d #discardPile{transform:perspective(1000px) rotateX
 body.in-game .table-center-3d .draw-stack .back-card{transform:perspective(1000px) rotateX(10deg) rotateY(3deg) rotateZ(0deg)!important;box-shadow:0 20px 28px rgba(0,0,0,.42),0 2px 0 rgba(255,255,255,.16) inset,0 0 18px rgba(37,99,255,.18)!important}
 @media(min-width:701px){body.desktop-adapted.in-game #gameView{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}.session-game-btn{display:inline-flex!important}}
 @media(max-width:700px){.top-actions .session-btn{display:none!important}.session-game-btn{padding:7px 9px;font-size:10px}.game-chat-left,.game-chat-left *{pointer-events:auto!important}}
+
+/* MODO MANUTENÇÃO — bloqueio visual total para jogadores, CEO permanece livre */
+.maintenance-overlay{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 35%,rgba(82,54,220,.30),rgba(3,6,20,.96) 58%,rgba(0,0,0,.99));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);pointer-events:auto}
+.maintenance-card{width:min(560px,92vw);padding:42px 28px;text-align:center;border:1px solid rgba(112,154,255,.34);box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 80px rgba(72,92,255,.16);animation:maintenancePulse 2.8s ease-in-out infinite}
+.maintenance-icon{font-size:64px;margin-bottom:10px;filter:drop-shadow(0 0 22px rgba(109,93,255,.55))}
+.maintenance-card h2{font-size:clamp(28px,5vw,48px);margin:14px 0 10px;letter-spacing:.04em}
+.maintenance-card p{color:#cfe0ff;font-size:16px;margin:0 auto 10px;max-width:430px}
+.maintenance-card small{color:#8ea9d3}
+@keyframes maintenancePulse{0%,100%{transform:translateY(0);box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 60px rgba(72,92,255,.12)}50%{transform:translateY(-4px);box-shadow:0 34px 110px rgba(0,0,0,.58),0 0 90px rgba(104,78,255,.22)}}
+@media(max-width:700px){.maintenance-card{padding:32px 20px}.maintenance-icon{font-size:52px}.maintenance-card h2{font-size:29px}.maintenance-card p{font-size:14px}}

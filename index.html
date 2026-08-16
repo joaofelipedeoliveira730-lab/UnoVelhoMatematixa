@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260816-5.5.0">
+<link rel="stylesheet" href="style.css?v=20260816-5.6.0">
 </head>
 <body>
 
@@ -162,7 +162,7 @@
 <section id="roomView" class="view hidden"><div class="subnav"><button id="btnLeaveRoom" class="back-btn" type="button">← Sair da sala</button><h2 id="roomTitle">SALA</h2><span id="roomCodeBadge" class="code-badge">MATX-0000</span></div><div class="room-layout"><div class="room-main glass"><div class="room-options-bar"><span id="roomOptionsText">Sala</span><button id="btnStartRoom" class="btn btn-primary" type="button">▶ COMEÇAR</button></div><div id="roomPlayers" class="room-players"></div><div id="roomMapBanner" class="room-map-banner"></div></div><aside class="chat-panel glass"><div class="chat-head"><b>💬 CHAT</b><span>ONLINE</span></div><div id="roomChatMessages" class="chat-messages"></div><form id="roomChatForm" class="chat-form" novalidate><input id="roomChatInput" maxlength="500" autocomplete="off" placeholder="Digite uma mensagem..."><button type="submit">➤</button></form></aside></div></section>
 
 <section id="gameView" class="view hidden game-view">
-  <div id="globalPauseBanner" class="pause-banner hidden"></div><div id="podiumOverlay" class="podium-overlay hidden" aria-modal="true"></div>
+  <div id="globalPauseBanner" class="pause-banner hidden"></div><div id="maintenanceOverlay" class="maintenance-overlay hidden" aria-live="assertive" aria-modal="true"><div class="maintenance-card glass"><div class="maintenance-icon">🛠️</div><span class="pill">UNO VELHO MATEMATIXA</span><h2>JOGO EM MANUTENÇÃO</h2><p id="maintenanceMessage">Estamos fazendo melhorias na mesa.</p><small>Volte em alguns instantes.</small></div></div><div id="podiumOverlay" class="podium-overlay hidden" aria-modal="true"></div>
   <div class="game-stage-3d first-person-stage">
     <aside id="gameGlobalChat" class="game-chat-left chat-panel glass hidden">
       <div class="chat-head"><b>🌎 CHAT GLOBAL</b><button id="btnCloseGlobalChat" type="button">×</button></div>
@@ -273,7 +273,7 @@
   <div id="globalChatMessagesLobby" class="chat-messages"></div>
   <form id="globalChatFormLobby" class="chat-form"><input id="globalChatInputLobby" maxlength="500" placeholder="Mensagem global..."><button type="submit">➤</button></form>
 </div>
-<div id="ceoPanel" class="modal-overlay hidden"><div class="modal modal-wide ceo-modal"><div class="modal-head"><div><span class="pill">👑 CEO</span><h2>Painel de Controle</h2><small>Conta autorizada: <b>CeoVelho</b></small></div><button class="close-modal" id="btnCloseCEO" type="button">×</button></div><div class="ceo-grid"><div class="panel"><h3>👑 Ferramentas do CEO</h3><p class="ceo-help">Escolha um jogador e aplique somente a ação necessária. A conta <b>CeoVelho</b> nunca pode ser alterada por estas ferramentas.</p><div class="ceo-actions"><span class="ceo-action-note">⚡ XP, moedas e inventário são alterados diretamente no banco.</span></div></div><div class="panel"><h3>👥 Jogadores</h3><div id="ceoUsers" class="ceo-users"></div></div></div></div></div><div id="toastContainer" class="toast-container" aria-live="polite"></div>
+<div id="ceoPanel" class="modal-overlay hidden"><div class="modal modal-wide ceo-modal"><div class="modal-head"><div><span class="pill">👑 CEO</span><h2>Painel de Controle</h2><small>Conta autorizada: <b>CeoVelho</b></small></div><button class="close-modal" id="btnCloseCEO" type="button">×</button></div><div class="ceo-grid"><div class="panel"><h3>👑 Ferramentas do CEO</h3><p class="ceo-help">Escolha um jogador e aplique somente a ação necessária. A conta <b>CeoVelho</b> nunca pode ser alterada por estas ferramentas.</p><div class="ceo-actions"><span class="ceo-action-note">⚡ XP, moedas e inventário são alterados diretamente no banco.</span><button id="btnMaintenance" class="btn btn-danger btn-wide" type="button">🛠️ ATIVAR MODO MANUTENÇÃO</button><small id="maintenanceStatus" class="ceo-action-note">Jogo normal</small></div></div><div class="panel"><h3>👥 Jogadores</h3><div id="ceoUsers" class="ceo-users"></div></div></div></div></div><div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script>
 (function(){
   // Segurança contra versões antigas do PWA: nunca bloqueia o carregamento.

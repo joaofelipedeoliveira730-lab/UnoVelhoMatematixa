@@ -42,7 +42,7 @@ const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? l
 const state = {
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
   currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedFormat:'quad', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
-  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null, friends:[], invites:[], soloIsTraining:false, aiTimer:null, turnGuardTimer:null, bootTimer:null
+  maintenance:false, solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null, friends:[], invites:[], soloIsTraining:false, aiTimer:null, turnGuardTimer:null, bootTimer:null
 };
 
 const Sound = {
@@ -256,7 +256,7 @@ function bindEvents(){
   on('#btnBackGame','click',exitGame);on('#btnBackGameAlt','click',exitGame);
   on('#btnSound','click',toggleMute);
   on('#btnLogout','click',logout);on('#btnLogoutTop','click',(e)=>{e.preventDefault();e.stopImmediatePropagation();logout();});on('#btnLogoutGame','click',(e)=>{e.preventDefault();e.stopImmediatePropagation();logout();});
-  on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));
+  on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#btnMaintenance','click',e=>{e.preventDefault();e.stopPropagation();toggleMaintenance();});
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
   $$('.shop-tab').forEach(b=>b.addEventListener('click',()=>openShop(b.dataset.shop)));
@@ -409,7 +409,7 @@ async function connectSocket(){
   state.socket.on('drawing:turn',renderDrawingTurn);
   state.socket.on('drawing:round',renderDrawingRound);
   state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);const game=state._onlineGame;const players=(game?.players||[]).slice().sort((a,b)=>(Number(a.cardCount)||0)-(Number(b.cardCount)||0));const entries=players.slice(0,3).map((p,i)=>({name:p.username||'Jogador',avatar:p.avatar||DEFAULT_AVATAR,label:i===0?'CAMPEÃO':`${i+1}º lugar`}));if(entries.length)showPodium(entries);});
-  state.socket.on('global:pause',m=>{show('#globalPauseBanner');if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='⏸ '+m.message;});state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
+  state.socket.on('global:pause',m=>applyMaintenance(true,m?.message));state.socket.on('global:resume',()=>applyMaintenance(false,''));
   state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
   state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;navigate('lobby');});
 }
@@ -843,6 +843,43 @@ function inviteFriend(id){if(!state.socket?.connected)return toast('Multiplayer 
 async function acceptInvite(id){try{await post('/friends/invite/accept',{id:Number(id)});await loadFriends();renderMail();toast('Convite aceito!','success');}catch(e){toast(e.message,'error');}}
 async function declineInvite(id){try{await post('/friends/invite/decline',{id:Number(id)});await loadFriends();renderMail();}catch(e){toast(e.message,'error');}}
 
+async function toggleMaintenance(){
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho' || String(state.user?.role||'').trim().toUpperCase()==='CEO';
+  if(!isCEO)return;
+  const btn=$('#btnMaintenance');
+  const active=state.maintenance===true;
+  try{
+    if(active){
+      await post('/ceo/unfreeze',{});
+      hide('#maintenanceOverlay'); hide('#globalPauseBanner');
+      state.maintenance=false;
+      if(btn)btn.textContent='🛠️ ATIVAR MODO MANUTENÇÃO';
+      if($('#maintenanceStatus'))$('#maintenanceStatus').textContent='Jogo normal';
+      toast('Modo manutenção desativado.','success');
+    }else{
+      await post('/ceo/freeze',{message:'JOGO EM MANUTENÇÃO.'});
+      // CEO não recebe o bloqueio, portanto continua vendo o painel normalmente.
+      state.maintenance=true;
+      if(btn)btn.textContent='▶️ LIBERAR O JOGO';
+      if($('#maintenanceStatus'))$('#maintenanceStatus').textContent='Manutenção ativa para os jogadores';
+      toast('Modo manutenção ativado para os jogadores.','success');
+    }
+  }catch(e){toast(e.message||'Não foi possível alterar a manutenção.','error');}
+}
+
+function applyMaintenance(paused,message){
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho' || String(state.user?.role||'').trim().toUpperCase()==='CEO';
+  state.maintenance=Boolean(paused);
+  if(isCEO){ hide('#maintenanceOverlay'); hide('#globalPauseBanner'); return; }
+  const overlay=$('#maintenanceOverlay');
+  if(paused){
+    if($('#maintenanceMessage'))$('#maintenanceMessage').textContent=message||'Estamos fazendo melhorias na mesa.';
+    show('#maintenanceOverlay');
+    if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='🛠️ JOGO EM MANUTENÇÃO';
+    show('#globalPauseBanner');
+  }else{ hide('#maintenanceOverlay'); hide('#globalPauseBanner'); }
+}
+
 function updateCEOButton(){
   const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho' || String(state.user?.role||'').trim().toUpperCase()==='CEO';
   document.querySelectorAll('#btnCEO').forEach(b=>{b.hidden=!isCEO;b.style.display=isCEO?'grid':'none';b.disabled=!isCEO;b.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();openCEOPanel();};});
@@ -855,6 +892,13 @@ async function openCEOPanel(){
   if(!el){toast('Painel CEO não encontrado nesta versão.','error');return;}
   el.classList.remove('hidden');
   el.setAttribute('aria-hidden','false');
+  try{
+    const h=await get('/health');
+    state.maintenance=Boolean(h?.paused);
+    const btn=$('#btnMaintenance');
+    if(btn)btn.textContent=state.maintenance?'▶️ LIBERAR O JOGO':'🛠️ ATIVAR MODO MANUTENÇÃO';
+    if($('#maintenanceStatus'))$('#maintenanceStatus').textContent=state.maintenance?'Manutenção ativa para os jogadores':'Jogo normal';
+  }catch{}
   void loadCEOUsers();
 }
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}

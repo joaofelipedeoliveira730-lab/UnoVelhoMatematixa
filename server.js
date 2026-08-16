@@ -686,11 +686,12 @@ function clearTurnGuard(room){if(room?.game?.turnTimer){clearTimeout(room.game.t
 function aiDifficultyFromXp(xp){const n=Math.max(0,Number(xp)||0);return n>=5000?'hard':n>=1500?'medium':'easy';}
 function passTurn(room,reason='tempo'){if(!room?.started||!room.game)return;const p=room.players[room.game.currentIndex];if(!p)return;clearTurnGuard(room);if(!p.isHousePlayer){room.game.afkStreaks=room.game.afkStreaks||{};room.game.afkStreaks[p.userId]=(room.game.afkStreaks[p.userId]||0)+1;emitGameAction(room,{type:'pass',playerId:p.userId,username:p.username,reason,streak:room.game.afkStreaks[p.userId]});if(room.game.afkStreaks[p.userId]>=3){const sid=[...socketUsers.entries()].find(([,u])=>String(u.userId)===String(p.userId))?.[0];if(sid)io.to(sid).emit('toast',{type:'error',message:'Você saiu da partida por inatividade (3 turnos de 10 segundos).'});removePlayer(room,p.userId);if(rooms.has(room.code)&&room.started&&room.players.length>=2){room.game.currentIndex=nextIndex(room,1);room.game.turnStartedAt=Date.now();scheduleTurnGuard(room);emitGame(room);if(room.players[room.game.currentIndex]?.isHousePlayer)setTimeout(()=>housePlayerTurn(room),450);}return;}}
 room.game.currentIndex=nextIndex(room,1);room.game.turnStartedAt=Date.now();emitGameAction(room,{type:'pass',playerId:p.userId,username:p.username,reason});emitGame(room);scheduleTurnGuard(room);if(room.started&&room.players[room.game.currentIndex]?.isHousePlayer)setTimeout(()=>housePlayerTurn(room),450);}
-function scheduleTurnGuard(room){clearTurnGuard(room);if(!room?.started||room.options.gameMode!=='uno'||!room.game)return;room.game.turnStartedAt=Date.now();room.game.turnTimer=setTimeout(()=>passTurn(room,'10s'),10000);}
+function scheduleTurnGuard(room){clearTurnGuard(room);if(globalState.paused)return;if(!room?.started||room.options.gameMode!=='uno'||!room.game)return;room.game.turnStartedAt=Date.now();room.game.turnTimer=setTimeout(()=>passTurn(room,'10s'),10000);}
 function drawCards(room,player,count){for(let i=0;i<count;i++){if(!room.game.deck.length){const top=room.game.discard.pop();room.game.deck=room.game.discard.splice(0);room.game.discard=[top];for(let j=room.game.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[room.game.deck[j],room.game.deck[k]]=[room.game.deck[k],room.game.deck[j]];}}if(room.game.deck.length)player.hand.push(room.game.deck.pop());}}
 function applyCard(room,player,card,chosenColor){const g=room.game;clearTurnGuard(room);g.discard.push(card);g.currentColor=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;g.pendingDraw=0;if(card.type==='draw2')g.pendingDraw=2;if(card.type==='draw4')g.pendingDraw=4;if(card.type==='reverse'&&room.players.length>2)g.direction*=-1;let skip=card.type==='skip'||(card.type==='reverse'&&room.players.length===2);g.currentIndex=nextIndex(room,skip?2:1);g.turnStartedAt=Date.now();}
 function turnAllowed(room,userId){return !globalState.paused&&room.started&&room.players[room.game.currentIndex]?.userId===userId;}
 function housePlayerTurn(room){
+  if(globalState.paused)return;
   if(!room.started||room.game.winner||globalState.paused)return;
   const p=room.players[room.game.currentIndex];if(!p?.isHousePlayer)return;
   clearTurnGuard(room);
@@ -714,10 +715,45 @@ async function finishMatchPlayer(p,room,win){if(!usePostgres||p.isHousePlayer)re
 async function getGlobalState(){if(!usePostgres)return {paused:false,message:''};const r=await pool.query('SELECT paused,message FROM global_game_state WHERE id=1');return r.rows[0]||{paused:false,message:''};}
 let globalState={paused:false,message:''};
 
+function broadcastMaintenance(event,payload){
+  for(const [sid,u] of socketUsers){
+    // A conta CEO permanece fora da tela de manutenção por design.
+    if(String(u.username||'').trim().toLowerCase()==='ceovelho' || String(u.role||'').toUpperCase()==='CEO') continue;
+    io.to(sid).emit(event,payload);
+  }
+}
+
+async function setMaintenanceState(paused,message,actorId){
+  globalState={paused:Boolean(paused),message:paused?(message||'JOGO EM MANUTENÇÃO.'):''};
+  if(usePostgres){
+    if(paused) await pool.query('UPDATE global_game_state SET paused=true,message=$1,updated_by=$2,updated_at=CURRENT_TIMESTAMP WHERE id=1',[globalState.message,actorId]);
+    else await pool.query("UPDATE global_game_state SET paused=false,message='',updated_by=$1,updated_at=CURRENT_TIMESTAMP WHERE id=1",[actorId]);
+  }
+  if(paused){
+    // Congela também relógios e jogadas automáticas para a partida não avançar durante a manutenção.
+    for(const room of rooms.values()){
+      if(room?.game?.turnTimer) clearTurnGuard(room);
+      for(const player of room.players||[]){
+        if(player.aiTimer){ clearTimeout(player.aiTimer); player.aiTimer=null; }
+        player.aiBusy=false;
+      }
+    }
+    broadcastMaintenance('global:pause',globalState);
+  }else{
+    broadcastMaintenance('global:resume',{});
+    // Ao voltar, cada mesa continua do mesmo ponto sem perder a partida.
+    for(const room of rooms.values()) if(room.started&&room.game&&!room.game.winner){
+      if(room.options.gameMode==='uno') scheduleTurnGuard(room);
+      if(room.options.gameMode==='uno'&&room.players[room.game.currentIndex]?.isHousePlayer) setTimeout(()=>housePlayerTurn(room),250);
+    }
+  }
+}
+
 io.use(async(socket,next)=>{const token=socket.handshake.auth?.token||parseCookies({headers:socket.handshake.headers}).uv_session;const payload=token&&verifyToken(token);if(!payload)return next(new Error('unauthorized'));const user=await getUserById(payload.id);if(!user)return next(new Error('unauthorized'));const mod=await activeModeration(user.id);if(mod?.action==='ban')return next(new Error('banned'));socketUsers.set(socket.id,{userId:user.id,username:user.username,role:user.role});socket.user=user;next();});
 
 io.on('connection',socket=>{
   const me=socket.user;
+  if(globalState.paused && String(me.username||'').trim().toLowerCase()!=='ceovelho' && String(me.role||'').toUpperCase()!=='CEO') socket.emit('global:pause',globalState);
   socket.on('room:join',async({code,password}={})=>{const room=rooms.get(String(code||'').toUpperCase());if(!room)return socket.emit('toast',{type:'error',message:'Sala não encontrada.'});if(room.started)return socket.emit('toast',{type:'error',message:'Partida já iniciada.'});if(room.password&&room.password!==String(password||''))return socket.emit('toast',{type:'error',message:'Senha incorreta.'});if(room.players.length>=room.options.maxPlayers)return socket.emit('toast',{type:'error',message:'Sala cheia.'});if(!room.players.some(p=>p.userId===me.id)){const prof=await getProfile(me.id);room.players.push(makeRoomPlayer(me,prof.avatar));}socket.join(`room:${room.code}`);emitRoom(room);socket.emit('room:joined',roomSummary(room));});
   socket.on('room:leave',()=>{for(const room of rooms.values())if(room.players.some(p=>p.userId===me.id)){socket.leave(`room:${room.code}`);removePlayer(room,me.id);}});
   socket.on('room:start',()=>{for(const room of rooms.values())if(room.ownerId===me.id&&room.players.some(p=>p.userId===me.id)){if(room.options.gameMode==='draw'&&room.players.length<2)return socket.emit('toast',{type:'error',message:'Adivinha o Desenho precisa de pelo menos 2 jogadores.'});if(globalState.paused)return socket.emit('toast',{type:'error',message:globalState.message});if(room.options.gameMode!=='draw')fillRoomWithHiddenOpponents(room);if(['checkers','chess'].includes(room.options.gameMode)&&room.players.length!==2)room.players=room.players.slice(0,2);room.starting=true;emitRoom(room);io.to(`room:${room.code}`).emit('room:countdown',{seconds:5});let sec=5;const tick=setInterval(()=>{sec--;io.to(`room:${room.code}`).emit('room:countdown',{seconds:Math.max(0,sec)});if(sec<=0){clearInterval(tick);if(!rooms.has(room.code))return;room.starting=false;startRoomGame(room);emitRoom(room);}},1000);return;}});
@@ -767,8 +803,8 @@ function findPlayerRoom(userId){for(const room of rooms.values())if(room.players
 
 async function executeAdminCommand(me,text){const parts=text.trim().split(/\s+/);const cmd=parts.shift().toLowerCase();const args=parts.join(' ');if(me.role!=='CEO')return {ok:false,message:'Comando restrito.'};try{
   if(cmd==='/help')return {ok:true,message:['/help','/paralisaruno [mensagem]','/desparalisaruno','/anuncio [mensagem]','/kick [usuario]','/ban [usuario] [minutos] [motivo]','/unban [usuario]','/mute [usuario] [minutos]','/unmute [usuario]','/darcoins [usuario] [quantidade]','/darxp [usuario] [quantidade]','/removecoins [usuario] [quantidade]','/criar staff [usuario]','/bloqueiochat','/desbloqueiochat','/status','/salas','/fecharsala [codigo]','/evento [mensagem]'].join('\n')};
-  if(cmd==='/paralisaruno'){globalState={paused:true,message:cleanText(args||'UNO Matematixa paralisado pelo CEO.',500)};if(usePostgres)await pool.query('UPDATE global_game_state SET paused=true,message=$1,updated_by=$2,updated_at=CURRENT_TIMESTAMP WHERE id=1',[globalState.message,me.id]);io.emit('global:pause',globalState);await logAdmin(me.id,cmd,args);return {ok:true,message:'Jogo paralisado.'};}
-  if(cmd==='/desparalisaruno'){globalState={paused:false,message:''};if(usePostgres)await pool.query('UPDATE global_game_state SET paused=false,message=\'\',updated_by=$1,updated_at=CURRENT_TIMESTAMP WHERE id=1',[me.id]);io.emit('global:resume');await logAdmin(me.id,cmd,args);return {ok:true,message:'Jogo liberado.'};}
+  if(cmd==='/paralisaruno'){await setMaintenanceState(true,cleanText(args||'JOGO EM MANUTENÇÃO.',500),me.id);await logAdmin(me.id,cmd,args);return {ok:true,message:'Modo manutenção ativado.'};}
+  if(cmd==='/desparalisaruno'){await setMaintenanceState(false,'',me.id);await logAdmin(me.id,cmd,args);return {ok:true,message:'Modo manutenção desativado.'};}
   if(cmd==='/anuncio'||cmd==='/evento'){const m=cleanText(args,500);if(!m)return {ok:false,message:'Informe uma mensagem.'};io.emit('admin:announcement',{message:m,by:me.username});await logAdmin(me.id,cmd,args);return {ok:true,message:'Mensagem enviada.'};}
   if(cmd==='/status')return {ok:true,message:`Salas: ${rooms.size} | Conectados: ${socketUsers.size} | Paralisado: ${globalState.paused}`};
   if(cmd==='/salas')return {ok:true,message:[...rooms.values()].map(r=>`${r.code} ${r.name} ${r.players.length}/${r.options.maxPlayers}`).join('\n')||'Nenhuma sala.'};
@@ -802,17 +838,13 @@ server.listen(PORT,'0.0.0.0',()=>{
 process.on('SIGTERM',async()=>{try{await pool?.end()}finally{process.exit(0)}});
 const CEO_NAME='ceovelho';function requireCEO(req,res,next){if(String(req.user?.username||'').trim().toLowerCase()!==CEO_NAME)return res.status(403).json({success:false,message:'Acesso exclusivo da conta CeoVelho.'});next()}
 app.post('/api/ceo/freeze',auth,requireCEO,async(req,res)=>{
-  const message=cleanText(req.body.message||'Jogo temporariamente paralisado pelo CEO.',500);
-  globalState.paused=true; globalState.message=message;
-  if(usePostgres) await pool.query("UPDATE global_game_state SET paused=true,message=$1,updated_by=$2,updated_at=CURRENT_TIMESTAMP WHERE id=1",[message,req.user.id]);
-  io.emit('game:paused',{paused:true,message});
-  res.json({success:true,message:'Jogo paralisado.'});
+  const message=cleanText(req.body.message||'JOGO EM MANUTENÇÃO.',500);
+  await setMaintenanceState(true,message,req.user.id);
+  res.json({success:true,message:'Modo manutenção ativado.'});
 });
 app.post('/api/ceo/unfreeze',auth,requireCEO,async(req,res)=>{
-  globalState.paused=false; globalState.message='';
-  if(usePostgres) await pool.query("UPDATE global_game_state SET paused=false,message='',updated_by=$1,updated_at=CURRENT_TIMESTAMP WHERE id=1",[req.user.id]);
-  io.emit('game:paused',{paused:false,message:''});
-  res.json({success:true,message:'Jogo descongelado.'});
+  await setMaintenanceState(false,'',req.user.id);
+  res.json({success:true,message:'Modo manutenção desativado.'});
 });
 app.post('/api/ceo/message',auth,requireCEO,async(req,res)=>{
   const message=cleanText(req.body.message,500); if(!message)return res.status(400).json({success:false,message:'Mensagem vazia.'});
