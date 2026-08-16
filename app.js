@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-6';
+const VERSION = '20260816-7';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -26,7 +26,7 @@ const COSMETICS = {
 };
 const COLORS = ['red','yellow','green','blue'];
 const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
-const DEFAULT_AVATAR = {skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
+const DEFAULT_AVATAR = {character:'velhinho',skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
 const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true};
 
 const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? localStorage.getItem('uv_platform') : localStorage.getItem('uv_platform') || null;
@@ -163,7 +163,9 @@ function bindEvents(){
   on('#btnPlay','click',()=>navigate('play'));
   on('#btnShop','click',()=>openShop('official'));on('#btnBattlePass','click',openBattlePass);
   on('#btnInventory','click',()=>openInventory('items'));
+  on('#btnCharacters','click',openCharacters);
   on('#btnCustomize','click',openCustomize);
+  on('#btnEditCharacterFromCharacters','click',openCustomize);
   on('#btnOpenProfile','click',()=>openInventory('items'));
   on('#btnOpenSettings','click',()=>navigate('settings'));on('#btnOpenSettingsRail','click',()=>navigate('settings'));
   on('#btnRankSmall','click',openRank);
@@ -192,10 +194,10 @@ function bindEvents(){
   on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);on('#btnSaveCharacterModal','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
   on('#btnUno','click',callUno);
-  on('#btnBackGame','click',exitGame);
+  on('#btnBackGame','click',exitGame);on('#btnBackGameAlt','click',exitGame);
   on('#btnSound','click',toggleMute);
   on('#btnLogout','click',logout);
-  on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));on('#ceoFreeze','click',()=>ceoAction('/ceo/freeze',{message:$('#ceoMessage')?.value||'Jogo temporariamente paralisado pelo CEO.'}));on('#ceoUnfreeze','click',()=>ceoAction('/ceo/unfreeze'));on('#ceoResetPodium','click',()=>ceoAction('/ceo/reset-podium'));on('#ceoClearLogins','click',()=>ceoAction('/ceo/clear-logins'));on('#ceoSendMessage','click',()=>{const msg=$('#ceoMessage')?.value?.trim();if(msg)ceoAction('/ceo/message',{message:msg});});
+  on('#btnCEO','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCEOFloat','click',e=>{e.preventDefault();e.stopPropagation();openCEOPanel();});on('#btnCloseCEO','click',()=>hide('#ceoPanel'));
 
   $$('.close-modal').forEach(b=>b.addEventListener('click',()=>hide(`#${b.dataset.close}`)));
   $$('.back-btn[data-back]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.back)));
@@ -213,6 +215,9 @@ function bindEvents(){
 
   // Fallback de clique para o painel CEO: funciona mesmo se o botão foi recriado/atualizado pelo lobby.
   document.addEventListener('click',e=>{
+    const close=e.target.closest('.close-modal,[data-close]');
+    if(close){const id=close.dataset.close||close.closest('.modal-overlay')?.id;if(id){hide('#'+id);return;}}
+    const overlay=e.target.classList?.contains('modal-overlay')?e.target:null;if(overlay){hide('#'+overlay.id);return;}
     const ceo=e.target.closest('#btnCEO, #btnCEOFloat');
     if(ceo){ e.preventDefault(); e.stopPropagation(); openCEOPanel(); return; }
     const map=e.target.closest('[data-map]');if(map){openShop('official');return;}
@@ -277,6 +282,7 @@ function navigate(view){
   updateOrientationGuard();
   window.scrollTo({top:0,behavior:'smooth'});
   if(view==='lobby'){renderCharacter('#heroCharacter',state.profile.avatar);loadMiniRank();}
+  if(view==='characters'){renderCharactersPage();}
   if(view==='settings')applySettings();
 }
 
@@ -317,7 +323,7 @@ async function connectSocket(){
   state.socket.on('drawing:guess',renderDrawingGuess);
   state.socket.on('drawing:turn',renderDrawingTurn);
   state.socket.on('drawing:round',renderDrawingRound);
-  state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);});
+  state.socket.on('game:winner',m=>{Sound.win();toast(`🏆 ${m.username} venceu!`,'success',5000);const game=state._onlineGame;const players=(game?.players||[]).slice().sort((a,b)=>(Number(a.cardCount)||0)-(Number(b.cardCount)||0));const entries=players.slice(0,3).map((p,i)=>({name:p.username||'Jogador',avatar:p.avatar||DEFAULT_AVATAR,label:i===0?'CAMPEÃO':`${i+1}º lugar`}));if(entries.length)showPodium(entries);});
   state.socket.on('global:pause',m=>{show('#globalPauseBanner');if($('#globalPauseBanner'))$('#globalPauseBanner').textContent='⏸ '+m.message;});state.socket.on('global:resume',()=>hide('#globalPauseBanner'));
   state.socket.on('admin:announcement',m=>toast(`📢 ${m.by}: ${m.message}`,'success',6000));state.socket.on('admin:result',m=>toast(m.message,m.ok?'success':'error',5000));
   state.socket.on('admin:kick',m=>{toast(m.message,'error');state.currentRoom=null;navigate('lobby');});
@@ -375,9 +381,21 @@ function showGameIntro(onDone,opts={}){
     setTimeout(()=>{overlay.classList.add('hidden');overlay.classList.remove('dealing');gameIntroBusy=false;onDone?.();},1250);
   },900);
 }
+let soloMatchTimer=null;
+function vibrate(pattern=[180,80,180]){try{navigator.vibrate?.(pattern)}catch{}}
+function speakMatchFound(){try{if('speechSynthesis' in window){window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance('Partida encontrada!');u.lang='pt-BR';u.rate=.92;u.pitch=1.05;window.speechSynthesis.speak(u);}}catch{}}
+function showSoloMatchmaking(onFound){
+  const overlay=$('#gameStartOverlay');if(!overlay){onFound?.();return;}
+  if(soloMatchTimer)clearTimeout(soloMatchTimer);
+  const limit=3000+Math.floor(Math.random()*10001);
+  const started=Date.now();
+  overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card matchmaking-card"><div class="game-start-kicker">🤖 BUSCANDO PARTIDA SOLO</div><div class="matchmaking-spinner">🃏</div><div class="matchmaking-title">Procurando uma mesa...</div><div id="matchmakingSeconds" class="matchmaking-seconds">${Math.ceil(limit/1000)}s</div><div class="matchmaking-bar"><i></i></div></div>`;
+  const tick=setInterval(()=>{const left=Math.max(0,limit-(Date.now()-started));const el=$('#matchmakingSeconds');if(el)el.textContent=`${Math.ceil(left/1000)}s`;if(left<=0)clearInterval(tick);},120);
+  soloMatchTimer=setTimeout(()=>{clearInterval(tick);overlay.innerHTML=`<div class="game-start-card match-found-card"><div class="game-start-kicker">🎯 OPONENTE ENCONTRADO</div><div class="match-found-icon">✓</div><div class="matchmaking-title">PARTIDA ENCONTRADA!</div><div class="match-found-sub">Preparando a mesa...</div></div>`;vibrate([250,100,250,100,400]);speakMatchFound();Sound.ok();setTimeout(()=>{showGameIntro(onFound,{online:false});},850);},limit);
+}
 function startSoloIntroAndGame(g,difficulty){
   navigate('game');$('#arenaShell')?.classList.add('solo-arena');
-  showGameIntro(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');},{online:false});
+  showSoloMatchmaking(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');});
 }
 
 // ---------------- SOLO ----------------
@@ -409,15 +427,37 @@ async function startSolo(difficulty){
     toast('Não foi possível iniciar o UNO. Tente novamente.','error',4500);
   }
 }
-function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:difficulty==='hard'?'Calculinho Supremo':difficulty==='medium'?'Calculinho':'Treininho'};}
-function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>${escapeHtml(g.botName)}</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();}
-function renderArenaCard(card,color){if($('#discardPile')){$('#discardPile').className=`uno-card card-${color} big-card`;$('#discardPile').textContent=card?.value||'?';}if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';}
+function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:'Oponente'};}
+function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>OPONENTE</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();}
+function renderArenaCard(card,color){
+  const el=$('#discardPile');if(el){
+    const value=String(card?.value??'?');
+    el.className=`uno-card card-${color||'red'} big-card center-card face-up-card`;
+    el.innerHTML=`<span class="card-corner top">${escapeHtml(value)}</span><span class="card-symbol">${escapeHtml(value)}</span><span class="card-corner bottom">${escapeHtml(value)}</span>`;
+    el.setAttribute('aria-label',`Carta na mesa: ${value}`);
+  }
+  if($('#colorIndicator'))$('#colorIndicator').textContent=COLOR_NAME[color]||color||'';
+}
+
 function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(delta*5).toFixed(2);const lift=Math.min(12,Math.abs(delta)*2).toFixed(1);return `<button class="uno-card card-${c.color} hand-card" data-index="${i}" style="--rot:${rot}deg;--lift:${lift}px;--z:${20+i};--i:${i}" type="button" aria-label="Jogar carta ${escapeHtml(c.value)}"><i>${escapeHtml(c.value)}</i><span>${escapeHtml(c.value)}</span><em>${c.type==='number'?'UNO':c.type.toUpperCase()}</em></button>`;}
 function bindRenderedHand(){const hand=$('#playerHand');if(!hand)return;hand.querySelectorAll('.hand-card').forEach((el)=>{el.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const index=Number(el.dataset.index);if(Number.isInteger(index))playHandCard(index);};});}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
 function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;Sound.click();const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}applySoloCard(card);}
 function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.bot,2);if(card.type==='draw4')drawSolo(g.bot,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));return;}g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));}
 function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
+function drawGameCard(){
+  if(state.solo){soloDraw();return;}
+  const game=state._onlineGame;if(!game)return;
+  const mine=String(game.currentPlayerId)===String(state.user?.id);if(!mine)return toast('Aguarde sua vez.','info');
+  Sound.cardDraw();state.socket?.emit('game:draw');
+}
+function exitGame(){
+  if(soloMatchTimer){clearTimeout(soloMatchTimer);soloMatchTimer=null;}
+  if(gameIntroBusy){gameIntroBusy=false;hide('#gameStartOverlay');}
+  state.solo=null;state._onlineGame=null;state._pendingOnlineGame=null;
+  if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');return;}
+  navigate('solo');
+}
 function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();const drawn=g.player[g.player.length-1];if(count===1&&drawn&&playable(drawn,g.discard,g.color)){g.message='Você comprou uma carta jogável. Escolha se quer jogar.';renderSolo();return;}g.turn='bot';renderSolo();setTimeout(botTurn,soloBotDelay(g.difficulty));}
 function soloBotDelay(difficulty='medium'){const ranges={easy:[900,1600],medium:[1200,2200],hard:[1700,3000]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
 function botTurn(){
@@ -442,11 +482,14 @@ function botTurn(){
 function cardScore(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?40:Number(c.value)||0;}
 function botScore(g,c){let n=cardScore(c);if(c.color===g.color)n+=20;if(g.player.length<=3&&c.type!=='number')n+=25;return n;}
 function chooseColorBot(hand){const count={red:0,yellow:0,green:0,blue:0};hand.forEach(c=>{if(count[c.color]!=null)count[c.color]++;});return Object.entries(count).sort((a,b)=>b[1]-a[1])[0][0];}
-async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}setTimeout(()=>{state.solo=null;navigate('lobby');},1000);}
+function dancePodiumCharacters(entries){
+  return entries.map((e,i)=>`<div class="podium-slot place-${i+1}"><div class="podium-confetti">${i===0?'👑':'✨'}</div><div class="podium-dancer">${characterMarkup(e.avatar||DEFAULT_AVATAR,e.name||'Jogador')}</div><div class="podium-base"><strong>${i+1}º</strong><b>${escapeHtml(e.name||'Jogador')}</b><small>${escapeHtml(e.label||'')}</small></div></div>`).join('');
+}
+function showPodium(entries){
+  const overlay=$('#podiumOverlay');if(!overlay)return;const top=[...entries].slice(0,3);overlay.innerHTML=`<div class="podium-card"><button class="podium-close" id="btnClosePodium" type="button">×</button><span class="pill">🏆 PARTIDA ENCERRADA</span><h2>O PÓDIO DO BARALHO!</h2><p>Os campeões estão comemorando!</p><div class="podium-stage">${dancePodiumCharacters(top)}</div><button class="btn btn-primary btn-wide" id="btnPodiumLobby" type="button">🏠 VOLTAR AO LOBBY</button></div>`;overlay.classList.remove('hidden');Sound.win();[0,1,2].forEach(i=>setTimeout(()=>Sound.emote(),i*180));on('#btnClosePodium','click',closePodium);on('#btnPodiumLobby','click',closePodium);}
+function closePodium(){hide('#podiumOverlay');state.solo=null;state._onlineGame=null;if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;}navigate('lobby');}
+async function finishSolo(win){const g=state.solo;if(!g)return;Sound.win();const coins=win?100:15,xp=win?180:50;toast(win?`🏆 Vitória! +${coins} moedas e +${xp} XP.`:`Partida encerrada. +${coins} moedas e +${xp} XP.`,win?'success':'info',5000);try{const d=await post('/game/solo-finish',{win,coins,xp,difficulty:g.difficulty});if(d.user){state.user=d.user;updateUserUI();}}catch{}const playerEntry={name:state.user?.username||'Jogador',avatar:state.profile?.avatar||DEFAULT_AVATAR,label:win?'CAMPEÃO':'JOGADOR'};const botAvatar={...DEFAULT_AVATAR,character:['barman','robo','rei'][Math.floor(Math.random()*3)]};const others=[{name:'Oponente',avatar:botAvatar,label:'Vice-campeão'},{name:'Oponente',avatar:{...DEFAULT_AVATAR,character:['rainha','astronauta','velhinho'][Math.floor(Math.random()*3)]},label:'3º lugar'}];const entries=win?[playerEntry,others[0],others[1]]:[others[0],playerEntry,others[1]];showPodium(entries);}
 
-// ---------------- ADIVINHA O DESENHO ----------------
-const DRAW_COLORS=['#111827','#ef4444','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#ffffff'];
-let drawCtx=null,projectorCtx=null,drawPainting=false,drawLast=null,drawColor='#111827',drawEraser=false,drawTimerHandle=null,drawSnapshotTimer=null;
 function initDrawingCanvas(){
   const canvas=$('#drawCanvas');if(!canvas)return;
   drawCtx=canvas.getContext('2d');drawCtx.lineCap='round';drawCtx.lineJoin='round';const pc=$('#projectorCanvas');projectorCtx=pc?.getContext('2d');if(projectorCtx){projectorCtx.lineCap='round';projectorCtx.lineJoin='round';}clearDrawingCanvas();startDrawingSnapshotTimer();
@@ -525,30 +568,58 @@ function characterMarkup(a,name=''){
   const x={...DEFAULT_AVATAR,...(a||{})};
   const seed=String(name).split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,7);
   const hue=seed%360, skin=escapeHtml(x.skinColor||'#d59b76'), hair=escapeHtml(x.hairColor||'#171717'), eyes=escapeHtml(x.eyes||'#1d2433');
+  const chars={
+    velhinho:{name:'Velhinho',power:'Bônus de compra: +1 carta jogável',shirt:'#2563eb',pants:'#263449',accent:'#7dd3fc'},
+    barman:{name:'Barman',power:'Compra especial: 1 carta extra uma vez',shirt:'#8b4513',pants:'#2f241f',accent:'#fbbf24'},
+    rainha:{name:'Rainha da Mesa',power:'Começa com uma aura de sorte',shirt:'#7c3aed',pants:'#312e81',accent:'#f0abfc'},
+    robo:{name:'Robô Barulhento',power:'Emote especial desbloqueado',shirt:'#475569',pants:'#1e293b',accent:'#22d3ee'},
+    astronauta:{name:'Astronauta',power:'Efeito espacial exclusivo',shirt:'#e5e7eb',pants:'#64748b',accent:'#60a5fa'},
+    rei:{name:'Rei do Baralho',power:'Título dourado exclusivo',shirt:'#b45309',pants:'#451a03',accent:'#fde047'}
+  };
+  const ch=chars[x.character]||chars.velhinho, uid=`c${seed}${String(x.character||'velhinho').replace(/\W/g,'')}`;
   const tops={shirt_basic:'#2563eb',shirt_red:'#dc2626',shirt_neon:'#06b6d4',shirt_gold:'#eab308',shirt_space:'#475569'};
   const pantsMap={pants_basic:'#263449',pants_black:'#111827',pants_neon:'#22c55e'}, shoesMap={shoes_basic:'#e5e7eb',shoes_red:'#ef4444',shoes_gold:'#facc15'};
-  const shirt=tops[x.top]||tops.shirt_basic, pants=pantsMap[x.bottom]||pantsMap.pants_basic, shoes=shoesMap[x.shoes]||shoesMap.shoes_basic;
-  const uid=`g${seed}${String(x.top||'').replace(/\W/g,'')}`;
+  const shirt=tops[x.top]||ch.shirt, pants=pantsMap[x.bottom]||ch.pants, shoes=shoesMap[x.shoes]||'#e5e7eb';
   let hairShape=`<path d="M27 45 Q30 19 50 20 Q72 19 75 45 Q67 30 50 31 Q34 30 27 45Z" fill="${hair}"/>`;
   if(x.hair==='hair_curl') hairShape=`<path d="M27 45 Q20 30 29 20 Q37 10 47 20 Q55 8 65 20 Q79 18 75 45 Q68 30 50 31 Q34 30 27 45Z" fill="${hair}"/><circle cx="31" cy="21" r="5" fill="${hair}"/><circle cx="44" cy="16" r="5" fill="${hair}"/><circle cx="57" cy="15" r="5" fill="${hair}"/><circle cx="70" cy="23" r="5" fill="${hair}"/>`;
   if(x.hair==='hair_long') hairShape=`<path d="M26 48 Q25 15 50 18 Q76 15 75 48 L69 68 H62 V35 Q50 27 38 35 V68 H31Z" fill="${hair}"/>`;
   if(x.hair==='hair_mohawk') hairShape=`<path d="M31 38 L36 19 L41 28 L46 10 L51 28 L57 7 L61 28 L68 17 L71 40 Q62 30 50 31 Q38 30 31 38Z" fill="${hair}"/>`;
   if(x.hair==='hair_afro') hairShape=`<circle cx="50" cy="30" r="23" fill="${hair}"/><circle cx="32" cy="28" r="8" fill="${hair}"/><circle cx="68" cy="28" r="8" fill="${hair}"/>`;
-  if(x.hair==='hair_braids') hairShape=`<path d="M27 45 Q29 18 50 20 Q71 18 73 45 Q65 30 50 31 Q35 30 27 45Z" fill="${hair}"/><path d="M28 34 L20 52 L25 60 M72 34 L80 52 L75 60" fill="none" stroke="${hair}" stroke-width="6" stroke-linecap="round"/>`;
   if(x.hair==='hair_ice') hairShape=`<path d="M27 43 Q31 14 49 20 L55 10 L61 21 L73 17 L74 44 Q65 30 50 31 Q34 30 27 43Z" fill="#dff9ff" stroke="#7dd3fc" stroke-width="2"/>`;
-  const shirtExtra=x.top==='shirt_neon'?`<path d="M31 79 H69 M31 90 H69" stroke="#67e8f9" stroke-width="3" opacity=".8"/>`:x.top==='shirt_gold'?`<path d="M43 70 L50 82 L57 70" fill="#fff3"/><circle cx="50" cy="92" r="6" fill="#fde68a" opacity=".8"/>`:x.top==='shirt_space'?`<circle cx="42" cy="82" r="2" fill="#fff"/><circle cx="58" cy="94" r="2" fill="#fff"/>`:'';
-  const hat=x.accessory==='hat_cap'?`<path d="M25 31 Q50 16 72 30 L80 36 H22Z" fill="#ef4444"/><rect x="21" y="34" width="58" height="5" rx="2" fill="#b91c1c"/>`:x.accessory==='hat_cowboy'?`<ellipse cx="50" cy="31" rx="32" ry="6" fill="#a16207"/><path d="M34 31 Q35 10 50 10 Q65 10 66 31Z" fill="#92400e"/>`:x.accessory==='hat_crown'?`<path d="M30 30 L34 12 L43 22 L50 8 L57 22 L66 12 L70 30Z" fill="#facc15" stroke="#fde68a" stroke-width="2"/>`:'';
+  const hat=x.character==='rei'||x.accessory==='hat_crown'?`<path d="M30 30 L34 12 L43 22 L50 8 L57 22 L66 12 L70 30Z" fill="#facc15" stroke="#fde68a" stroke-width="2"/>`:x.character==='astronauta'?`<circle cx="50" cy="48" r="29" fill="none" stroke="#cbd5e1" stroke-width="5"/><rect x="29" y="38" width="42" height="22" rx="10" fill="#0f172a" stroke="#93c5fd" stroke-width="2"/>`:'';
   const glasses=['glasses_basic','glasses_cyan','glasses_gold'].includes(x.accessory), gc=x.accessory==='glasses_cyan'?'#22d3ee':x.accessory==='glasses_gold'?'#facc15':'#111827';
   const acc=glasses?`<g fill="#05070b" stroke="${gc}" stroke-width="2.5"><rect x="29" y="40" width="17" height="11" rx="4"/><rect x="54" y="40" width="17" height="11" rx="4"/><path d="M46 44 H54"/></g>`:'';
-  const mask=x.accessory==='mask_math'?`<path d="M34 56 Q50 64 66 56 L63 68 Q50 75 37 68Z" fill="#0f172a" stroke="#22d3ee" stroke-width="2"/>`:'';
-  const backpack=x.accessory?.startsWith('backpack_')?`<rect x="20" y="70" width="10" height="28" rx="5" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}"/>`:'';
+  const backpack=x.accessory?.startsWith('backpack_')?`<rect x="19" y="70" width="12" height="29" rx="6" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}"/>`:'';
   const aura=x.effect?`<div class="char-aura ${escapeHtml(x.effect)}"></div>`:'';
-  return `<div class="char-3d-live code-character" style="--avatar-hue:${hue}deg">${aura}<svg viewBox="0 0 100 120" aria-label="${escapeHtml(name||'Personagem')}"><defs><linearGradient id="${uid}" x1="0" x2="1"><stop stop-color="${shirt}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><ellipse cx="50" cy="114" rx="32" ry="5" fill="#0008"/>${backpack}<path d="M29 76 Q30 67 39 66 H61 Q70 67 71 76 L68 105 H32Z" fill="url(#${uid})"/>
-<path d="M35 73 Q28 75 25 84 L20 101 Q19 105 24 107 Q29 108 31 103 L38 88" fill="${shirt}"/>
-<path d="M65 73 Q72 75 75 84 L80 101 Q81 105 76 107 Q71 108 69 103 L62 88" fill="${shirt}"/>
-<path d="M38 73 Q50 80 62 73" fill="none" stroke="#ffffff55" stroke-width="2"/>
-${shirtExtra}<rect x="37" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="53" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="35" y="111" width="14" height="5" rx="3" fill="${shoes}"/><rect x="51" y="111" width="14" height="5" rx="3" fill="${shoes}"/><circle cx="50" cy="48" r="25" fill="${skin}"/>${hairShape}${hat}<circle cx="41" cy="47" r="3" fill="${eyes}"/><circle cx="59" cy="47" r="3" fill="${eyes}"/><path d="M43 60 Q50 65 57 60" fill="none" stroke="#5b3026" stroke-width="2" stroke-linecap="round"/>${acc}${mask}</svg></div>`;
+  const glow=`<circle cx="50" cy="73" r="36" fill="${ch.accent}" opacity=".08"/><path d="M24 91 Q50 108 76 91" fill="none" stroke="${ch.accent}" stroke-width="2" opacity=".45"/>`;
+  return `<div class="char-3d-live code-character character-${escapeHtml(x.character||'velhinho')}" style="--avatar-hue:${hue}deg;--char-accent:${ch.accent}">${aura}<svg viewBox="0 0 100 125" aria-label="${escapeHtml(name||ch.name)}"><defs><linearGradient id="${uid}" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${shirt}"/><stop offset=".55" stop-color="${ch.accent}"/><stop offset="1" stop-color="#111827"/></linearGradient><radialGradient id="${uid}skin"><stop stop-color="#fff6"/><stop offset="1" stop-color="#0000"/></radialGradient></defs>${glow}<ellipse cx="50" cy="118" rx="31" ry="5" fill="#0008"/><path d="M28 77 Q20 81 18 98 Q18 104 23 106 Q29 107 31 101 L38 87" fill="url(#${uid})"/><path d="M72 77 Q80 81 82 98 Q82 104 77 106 Q71 107 69 101 L62 87" fill="url(#${uid})"/><path d="M30 75 Q50 84 70 75 L68 104 Q50 111 32 104Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.5"/><path d="M36 78 Q50 84 64 78" fill="none" stroke="#fff8" stroke-width="2"/>${backpack}<rect x="37" y="101" width="10" height="15" rx="4" fill="${pants}"/><rect x="53" y="101" width="10" height="15" rx="4" fill="${pants}"/><rect x="34" y="114" width="15" height="6" rx="3" fill="${shoes}"/><rect x="51" y="114" width="15" height="6" rx="3" fill="${shoes}"/><circle cx="50" cy="48" r="25" fill="${skin}"/><circle cx="50" cy="48" r="25" fill="url(#${uid}skin)"/>${hairShape}${hat}<circle cx="41" cy="47" r="3" fill="${eyes}"/><circle cx="59" cy="47" r="3" fill="${eyes}"/><path d="M42 59 Q50 67 58 59" fill="none" stroke="#5b3026" stroke-width="2.5" stroke-linecap="round"/>${acc}</svg></div>`;
 }
+const ORIGINAL_CHARACTERS={
+  velhinho:{name:'Velhinho',icon:'🧓',power:'Compra sortuda',req:'Inicial',unlock:true},
+  barman:{name:'Barman',icon:'🍺',power:'+1 compra especial',req:'Loja • 650 moedas'},
+  rainha:{name:'Rainha da Mesa',icon:'👑',power:'Aura de sorte',req:'Passe • nível 25'},
+  robo:{name:'Robô Barulhento',icon:'🤖',power:'Emote exclusivo',req:'XP • 3.000 XP'},
+  astronauta:{name:'Astronauta',icon:'🚀',power:'Efeito espacial',req:'Loja • 1.200 moedas'},
+  rei:{name:'Rei do Baralho',icon:'🃏',power:'Título dourado',req:'Passe • nível 75'}
+};
+function characterOwned(id){
+  if(id==='velhinho'||state.user?.role==='CEO')return true;
+  const u=state.user||{};const inv=new Set((state.inventory||[]).map(i=>i.id));
+  if(id==='barman')return inv.has('character_barman')||Number(u.coins||0)>=650;
+  if(id==='rainha')return inv.has('character_rainha')||Number(u.level||1)>=25;
+  if(id==='robo')return inv.has('character_robo')||Number(u.xp||0)>=3000;
+  if(id==='astronauta')return inv.has('character_astronauta')||Number(u.coins||0)>=1200;
+  if(id==='rei')return inv.has('character_rei')||Number(u.level||1)>=75;
+  return false;
+}
+function openCharacters(){if(!state.profile)return toast('Perfil ainda não carregado.','error');navigate('characters');renderCharactersPage();}
+function renderCharactersPage(){
+  if(!state.profile)return;renderCharacter('#charactersPreview',state.profile.avatar);if($('#charactersPreviewName'))$('#charactersPreviewName').textContent=ORIGINAL_CHARACTERS[state.profile.avatar.character]?.name||'Velhinho';if($('#charactersPreviewPower'))$('#charactersPreviewPower').textContent=`Poder: ${ORIGINAL_CHARACTERS[state.profile.avatar.character]?.power||'Nenhum'}`;
+  const el=$('#charactersCatalog');if(!el)return;el.innerHTML=Object.entries(ORIGINAL_CHARACTERS).map(([id,c])=>{const own=characterOwned(id),sel=(state.profile.avatar.character||'velhinho')===id;return `<button type="button" class="character-card-3d ${own?'unlocked':'locked'} ${sel?'selected':''}" data-character-id="${id}"><div class="character-card-visual">${characterMarkup({...state.profile.avatar,character:id},c.name)}</div><div class="character-card-info"><div><b>${c.icon} ${c.name}</b><span>${own?'DESBLOQUEADO':'🔒 BLOQUEADO'}</span></div><small>⚡ ${c.power}</small><em>${own?'Toque para usar':c.req}</em></div></button>`;}).join('');
+  el.querySelectorAll('[data-character-id]').forEach(b=>b.onclick=()=>selectCharacter(b.dataset.characterId));
+}
+async function selectCharacter(id){const c=ORIGINAL_CHARACTERS[id];if(!c)return;if(!characterOwned(id)){toast(`🔒 ${c.name}: ${c.req}`,'info');return;}state.profile.avatar.character=id;renderCharactersPage();renderCharacter('#heroCharacter',state.profile.avatar);await persistCharacterSilently();Sound.ok();toast(`${c.name} equipado!`,'success');}
+
 function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
@@ -568,9 +639,7 @@ async function openCEOPanel(){
   void loadCEOUsers();
 }
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
-async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button><button data-unchat="${u.id}" type="button">DESBLOQUEAR</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}));
-    box.querySelectorAll('[data-unchat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-unblock',{userId:Number(b.dataset.unchat)}));
-  }catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
+async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP • 🪙 ${u.coins}</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-coins="${u.id}" type="button">ZERAR MOEDAS</button><button data-inventory="${u.id}" type="button">LIMPAR INVENTÁRIO</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-coins]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-coins',{userId:Number(b.dataset.coins)}));box.querySelectorAll('[data-inventory]').forEach(b=>b.onclick=()=>ceoAction('/ceo/clear-inventory',{userId:Number(b.dataset.inventory)}));}catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
 
 function itemVisualIcon(item){
   const cat=String(item?.category||'').toLowerCase();
