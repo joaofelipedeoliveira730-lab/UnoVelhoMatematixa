@@ -319,6 +319,17 @@ async function auth(req, res, next) {
 function requireRole(...roles) { return (req,res,next) => roles.includes(req.user?.role) ? next() : res.status(403).json({success:false,message:'Permissão insuficiente.'}); }
 function cleanText(value, max=500) { return String(value ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').trim().slice(0,max); }
 function validUsername(v) { return /^[A-Za-z0-9_]{3,24}$/.test(v); }
+
+const PASS_ITEMS = {10:'pass_hat_bronze',25:'pass_title_veteran',40:'pass_hat_silver',55:'pass_title_bebado',70:'pass_hat_gold',85:'title_master',100:'pass_hat_rainbow'};
+function passReward(level){
+  const n=Math.max(1,Math.min(100,Number(level)||1));
+  const coins=35+n*15;
+  const itemId=PASS_ITEMS[n]||null;
+  const title=n===100?'pass_title_lenda':null;
+  return {level:n,coins,itemId,title};
+}
+function passLevels(){return Array.from({length:100},(_,i)=>passReward(i+1));}
+
 function xpForLevel(level) { return Math.floor(100 * Math.pow(level - 1, 1.45)); }
 function levelForXp(xp) { let level=1; while(level<100 && xp >= xpForLevel(level+1)) level++; return level; }
 function publicUser(u) { return { id:u.id, username:u.username, role:u.role, coins:Number(u.coins||0), xp:Number(u.xp||0), level:Number(u.level||1), wins:Number(u.wins||0), losses:Number(u.losses||0), gamesPlayed:Number(u.games_played||0) }; }
@@ -469,6 +480,50 @@ app.post('/api/game/solo-finish',auth,async(req,res)=>{
   } catch(e){console.error(e);res.status(500).json({success:false,message:'Não foi possível salvar a recompensa.'});}
 });
 app.get('/api/inventory',auth,async(req,res)=>res.json({success:true,items:await getInventory(req.user.id)}));
+app.get('/api/chat/global',auth,async(req,res)=>{
+  if(!usePostgres)return res.json({success:true,messages:[]});
+  try{const r=await pool.query("SELECT id,sender_id AS \"senderId\",sender_name AS \"senderName\",body,created_at AS \"createdAt\" FROM chat_messages WHERE channel='world' ORDER BY id DESC LIMIT 50");res.json({success:true,messages:r.rows.reverse().map(x=>({...x,senderId:Number(x.senderId)}))});}catch(e){res.status(500).json({success:false,message:'Não foi possível carregar o chat global.'});}
+});
+
+
+app.get('/api/pass',auth,async(req,res)=>{
+  try{
+    const user=await getUserById(req.user.id);
+    const claimed=usePostgres ? (await pool.query('SELECT pass_level FROM user_pass_claims WHERE user_id=$1 ORDER BY pass_level',[req.user.id])).rows.map(r=>Number(r.pass_level)) : [];
+    const level=Math.max(1,Math.min(100,Number(user.level)||1));
+    res.json({success:true,level,xp:Number(user.xp||0),levels:passLevels(),claimed});
+  }catch(e){res.status(500).json({success:false,message:'Não foi possível carregar o passe.'});}
+});
+app.post('/api/pass/claim',auth,async(req,res)=>{
+  const requested=Array.isArray(req.body.levels)?req.body.levels.map(Number):[Number(req.body.level)];
+  const unique=[...new Set(requested.filter(n=>Number.isInteger(n)&&n>=1&&n<=100))];
+  if(!unique.length)return res.status(400).json({success:false,message:'Nenhum nível válido.'});
+  if(!usePostgres)return res.status(503).json({success:false,message:'O Passe de Nível exige PostgreSQL para salvar as recompensas.'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const u=(await client.query('SELECT level FROM users WHERE id=$1 FOR UPDATE',[req.user.id])).rows[0];
+    if(!u)throw new Error('Usuário não encontrado.');
+    const level=Math.min(100,Number(u.level)||1);
+    const claimed=(await client.query('SELECT pass_level FROM user_pass_claims WHERE user_id=$1 AND pass_level=ANY($2::int[])',[req.user.id,unique])).rows.map(r=>Number(r.pass_level));
+    const fresh=unique.filter(n=>!claimed.includes(n));
+    const locked=fresh.filter(n=>n>level);
+    if(locked.length)throw new Error(`Você ainda não chegou ao nível ${Math.min(...locked)}.`);
+    let coins=0,items=[];
+    for(const n of fresh){
+      const reward=passReward(n); coins+=reward.coins;
+      if(reward.itemId){await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,reward.itemId]);items.push(reward.itemId);}
+      if(reward.title){await client.query('INSERT INTO user_inventory(user_id,item_id) VALUES($1,$2) ON CONFLICT(user_id,item_id) DO UPDATE SET quantity=user_inventory.quantity+1',[req.user.id,reward.title]);items.push(reward.title);}
+      await client.query('INSERT INTO user_pass_claims(user_id,pass_level) VALUES($1,$2) ON CONFLICT DO NOTHING',[req.user.id,n]);
+    }
+    if(coins)await client.query('UPDATE users SET coins=coins+$1 WHERE id=$2',[coins,req.user.id]);
+    await client.query('COMMIT');
+    const updated=await getUserById(req.user.id);
+    res.json({success:true,message:fresh.length?`🎁 ${fresh.length} recompensa(s) coletada(s)!`:'Nada novo para coletar.',claimed:fresh,items,coins,user:publicUser(updated)});
+  }catch(e){try{await client.query('ROLLBACK')}catch{}res.status(400).json({success:false,message:e.message||'Não foi possível coletar o passe.'});}
+  finally{client.release();}
+});
+
 app.get('/api/items',async(req,res)=>res.json({success:true,items:await getItems()}));
 
 app.get('/api/shop/market',auth,async(req,res)=>{if(!usePostgres)return res.json({success:true,listings:[]});const r=await pool.query(`SELECT m.listing_id,m.price,m.created_at,i.*,u.username seller FROM player_market m JOIN items i ON i.id=m.item_id JOIN users u ON u.id=m.seller_id WHERE m.status='active' ORDER BY m.created_at DESC LIMIT 100`);res.json({success:true,listings:r.rows});});

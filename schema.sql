@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS match_players (
   PRIMARY KEY (match_id, username_snapshot)
 );
 
+
+CREATE TABLE IF NOT EXISTS user_pass_claims (
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pass_level INT NOT NULL CHECK (pass_level BETWEEN 1 AND 100),
+  claimed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, pass_level)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_pass_claims_user ON user_pass_claims(user_id, pass_level);
+
 CREATE TABLE IF NOT EXISTS chat_messages (
   id BIGSERIAL PRIMARY KEY,
   channel VARCHAR(20) NOT NULL,

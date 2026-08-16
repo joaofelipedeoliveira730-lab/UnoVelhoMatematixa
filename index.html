@@ -75,7 +75,7 @@
       <div class="player-card-info"><b id="heroName">Jogador</b><span>NÍVEL <strong id="levelValue">1</strong></span><div class="xp-line"><span id="xpBar"></span></div><small><span id="xpValue">0</span> XP</small></div>
     </div>
     <div class="brand-3d-v2"><div class="uno-3d">UNO</div><div class="velho-3d">DO VELHO</div><span>MATEMATIXA</span></div>
-    <div class="economy-v2"><div>🪙 <b id="coinValue">0</b><button type="button">＋</button></div><div>💎 <b>320</b><button type="button">＋</button></div></div>
+    <div class="economy-v2"><div>🪙 <b id="coinValue">0</b></div><button id="btnBattlePass" class="pass-big-btn" type="button">🎟️ PASSE DE NÍVEL <small>1 → 100</small></button></div>
   </header>
 
   <div class="menu-main-v2">
@@ -92,17 +92,17 @@
       <button id="btnPlay" class="big-menu-btn green" type="button"><span class="btn-icon">🃏</span><span><b>JOGAR</b><small>ENTRAR EM UMA PARTIDA</small></span><i>›</i></button>
       <button id="btnCreateRoomLobby" class="big-menu-btn blue" type="button"><span class="btn-icon">👥</span><span><b>CRIAR PARTIDA</b><small>CHAME SEUS AMIGOS</small></span><i>›</i></button>
       <button id="btnMapsPreview" class="big-menu-btn gold" type="button"><span class="btn-icon">🗺️</span><span><b>ESCOLHER MAPA</b><small>BAR • NAVIO • CASA • TAVERNA</small></span><i>›</i></button>
-      <button id="btnShop" class="big-menu-btn purple" type="button"><span class="btn-icon">🛒</span><span><b>LOJA</b><small>COMPRE ITENS E SKINS</small></span><i>›</i></button>
+      <button id="btnShop" class="big-menu-btn purple" type="button"><span class="btn-icon">🛒</span><span><b>LOJA</b><small>SKINS • ROUPAS • ACESSÓRIOS</small></span><i>›</i></button>
     </section>
 
     <aside class="right-rail-v2">
       <button id="btnOpenSettingsRail" class="rail-btn" type="button"><span>⚙️</span><b>CONFIGURAÇÕES</b></button>
       <button id="btnRankSmall" class="rail-btn" type="button"><span>🏆</span><b>RANK MUNDIAL</b></button>
-      <button id="btnGlobalChat" class="rail-btn chat-rail" type="button"><span>💬</span><b>CHAT GLOBAL</b><em>35</em></button>
+      <button id="btnGlobalChat" class="rail-btn chat-rail" type="button"><span>💬</span><b>CHAT GLOBAL</b></button>
     </aside>
   </div>
 
-  <div class="global-chat-v2 glass"><span class="global-dot">🌎</span><div><b>GLOBAL</b><p><strong>Joãozera:</strong> Quem quer sala? Bora jogar!</p></div><button id="btnGlobalChatOpen" type="button">💬</button></div>
+  <button id="btnGlobalChatOpen" class="global-chat-v2 glass global-chat-button" type="button"><span class="global-dot">🌎</span><span><b>CHAT GLOBAL</b><small id="globalChatPreview">Sem novas mensagens</small></span><i>💬</i></button>
   <div class="menu-status-v2"><span>🟢 SERVIDORES ONLINE</span><span>•</span><span>🎮 JOGADORES CONECTADOS</span></div>
 </section>
 
@@ -135,13 +135,13 @@
 <section id="gameView" class="view hidden game-view">
   <div id="globalPauseBanner" class="pause-banner hidden"></div>
   <div class="game-stage-3d first-person-stage">
-    <aside class="game-chat-left chat-panel glass">
-      <div class="chat-head"><b>💬 CHAT</b><span>AO VIVO</span></div>
-      <div class="chat-tabs"><button class="chat-tab active" data-chat="world" type="button">🌎 Mundo</button><button class="chat-tab" data-chat="room" type="button">🔒 Sala</button><button class="chat-tab" data-chat="private" type="button">👤 Privado</button></div>
+    <aside id="gameGlobalChat" class="game-chat-left chat-panel glass hidden">
+      <div class="chat-head"><b>🌎 CHAT GLOBAL</b><button id="btnCloseGlobalChat" type="button">×</button></div>
       <div id="gameChatTyping" class="game-chat-typing hidden"></div>
       <div id="gameChatMessages" class="chat-messages"></div>
-      <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem..."><button type="submit">➤</button></form>
+      <form id="gameChatForm" class="chat-form"><input id="gameChatInput" maxlength="500" placeholder="Mensagem global..."><button type="submit">➤</button></form>
     </aside>
+    <button id="btnGameGlobalChat" class="game-global-chat-toggle" type="button" aria-label="Abrir chat global">💬</button>
 
     <div id="arenaShell" class="arena-shell arena-3d first-person-arena" data-map-theme="saloon">
       <header class="arena-top">
@@ -214,7 +214,13 @@
     </section>
   </div>
 </section>
-<section id="shopView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>LOJA</h2><div class="shop-tabs"><button class="shop-tab active" data-shop="official" type="button">🏪 Oficial</button><button class="shop-tab" data-shop="market" type="button">🧑‍🤝‍🧑 Jogadores</button></div></div><div id="shopGrid" class="item-grid"></div></section>
+<section id="battlePassView" class="view hidden">
+  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>🎟️ PASSE DE NÍVEL</h2><small class="subnav-subtitle">Chegue ao nível 100. Quanto mais alto, mais difícil.</small></div><button id="btnClaimAllPass" class="btn btn-primary" type="button">🎁 COLETAR TUDO</button></div>
+  <div class="pass-hero glass"><div><span class="pill">UNO VELHO MATEMATIXA</span><h3>O caminho até o 100</h3><p>Começa fácil. Depois o XP sobe de verdade. Só os teimosos chegam ao 100.</p></div><div class="pass-level-big"><small>NÍVEL</small><b id="passCurrentLevel">1</b><span>/100</span></div></div>
+  <div class="pass-progress glass"><div class="pass-progress-head"><b id="passXpText">0 XP</b><span id="passNextText">Próximo nível</span></div><div class="pass-progress-track"><i id="passXpBar"></i></div></div>
+  <div id="passGrid" class="pass-grid"></div>
+</section>
+<section id="shopView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>LOJA</h2><div class="shop-tabs"><button class="shop-tab active" data-shop="official" type="button">🏪 CATÁLOGO</button></div></div><div id="shopGrid" class="item-grid"></div></section>
 <section id="inventoryView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>INVENTÁRIO</h2></div><div class="profile-layout"><div class="profile-card glass"><div id="profileCharacterLarge" class="character-stage large"></div><h3 id="profileName">Jogador</h3><span id="profileTitle" class="title-badge">INICIANTE</span><div class="profile-stats"><div><b id="profileLevel">1</b><small>Nível</small></div><div><b id="profileWins">0</b><small>Vitórias</small></div><div><b id="profileGames">0</b><small>Partidas</small></div></div></div><div class="inventory-panel glass"><div class="inventory-tabs"><button class="inventory-tab active" data-inv="items" type="button">🎒 Itens</button><button class="inventory-tab" data-inv="achievements" type="button">🏆 Conquistas</button></div><div id="inventoryContent"></div></div></div></section>
 <section id="rankView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><h2>RANK MUNDIAL</h2></div><div class="rank-table glass"><div class="rank-head"><span>#</span><span>Jogador</span><span>Nível</span><span>XP</span><span>Vitórias</span></div><div id="rankRows"></div></div></section>
 <section id="settingsView" class="view hidden"><div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><h2>CONFIGURAÇÕES</h2></div><div class="settings-grid"><div class="panel glass"><h3>🔊 Áudio</h3><label class="toggle-row"><span>Música</span><input id="setMusic" type="checkbox"></label><label>Volume da música<input id="setMusicVol" type="range" min="0" max="1" step="0.05"></label><label class="toggle-row"><span>Efeitos</span><input id="setSfx" type="checkbox"></label><label>Volume dos efeitos<input id="setSfxVol" type="range" min="0" max="1" step="0.05"></label></div><div class="panel glass"><h3>✨ Interface</h3><label class="toggle-row"><span>Animações</span><input id="setAnimations" type="checkbox"></label><label class="toggle-row"><span>Movimento reduzido</span><input id="setReducedMotion" type="checkbox"></label><h3>💬 Chat</h3><label class="toggle-row"><span>Chat mundial</span><input id="setWorldChat" type="checkbox"></label><label class="toggle-row"><span>Chat da sala</span><input id="setRoomChat" type="checkbox"></label><label class="toggle-row"><span>Chat privado</span><input id="setPrivateChat" type="checkbox"></label></div><div class="panel glass"><h3>👤 Conta</h3><p id="accountInfo"></p><button id="btnLogout" class="btn btn-danger btn-wide" type="button">SAIR DA CONTA</button></div></div></section>
@@ -225,6 +231,12 @@
 <div id="createRoomModal" class="modal-overlay hidden"><div class="modal modal-wide"><div class="modal-head"><div><span class="pill">🌎 MULTIPLAYER</span><h2>Criar sala</h2></div><button class="close-modal" data-close="createRoomModal" type="button">×</button></div><div class="form-grid"><input type="hidden" id="roomGameMode" value="uno"><div class="full uno-room-mode"><span class="pill">🃏 MODO FIXO</span><b>UNO VELHO MATEMATIXA</b><small>Esta versão é exclusiva para UNO.</small></div><label>Nome<input id="roomName" maxlength="40" placeholder="Mesa da galera"></label><label>Senha opcional<input id="roomPassword" maxlength="40" type="password"></label><label>Jogadores<select id="roomMax"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label><label>Tempo<select id="roomTime"><option value="20">20s</option><option value="30">30s</option><option selected value="45">45s</option><option value="60">60s</option><option value="90">90s</option></select></label><label>Dificuldade<select id="roomDifficulty"><option value="easy">Fácil</option><option value="medium" selected>Médio</option><option value="hard">Difícil</option></select></label><label>Bots<select id="roomBots"><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option><option value="8">8</option></select></label><label class="full">Mapa<select id="roomMap"></select></label><label>Cartas iniciais<select id="roomCards"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>10</option></select></label><label class="toggle-row"><span>Permitir bots</span><input id="roomAllowBots" type="checkbox" checked></label><label class="toggle-row"><span>Cartas especiais</span><input id="roomSpecials" type="checkbox" checked></label><label class="toggle-row"><span>Empilhar +2/+4</span><input id="roomStack" type="checkbox"></label><label class="toggle-row"><span>Chat</span><input id="roomChat" type="checkbox" checked></label></div><div class="modal-actions"><button class="btn btn-secondary close-modal" data-close="createRoomModal" type="button">CANCELAR</button><button id="btnConfirmCreateRoom" class="btn btn-primary" type="button">CRIAR SALA</button></div></div></div>
 <div id="joinRoomModal" class="modal-overlay hidden"><div class="modal modal-narrow"><div class="modal-head"><h2>Entrar na sala</h2><button class="close-modal" data-close="joinRoomModal" type="button">×</button></div><p id="joinRoomInfo"></p><label>Senha<input id="joinRoomPassword" type="password"></label><button id="btnConfirmJoinRoom" class="btn btn-primary btn-wide" type="button">ENTRAR</button></div></div>
 <div id="colorModal" class="modal-overlay hidden"><div class="modal modal-narrow"><div class="math-icon">🌈</div><h2>Escolha a cor</h2><div class="color-picker"><button data-color="red" type="button">VERMELHO</button><button data-color="yellow" type="button">AMARELO</button><button data-color="green" type="button">VERDE</button><button data-color="blue" type="button">AZUL</button></div></div></div>
+
+<div id="globalChatPanel" class="global-chat-panel glass hidden">
+  <div class="chat-head"><b>🌎 CHAT GLOBAL</b><button id="btnCloseGlobalChatLobby" type="button">×</button></div>
+  <div id="globalChatMessagesLobby" class="chat-messages"></div>
+  <form id="globalChatFormLobby" class="chat-form"><input id="globalChatInputLobby" maxlength="500" placeholder="Mensagem global..."><button type="submit">➤</button></form>
+</div>
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js?v=20260815-final-v4"></script>

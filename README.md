@@ -80,3 +80,17 @@ unovelho_complete/
 BrutoCoins são somente moeda virtual interna para itens cosméticos. O projeto não implementa apostas, dinheiro real ou mecânicas de jogo de azar.
 
 As mesas são apenas temas visuais para o jogo de cartas.
+
+## Atualização UNO — Passe, chat e personagens
+
+- Jogo focado em UNO, com Solo/Online.
+- Dificuldade Solo: Fácil, Médio e Difícil.
+- Personagens desenhados em SVG/CSS/JS, sem fotos de personagens.
+- Roupa, pele, cabelo, calçado e acessórios alteram o personagem em tempo real.
+- Chat global compacto, com histórico dos últimos 50 registros.
+- Passe de Nível do 1 ao 100, com curva de XP progressiva.
+- Recompensas de moedas, títulos e acessórios.
+- Botão "COLETAR TUDO" para recompensas desbloqueadas.
+- Nova tabela PostgreSQL: `user_pass_claims`.
+
+Depois de atualizar o projeto no Render, rode `npm run migrate` uma vez para aplicar o `schema.sql` e `seed.sql` atualizados.

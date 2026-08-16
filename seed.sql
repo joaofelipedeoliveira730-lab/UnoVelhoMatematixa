@@ -94,3 +94,14 @@ BEGIN
 END $$;
 
 -- Itens iniciais são concedidos por login/registro pelo servidor.
+
+-- Recompensas do Passe de Nível: itens leves, sem imagens pesadas.
+INSERT INTO items(id,name,category,description,price,xp_required,rarity,asset) VALUES
+('pass_hat_bronze','Boné Bronze do Passe','accessory','Recompensa do Passe de Nível.',0,0,'common','{"style":"pass_hat","color":"bronze","pass":true}'),
+('pass_hat_silver','Boné Prata do Passe','accessory','Recompensa do Passe de Nível.',0,0,'rare','{"style":"pass_hat","color":"silver","pass":true}'),
+('pass_hat_gold','Boné Ouro do Passe','accessory','Recompensa do Passe de Nível.',0,0,'epic','{"style":"pass_hat","color":"gold","pass":true}'),
+('pass_hat_rainbow','Boné Arco-Íris do Passe','accessory','Recompensa do Passe de Nível 100.',0,0,'legendary','{"style":"pass_hat","color":"rainbow","pass":true}'),
+('pass_title_veteran','Título: Veterano do Bar','title','Recompensa do Passe.',0,0,'rare','{"text":"VETERANO DO BAR","pass":true}'),
+('pass_title_bebado','Título: Bebum Profissional','title','Recompensa do Passe.',0,0,'epic','{"text":"BEBUM PROFISSIONAL","pass":true}'),
+('pass_title_lenda','Título: Lenda da Mesa','title','Recompensa do Passe 100.',0,0,'legendary','{"text":"LENDA DA MESA","pass":true}')
+ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,description=EXCLUDED.description,rarity=EXCLUDED.rarity,asset=EXCLUDED.asset;
