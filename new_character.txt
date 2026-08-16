@@ -1,0 +1,36 @@
+function characterMarkup(a,name=''){
+  const x={...DEFAULT_AVATAR,...(a||{})};
+  const seed=String(name||'Jogador').split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,7);
+  const hue=seed%360;
+  const skin=escapeHtml(x.skinColor||'#d59b76');
+  const hair=escapeHtml(x.hairColor||'#171717');
+  const eyes=escapeHtml(x.eyes||'#1d2433');
+  const chars={
+    velhinho:{name:'Velhinho',power:'Compra sortuda',shirt:'#2f80ed',pants:'#23324a',accent:'#73d6ff'},
+    barman:{name:'Barman',power:'+1 compra especial',shirt:'#9b5a2e',pants:'#34251d',accent:'#ffd166'},
+    rainha:{name:'Rainha da Mesa',power:'Aura de sorte',shirt:'#8b5cf6',pants:'#3b2d75',accent:'#f0abfc'},
+    robo:{name:'Robô Barulhento',power:'Emote exclusivo',shirt:'#64748b',pants:'#263242',accent:'#67e8f9'},
+    astronauta:{name:'Astronauta',power:'Efeito espacial',shirt:'#e8eef7',pants:'#64748b',accent:'#60a5fa'},
+    rei:{name:'Rei do Baralho',power:'Título dourado',shirt:'#b7791f',pants:'#4a2808',accent:'#fde68a'}
+  };
+  const ch=chars[x.character]||chars.velhinho;
+  const tops={shirt_basic:'#2f80ed',shirt_red:'#ef4444',shirt_neon:'#06b6d4',shirt_gold:'#eab308',shirt_space:'#64748b'};
+  const pantsMap={pants_basic:'#23324a',pants_black:'#111827',pants_neon:'#16a34a'};
+  const shoesMap={shoes_basic:'#e5e7eb',shoes_red:'#ef4444',shoes_gold:'#facc15'};
+  const shirt=tops[x.top]||ch.shirt, pants=pantsMap[x.bottom]||ch.pants, shoes=shoesMap[x.shoes]||'#e5e7eb';
+  const glasses=['glasses_basic','glasses_cyan','glasses_gold'].includes(x.accessory);
+  const gc=x.accessory==='glasses_cyan'?'#22d3ee':x.accessory==='glasses_gold'?'#facc15':'#111827';
+  const backpack=x.accessory?.startsWith('backpack_') ? `<path d="M18 67 Q10 71 13 88 Q15 95 22 94 L28 91 L27 68Z" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}" stroke="#fff3" stroke-width="1.2"/>` : '';
+  let hairShape=`<path d="M26 42 Q27 17 50 18 Q73 17 74 42 Q68 30 50 30 Q32 30 26 42Z" fill="${hair}"/>`;
+  if(x.hair==='hair_curl') hairShape=`<path d="M26 43 Q20 29 29 19 Q38 10 47 19 Q55 7 65 19 Q80 17 74 43 Q67 30 50 30 Q33 30 26 43Z" fill="${hair}"/><circle cx="30" cy="20" r="5" fill="${hair}"/><circle cx="43" cy="14" r="5" fill="${hair}"/><circle cx="57" cy="14" r="5" fill="${hair}"/><circle cx="70" cy="22" r="5" fill="${hair}"/>`;
+  if(x.hair==='hair_long') hairShape=`<path d="M25 44 Q24 14 50 17 Q76 14 75 44 L68 70 L61 66 V33 Q50 27 39 33 V66 L32 70Z" fill="${hair}"/>`;
+  if(x.hair==='hair_mohawk') hairShape=`<path d="M30 40 L35 19 L41 27 L46 8 L51 27 L57 6 L61 27 L68 17 L71 40 Q62 30 50 30 Q38 30 30 40Z" fill="${hair}"/>`;
+  if(x.hair==='hair_afro') hairShape=`<circle cx="50" cy="29" r="23" fill="${hair}"/><circle cx="31" cy="27" r="8" fill="${hair}"/><circle cx="69" cy="27" r="8" fill="${hair}"/>`;
+  if(x.hair==='hair_ice') hairShape=`<path d="M26 41 Q30 14 48 19 L55 9 L61 20 L73 16 L74 42 Q65 30 50 30 Q34 30 26 41Z" fill="#e6fbff" stroke="#67e8f9" stroke-width="2"/>`;
+  const crown=(x.character==='rei'||x.accessory==='hat_crown')?`<path d="M31 25 L34 11 L43 20 L50 7 L57 20 L66 11 L69 25Z" fill="#facc15" stroke="#fff0a3" stroke-width="2"/>`:'';
+  const cap=x.accessory==='hat_cap'?`<path d="M27 28 Q50 9 73 28 L73 34 H27Z" fill="#263b67" stroke="#8ecbff" stroke-width="1.5"/>`:'';
+  const glassesMarkup=glasses?`<g fill="#05070b" stroke="${gc}" stroke-width="2"><rect x="28" y="40" width="18" height="11" rx="4"/><rect x="54" y="40" width="18" height="11" rx="4"/><path d="M46 44 H54"/></g>`:'';
+  const aura=x.effect?`<div class="char-aura ${escapeHtml(x.effect)}"></div>`:'';
+  const uid=`c${seed}${String(x.character||'velhinho').replace(/\W/g,'')}`;
+  return `<div class="chibi-3d-live char-3d-live code-character character-${escapeHtml(x.character||'velhinho')}" style="--avatar-hue:${hue}deg;--char-accent:${ch.accent}">${aura}<div class="chibi-ground"></div><svg viewBox="0 0 100 112" aria-label="${escapeHtml(name||ch.name)}" role="img"><defs><linearGradient id="${uid}" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${shirt}"/><stop offset=".55" stop-color="${ch.accent}"/><stop offset="1" stop-color="#101827"/></linearGradient><radialGradient id="${uid}skin"><stop stop-color="#fff6"/><stop offset="1" stop-color="#0000"/></radialGradient></defs><ellipse cx="50" cy="106" rx="25" ry="5" fill="#0008"/><g class="chibi-backpack">${backpack}</g><path class="chibi-arm arm-left" d="M31 70 Q20 74 20 87 Q20 94 26 95 Q32 95 34 88 L38 78Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.3"/><path class="chibi-arm arm-right" d="M69 70 Q80 74 80 87 Q80 94 74 95 Q68 95 66 88 L62 78Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.3"/><path class="chibi-body" d="M31 67 Q50 61 69 67 L67 92 Q50 100 33 92Z" fill="url(#${uid})" stroke="#fff4" stroke-width="1.5"/><path d="M39 70 Q50 76 61 70" fill="none" stroke="#fff8" stroke-width="2"/><path d="M37 91 L47 91 L46 104 L34 104Z" fill="${pants}"/><path d="M53 91 L63 91 L66 104 L54 104Z" fill="${pants}"/><path d="M32 101 Q39 99 47 103 L47 108 Q37 109 30 106Z" fill="${shoes}"/><path d="M53 103 Q61 99 69 103 L71 106 Q62 110 52 108Z" fill="${shoes}"/><circle class="chibi-head" cx="50" cy="45" r="25" fill="${skin}"/><circle cx="50" cy="45" r="25" fill="url(#${uid}skin)"/>${hairShape}${cap}${crown}<circle cx="41" cy="45" r="3.1" fill="${eyes}"/><circle cx="59" cy="45" r="3.1" fill="${eyes}"/><path d="M41 57 Q50 65 59 57" fill="none" stroke="#5b3026" stroke-width="2.7" stroke-linecap="round"/>${glassesMarkup}<circle cx="32" cy="51" r="2" fill="#e89b87" opacity=".45"/><circle cx="68" cy="51" r="2" fill="#e89b87" opacity=".45"/></svg></div>`;
+}

@@ -1,11 +1,11 @@
-/* UnoVelho Matematixa — frontend integrado
+/* Uno dos Idosos — frontend integrado
  * Compatível com o server.js atual do projeto.
  * Não depende de Service Worker, cache de recursos ou IDs opcionais para iniciar.
  */
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-7';
+const VERSION = '20260816-9-roundtable';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -14,8 +14,17 @@ const MAPS = [
   ['map_classroom','Sala de Aula','classroom'],['map_geometry','Laboratório Geométrico','geometry'],['map_neon_city','Cidade Neon','neon'],['map_forest','Floresta Matemática','forest'],['map_desert','Deserto Dourado','desert'],
   ['map_ice','Montanha Congelada','ice'],['map_space','Estação Espacial','space'],['map_math_dimension','Dimensão Matemática','math'],['map_ceo','Dimensão CEO','ceo']
 ].map(([id,name,theme])=>({id,name,theme,asset:`assets/maps/${theme}.svg`}));
+const IMMERSIVE_MAPS=[
+  {id:'map_velho_bar',name:'Bar do Velho',theme:'velho-bar'},
+  {id:'map_quintal',name:'Quintal da Vó',theme:'quintal'},
+  {id:'map_pier',name:'Pier do Baralho',theme:'pier'}
+];
+MAPS.push(...IMMERSIVE_MAPS.map(m=>({...m,asset:`assets/maps/${m.theme}.svg`})));
 const MAP_PERSONALITY={
-  saloon:{label:'Saloon clássico',music:'saloon',decor:'🍺 🕯️ 🪵'},medieval:{label:'Taverna medieval',music:'medieval',decor:'🍺 🕯️ 🛡️'},pirate:{label:'Navio pirata',music:'pirate',decor:'🏴‍☠️ 🍺 ⚓'},modern:{label:'Casa moderna',music:'modern',decor:'☕ 🪴 💡'},classroom:{label:'Sala de aula',music:'modern',decor:'📚 🧮 ✏️'},neon:{label:'Cidade neon',music:'modern',decor:'🌃 ✨ 💡'},forest:{label:'Floresta',music:'forest',decor:'🌲 🍃 ✨'},desert:{label:'Deserto',music:'saloon',decor:'🏜️ 🔥'},ice:{label:'Montanha congelada',music:'modern',decor:'❄️ 🧊'},space:{label:'Estação espacial',music:'modern',decor:'🚀 🪐'},math:{label:'Dimensão Matematixa',music:'modern',decor:'∞ ✨ 🔢'},ceo:{label:'Dimensão CEO',music:'modern',decor:'👑 💎 🥂'}
+  saloon:{label:'Saloon clássico',music:'saloon',decor:'🍺 🕯️ 🪵'},medieval:{label:'Taverna medieval',music:'medieval',decor:'🍺 🕯️ 🛡️'},pirate:{label:'Navio pirata',music:'pirate',decor:'🏴‍☠️ 🍺 ⚓'},modern:{label:'Casa moderna',music:'modern',decor:'☕ 🪴 💡'},classroom:{label:'Sala de aula',music:'modern',decor:'📚 🧮 ✏️'},neon:{label:'Cidade neon',music:'modern',decor:'🌃 ✨ 💡'},forest:{label:'Floresta',music:'forest',decor:'🌲 🍃 ✨'},desert:{label:'Deserto',music:'saloon',decor:'🏜️ 🔥'},ice:{label:'Montanha congelada',music:'modern',decor:'❄️ 🧊'},space:{label:'Estação espacial',music:'modern',decor:'🚀 🪐'},math:{label:'Dimensão Matematixa',music:'modern',decor:'∞ ✨ 🔢'},ceo:{label:'Dimensão CEO',music:'modern',decor:'👑 💎 🥂'},
+  'velho-bar':{label:'Bar do Velho',music:'saloon',decor:'🍺 🥜 🕯️ 🪵 🎱'},
+  quintal:{label:'Quintal da Vó',music:'modern',decor:'🪴 🍉 🐓 🧉 🌻'},
+  pier:{label:'Pier do Baralho',music:'modern',decor:'🌊 🐟 🪣 🥤 ⚓'}
 };
 
 const COSMETICS = {
@@ -33,7 +42,7 @@ const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? l
 const state = {
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
   currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
-  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null
+  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null
 };
 
 const Sound = {
@@ -331,11 +340,11 @@ async function connectSocket(){
 
 function renderMapPreview(){const el=$('#mapPreview');if(!el)return;el.innerHTML=MAPS.slice(0,4).map(m=>`<button class="map-tile map-${m.theme}" data-map="${m.id}" type="button"><b>${escapeHtml(m.name)}</b></button>`).join('');}
 async function loadMiniRank(){const el=$('#miniRank');if(!el)return;try{const d=await get('/rank');el.innerHTML=(d.players||[]).slice(0,5).map((p,i)=>`<div class="rank-mini-row"><span>${i+1}</span><b>${escapeHtml(p.username)}</b><small>Nível ${p.level} • ${fmt(p.wins)} vit.</small></div>`).join('')||'<p class="muted">Ranking ainda vazio.</p>';}catch{el.innerHTML='<p class="muted">Ranking indisponível.</p>';}}
-function renderAchievementsPreview(){const el=$('#achievementPreview');if(!el)return;el.innerHTML=[['🏆','Primeira Vitória'],['🧠','Mente Matemática'],['🌎','Primeiro Online'],['🎒','Colecionador']].map(a=>`<div class="achievement-chip"><span>${a[0]}</span><b>${a[1]}</b></div>`).join('');}
+function renderAchievementsPreview(){const el=$('#achievementPreview');if(!el)return;el.innerHTML=[['🏆','Primeira Vitória'],['🔥','Sequência de Vitórias'],['🌎','Primeiro Online'],['🎒','Colecionador']].map(a=>`<div class="achievement-chip"><span>${a[0]}</span><b>${a[1]}</b></div>`).join('');}
 
-const GAME_MODES={uno:{label:'UNO',name:'UNO Velho Matematixa',icon:'🃏'},draw:{label:'GARTIC',name:'Adivinha o Desenho',icon:'🎨'},truco:{label:'TRUCO',name:'Truco do Velho',icon:'🂡'},checkers:{label:'DAMAS',name:'Damas de Botecão',icon:'⚫'},chess:{label:'XADREZ',name:'Xadrez do Bar',icon:'♟️'}};
+const GAME_MODES={uno:{label:'UNO',name:'Uno dos Idosos',icon:'🃏'}};
 function openOnlineModes(){state.selectedGameMode='uno';navigate('onlineModeView');}
-function selectOnlineMode(mode){const allowed=['uno','draw','truco','checkers','chess'];state.selectedGameMode=allowed.includes(String(mode))?String(mode):'uno';navigate('rooms');renderRoomsHeader();loadRooms();}
+function selectOnlineMode(mode){state.selectedGameMode='uno';navigate('rooms');renderRoomsHeader();loadRooms();}
 function renderRoomsHeader(){const m=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;if($('#roomsHeading'))$('#roomsHeading').textContent=`SALAS DE ${m.label}`;if($('#roomsModeSubtitle'))$('#roomsModeSubtitle').textContent=`${m.icon} ${m.name} • escolha uma mesa ou crie a sua.`;}
 function openCreateRoom(){if(!state.socket)connectSocket();populateRoomMaps();if($('#roomGameMode'))$('#roomGameMode').value=state.selectedGameMode||'uno';show('#createRoomModal');}
 function populateRoomMaps(){const el=$('#roomMap');if(!el)return;el.innerHTML=MAPS.filter(m=>m.id!=='map_ceo'||state.user?.role==='CEO').map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');}
@@ -394,8 +403,11 @@ function showSoloMatchmaking(onFound){
   soloMatchTimer=setTimeout(()=>{clearInterval(tick);overlay.innerHTML=`<div class="game-start-card match-found-card"><div class="game-start-kicker">🎯 OPONENTE ENCONTRADO</div><div class="match-found-icon">✓</div><div class="matchmaking-title">PARTIDA ENCONTRADA!</div><div class="match-found-sub">Preparando a mesa...</div></div>`;vibrate([250,100,250,100,400]);speakMatchFound();Sound.ok();setTimeout(()=>{showGameIntro(onFound,{online:false});},850);},limit);
 }
 function startSoloIntroAndGame(g,difficulty){
-  navigate('game');$('#arenaShell')?.classList.add('solo-arena');
-  showSoloMatchmaking(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} iniciado.`,'success');});
+  navigate('game');setupTableCamera();$('#arenaShell')?.classList.add('solo-arena');
+  const pick=IMMERSIVE_MAPS[Math.floor(Math.random()*IMMERSIVE_MAPS.length)];
+  state.currentMapTheme=pick.theme;
+  applyMapScene(pick.id);
+  showSoloMatchmaking(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} • ${pick.name}`,'success');});
 }
 
 // ---------------- SOLO ----------------
@@ -428,7 +440,7 @@ async function startSolo(difficulty){
   }
 }
 function makeSolo(difficulty){const deck=makeDeck(),player=[],bot=[];for(let i=0;i<7;i++){player.push(deck.pop());bot.push(deck.pop());}let top=deck.pop();while(top.color==='black'){deck.unshift(top);top=deck.pop();}return{difficulty,deck,player,bot,discard:top,pile:[],color:top.color,pendingDraw:0,turn:'player',botName:'Oponente'};}
-function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>OPONENTE</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();}
+function renderSolo(){const g=state.solo;if(!g)return;$('#roundText')&&($('#roundText').textContent='SOLO');$('#turnStatus')&&($('#turnStatus').textContent=g.turn==='player'?'SUA VEZ!':'VEZ DO BOT');$('#turnStatus')?.classList.toggle('bot',g.turn!=='player');renderArenaCard(g.discard,g.color);$('#deckCount')&&($('#deckCount').textContent=g.deck.length);$('#opponents')&&($('#opponents').innerHTML=`<div class="opponent-seat player-seat seat-0 solo-bot" data-player-id="bot"><div class="player-emote" data-emote-for="bot"></div><div class="player-character">${characterMarkup(DEFAULT_AVATAR,g.botName)}</div><div class="player-nameplate"><b>OPONENTE</b><small>${g.bot.length} cartas</small></div><div class="mini-hand">${Array.from({length:Math.min(7,g.bot.length)},()=>'<span class="back-mini">UNO</span>').join('')}</div></div>`);const hand=$('#playerHand');if(hand){const cards=Array.isArray(g.player)?g.player:[];hand.innerHTML=cards.length?cards.map((c,i)=>cardHtml(c,i,cards.length)).join(''):'<div class="hand-empty">AGUARDE SUAS CARTAS...</div>';bindRenderedHand();}updateUnoButton(!!(g.player.length===1&&g.unoDeadline&&Date.now()<g.unoDeadline),g.unoDeadline);if(g.player.length!==1)clearUnoTimer();applyCamera();}
 function renderArenaCard(card,color){
   const el=$('#discardPile');if(el){
     const value=String(card?.value??'?');
@@ -462,8 +474,8 @@ function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const cou
 function soloBotDelay(difficulty='medium'){const ranges={easy:[900,1600],medium:[1200,2200],hard:[1700,3000]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
 function botTurn(){
   const g=state.solo;if(!g||g.turn!=='bot')return;
-  const delay=g.difficulty==='easy'?3000+Math.floor(Math.random()*7001):g.difficulty==='hard'?3000+Math.floor(Math.random()*5001):3000+Math.floor(Math.random()*7001);
-  toast(`🤔 ${g.botName} está pensando...`,'info',Math.min(2200,delay-200));
+  const delay=soloBotDelay(g.difficulty);
+  toast(`🤔 Oponente está pensando...`,'info',Math.min(2200,Math.max(700,delay-200)));
   setTimeout(()=>{
     if(!state.solo||state.solo!==g||g.turn!=='bot')return;
     let cards=g.bot.filter(c=>playable(c,g.discard,g.color));if(g.pendingDraw>0)cards=[];let card=null;
@@ -548,8 +560,53 @@ function renderModeGameState(g){
   body.innerHTML=`<div class="online-mode-board strategy-online-board"><div class="strategy-head"><div>${(g.players||[]).map((p,i)=>`<div class="mode-player-chip"><div class="mode-player-char">${characterMarkup(p.avatar||DEFAULT_AVATAR,p.username)}</div><b>${escapeHtml(p.username)}</b></div>`).join('')}</div><span>${isChess?(g.turn==='w'?'BRANCAS':'PRETAS'):'VEZ: '+escapeHtml((g.players||[]).find(p=>String(p.userId)===String(g.currentPlayerId))?.username||'')}</span></div><div class="strategy-board ${isChess?'chess-board':'checkers-board'}" id="onlineStrategyBoard">${board.map((piece,i)=>`<button type="button" class="strategy-cell ${((Math.floor(i/8)+i)%2)?'dark':'light'} ${piece?'occupied':''}" data-cell="${i}">${piece?pieces[piece]:''}</button>`).join('')}</div><div class="strategy-help">Toque em uma peça e depois na casa de destino.</div></div>`;
   let selected=null;body.querySelectorAll('[data-cell]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.cell),piece=board[i];if(selected===null){if(!piece)return;selected=i;body.querySelectorAll('[data-cell]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');return;}if(selected===i){selected=null;b.classList.remove('selected');return;}state.socket?.emit('mode:action',{action:'move',from:selected,to:i});selected=null;body.querySelectorAll('[data-cell]').forEach(x=>x.classList.remove('selected'));});
 }
+function applyMapScene(mapId='map_velho_bar'){
+  const shell=$('#arenaShell'); const scene=$('#mapScene'); const decor=$('#mapDecor');
+  const theme=mapTheme(mapId); if(!shell||!scene)return;
+  shell.dataset.mapTheme=theme;
+  scene.className=`first-person-map map-${theme}`;
+  const info=MAP_PERSONALITY[theme]||MAP_PERSONALITY.saloon;
+  if(decor)decor.innerHTML=`<div class="map-atmosphere"><span class="atm-particle p1"></span><span class="atm-particle p2"></span><span class="atm-particle p3"></span></div><div class="map-props">${info.decor||''}</div>`;
+  const sign=$('.map-sign'); if(sign)sign.textContent=info.label.toUpperCase();
+  const cups=$$('.table-cup',scene); cups.forEach((c,i)=>c.textContent=theme==='quintal'?(i?'🧉':'🍉'):theme==='pier'?(i?'🥤':'🪣'):'🍺');
+}
+function startMapMusic(){ /* Música externa é opcional; nunca bloqueia a partida. */ }
+function renderPlayedCards(cards=[]){
+  const el=$('#playedCards'); if(!el)return;
+  const recent=Array.isArray(cards)?cards.slice(-5):[];
+  el.innerHTML=recent.map((c,i)=>`<div class="played-mini uno-card card-${c.color||'red'}" style="--i:${i}"><span>${escapeHtml(c.value??'?')}</span></div>`).join('');
+}
+function applyCamera(){
+  const arena=$('#arenaShell'); if(!arena)return;
+  arena.style.setProperty('--camera-yaw',`${state.cameraYaw}deg`);
+  arena.style.setProperty('--camera-pitch',`${state.cameraPitch}deg`);
+  const seats=$$('#opponents .opponent-seat');
+  const count=seats.length||1;
+  seats.forEach((el,i)=>{
+    const base=-90+(360/count)*i;
+    let rel=((base-state.cameraYaw+540)%360)-180;
+    const rad=rel*Math.PI/180;
+    const x=Math.sin(rad)*39;
+    const y=-Math.cos(rad)*28;
+    const depth=(Math.cos(rad)+1)/2;
+    const scale=.68+depth*.30;
+    const z=Math.round(depth*100);
+    el.style.setProperty('--seat-x',`${x}%`); el.style.setProperty('--seat-y',`${y}%`); el.style.setProperty('--seat-scale',scale.toFixed(3)); el.style.zIndex=String(20+z);
+    el.classList.toggle('camera-near',depth>.78);
+  });
+}
+function setupTableCamera(){
+  const arena=$('#arenaShell'); if(!arena||arena.dataset.cameraReady)return; arena.dataset.cameraReady='1';
+  let sx=0,sy=0,ly=0;
+  const start=(e)=>{if(e.pointerType==='mouse'&&e.button!==0)return; state.cameraDragging=true;state.cameraPointerId=e.pointerId;sx=e.clientX;sy=e.clientY;ly=state.cameraYaw;arena.setPointerCapture?.(e.pointerId);arena.classList.add('camera-dragging');};
+  const move=(e)=>{if(!state.cameraDragging||e.pointerId!==state.cameraPointerId)return; const dx=e.clientX-sx; const dy=e.clientY-sy; state.cameraYaw=((ly-dx*.38)%360+360)%360; state.cameraPitch=Math.max(-8,Math.min(8,dy*.08)); applyCamera();};
+  const end=()=>{state.cameraDragging=false;state.cameraPointerId=null;arena.classList.remove('camera-dragging');};
+  arena.addEventListener('pointerdown',start);arena.addEventListener('pointermove',move);arena.addEventListener('pointerup',end);arena.addEventListener('pointercancel',end);arena.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')end();});
+  arena.addEventListener('dblclick',()=>{state.cameraYaw=0;state.cameraPitch=0;applyCamera();toast('👀 Visão centralizada.','info',1200);});
+  applyCamera();
+}
 function renderOnlineGame(game){
-  state._onlineGame=game;state.solo=null;if(state.currentView!=='game')navigate('game');
+  state._onlineGame=game;state.solo=null;if(state.currentView!=='game')navigate('game');setupTableCamera();
   $('#roundText')&&($('#roundText').textContent='AO VIVO');
   const mine=String(game.currentPlayerId)===String(state.user.id);
   $('#turnStatus')&&($('#turnStatus').textContent=mine?'SUA VEZ!':'VEZ DO OPONENTE');$('#turnStatus')?.classList.toggle('bot',!mine);
@@ -566,33 +623,39 @@ function renderOnlineGame(game){
 }
 function characterMarkup(a,name=''){
   const x={...DEFAULT_AVATAR,...(a||{})};
-  const seed=String(name).split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,7);
-  const hue=seed%360, skin=escapeHtml(x.skinColor||'#d59b76'), hair=escapeHtml(x.hairColor||'#171717'), eyes=escapeHtml(x.eyes||'#1d2433');
+  const seed=String(name||'Jogador').split('').reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,7);
+  const hue=seed%360;
+  const skin=escapeHtml(x.skinColor||'#d59b76');
+  const hair=escapeHtml(x.hairColor||'#171717');
+  const eyes=escapeHtml(x.eyes||'#1d2433');
   const chars={
-    velhinho:{name:'Velhinho',power:'Bônus de compra: +1 carta jogável',shirt:'#2563eb',pants:'#263449',accent:'#7dd3fc'},
-    barman:{name:'Barman',power:'Compra especial: 1 carta extra uma vez',shirt:'#8b4513',pants:'#2f241f',accent:'#fbbf24'},
-    rainha:{name:'Rainha da Mesa',power:'Começa com uma aura de sorte',shirt:'#7c3aed',pants:'#312e81',accent:'#f0abfc'},
-    robo:{name:'Robô Barulhento',power:'Emote especial desbloqueado',shirt:'#475569',pants:'#1e293b',accent:'#22d3ee'},
-    astronauta:{name:'Astronauta',power:'Efeito espacial exclusivo',shirt:'#e5e7eb',pants:'#64748b',accent:'#60a5fa'},
-    rei:{name:'Rei do Baralho',power:'Título dourado exclusivo',shirt:'#b45309',pants:'#451a03',accent:'#fde047'}
+    velhinho:{name:'Velhinho',power:'Compra sortuda',shirt:'#2f80ed',pants:'#23324a',accent:'#73d6ff'},
+    barman:{name:'Barman',power:'+1 compra especial',shirt:'#9b5a2e',pants:'#34251d',accent:'#ffd166'},
+    rainha:{name:'Rainha da Mesa',power:'Aura de sorte',shirt:'#8b5cf6',pants:'#3b2d75',accent:'#f0abfc'},
+    robo:{name:'Robô Barulhento',power:'Emote exclusivo',shirt:'#64748b',pants:'#263242',accent:'#67e8f9'},
+    astronauta:{name:'Astronauta',power:'Efeito espacial',shirt:'#e8eef7',pants:'#64748b',accent:'#60a5fa'},
+    rei:{name:'Rei do Baralho',power:'Título dourado',shirt:'#b7791f',pants:'#4a2808',accent:'#fde68a'}
   };
-  const ch=chars[x.character]||chars.velhinho, uid=`c${seed}${String(x.character||'velhinho').replace(/\W/g,'')}`;
-  const tops={shirt_basic:'#2563eb',shirt_red:'#dc2626',shirt_neon:'#06b6d4',shirt_gold:'#eab308',shirt_space:'#475569'};
-  const pantsMap={pants_basic:'#263449',pants_black:'#111827',pants_neon:'#22c55e'}, shoesMap={shoes_basic:'#e5e7eb',shoes_red:'#ef4444',shoes_gold:'#facc15'};
+  const ch=chars[x.character]||chars.velhinho;
+  const tops={shirt_basic:'#2f80ed',shirt_red:'#ef4444',shirt_neon:'#06b6d4',shirt_gold:'#eab308',shirt_space:'#64748b'};
+  const pantsMap={pants_basic:'#23324a',pants_black:'#111827',pants_neon:'#16a34a'};
+  const shoesMap={shoes_basic:'#e5e7eb',shoes_red:'#ef4444',shoes_gold:'#facc15'};
   const shirt=tops[x.top]||ch.shirt, pants=pantsMap[x.bottom]||ch.pants, shoes=shoesMap[x.shoes]||'#e5e7eb';
-  let hairShape=`<path d="M27 45 Q30 19 50 20 Q72 19 75 45 Q67 30 50 31 Q34 30 27 45Z" fill="${hair}"/>`;
-  if(x.hair==='hair_curl') hairShape=`<path d="M27 45 Q20 30 29 20 Q37 10 47 20 Q55 8 65 20 Q79 18 75 45 Q68 30 50 31 Q34 30 27 45Z" fill="${hair}"/><circle cx="31" cy="21" r="5" fill="${hair}"/><circle cx="44" cy="16" r="5" fill="${hair}"/><circle cx="57" cy="15" r="5" fill="${hair}"/><circle cx="70" cy="23" r="5" fill="${hair}"/>`;
-  if(x.hair==='hair_long') hairShape=`<path d="M26 48 Q25 15 50 18 Q76 15 75 48 L69 68 H62 V35 Q50 27 38 35 V68 H31Z" fill="${hair}"/>`;
-  if(x.hair==='hair_mohawk') hairShape=`<path d="M31 38 L36 19 L41 28 L46 10 L51 28 L57 7 L61 28 L68 17 L71 40 Q62 30 50 31 Q38 30 31 38Z" fill="${hair}"/>`;
-  if(x.hair==='hair_afro') hairShape=`<circle cx="50" cy="30" r="23" fill="${hair}"/><circle cx="32" cy="28" r="8" fill="${hair}"/><circle cx="68" cy="28" r="8" fill="${hair}"/>`;
-  if(x.hair==='hair_ice') hairShape=`<path d="M27 43 Q31 14 49 20 L55 10 L61 21 L73 17 L74 44 Q65 30 50 31 Q34 30 27 43Z" fill="#dff9ff" stroke="#7dd3fc" stroke-width="2"/>`;
-  const hat=x.character==='rei'||x.accessory==='hat_crown'?`<path d="M30 30 L34 12 L43 22 L50 8 L57 22 L66 12 L70 30Z" fill="#facc15" stroke="#fde68a" stroke-width="2"/>`:x.character==='astronauta'?`<circle cx="50" cy="48" r="29" fill="none" stroke="#cbd5e1" stroke-width="5"/><rect x="29" y="38" width="42" height="22" rx="10" fill="#0f172a" stroke="#93c5fd" stroke-width="2"/>`:'';
-  const glasses=['glasses_basic','glasses_cyan','glasses_gold'].includes(x.accessory), gc=x.accessory==='glasses_cyan'?'#22d3ee':x.accessory==='glasses_gold'?'#facc15':'#111827';
-  const acc=glasses?`<g fill="#05070b" stroke="${gc}" stroke-width="2.5"><rect x="29" y="40" width="17" height="11" rx="4"/><rect x="54" y="40" width="17" height="11" rx="4"/><path d="M46 44 H54"/></g>`:'';
-  const backpack=x.accessory?.startsWith('backpack_')?`<rect x="19" y="70" width="12" height="29" rx="6" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}"/>`:'';
+  const glasses=['glasses_basic','glasses_cyan','glasses_gold'].includes(x.accessory);
+  const gc=x.accessory==='glasses_cyan'?'#22d3ee':x.accessory==='glasses_gold'?'#facc15':'#111827';
+  const backpack=x.accessory?.startsWith('backpack_') ? `<path d="M18 67 Q10 71 13 88 Q15 95 22 94 L28 91 L27 68Z" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}" stroke="#fff3" stroke-width="1.2"/>` : '';
+  let hairShape=`<path d="M26 42 Q27 17 50 18 Q73 17 74 42 Q68 30 50 30 Q32 30 26 42Z" fill="${hair}"/>`;
+  if(x.hair==='hair_curl') hairShape=`<path d="M26 43 Q20 29 29 19 Q38 10 47 19 Q55 7 65 19 Q80 17 74 43 Q67 30 50 30 Q33 30 26 43Z" fill="${hair}"/><circle cx="30" cy="20" r="5" fill="${hair}"/><circle cx="43" cy="14" r="5" fill="${hair}"/><circle cx="57" cy="14" r="5" fill="${hair}"/><circle cx="70" cy="22" r="5" fill="${hair}"/>`;
+  if(x.hair==='hair_long') hairShape=`<path d="M25 44 Q24 14 50 17 Q76 14 75 44 L68 70 L61 66 V33 Q50 27 39 33 V66 L32 70Z" fill="${hair}"/>`;
+  if(x.hair==='hair_mohawk') hairShape=`<path d="M30 40 L35 19 L41 27 L46 8 L51 27 L57 6 L61 27 L68 17 L71 40 Q62 30 50 30 Q38 30 30 40Z" fill="${hair}"/>`;
+  if(x.hair==='hair_afro') hairShape=`<circle cx="50" cy="29" r="23" fill="${hair}"/><circle cx="31" cy="27" r="8" fill="${hair}"/><circle cx="69" cy="27" r="8" fill="${hair}"/>`;
+  if(x.hair==='hair_ice') hairShape=`<path d="M26 41 Q30 14 48 19 L55 9 L61 20 L73 16 L74 42 Q65 30 50 30 Q34 30 26 41Z" fill="#e6fbff" stroke="#67e8f9" stroke-width="2"/>`;
+  const crown=(x.character==='rei'||x.accessory==='hat_crown')?`<path d="M31 25 L34 11 L43 20 L50 7 L57 20 L66 11 L69 25Z" fill="#facc15" stroke="#fff0a3" stroke-width="2"/>`:'';
+  const cap=x.accessory==='hat_cap'?`<path d="M27 28 Q50 9 73 28 L73 34 H27Z" fill="#263b67" stroke="#8ecbff" stroke-width="1.5"/>`:'';
+  const glassesMarkup=glasses?`<g fill="#05070b" stroke="${gc}" stroke-width="2"><rect x="28" y="40" width="18" height="11" rx="4"/><rect x="54" y="40" width="18" height="11" rx="4"/><path d="M46 44 H54"/></g>`:'';
   const aura=x.effect?`<div class="char-aura ${escapeHtml(x.effect)}"></div>`:'';
-  const glow=`<circle cx="50" cy="73" r="36" fill="${ch.accent}" opacity=".08"/><path d="M24 91 Q50 108 76 91" fill="none" stroke="${ch.accent}" stroke-width="2" opacity=".45"/>`;
-  return `<div class="char-3d-live code-character character-${escapeHtml(x.character||'velhinho')}" style="--avatar-hue:${hue}deg;--char-accent:${ch.accent}">${aura}<svg viewBox="0 0 100 125" aria-label="${escapeHtml(name||ch.name)}"><defs><linearGradient id="${uid}" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${shirt}"/><stop offset=".55" stop-color="${ch.accent}"/><stop offset="1" stop-color="#111827"/></linearGradient><radialGradient id="${uid}skin"><stop stop-color="#fff6"/><stop offset="1" stop-color="#0000"/></radialGradient></defs>${glow}<ellipse cx="50" cy="118" rx="31" ry="5" fill="#0008"/><path d="M28 77 Q20 81 18 98 Q18 104 23 106 Q29 107 31 101 L38 87" fill="url(#${uid})"/><path d="M72 77 Q80 81 82 98 Q82 104 77 106 Q71 107 69 101 L62 87" fill="url(#${uid})"/><path d="M30 75 Q50 84 70 75 L68 104 Q50 111 32 104Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.5"/><path d="M36 78 Q50 84 64 78" fill="none" stroke="#fff8" stroke-width="2"/>${backpack}<rect x="37" y="101" width="10" height="15" rx="4" fill="${pants}"/><rect x="53" y="101" width="10" height="15" rx="4" fill="${pants}"/><rect x="34" y="114" width="15" height="6" rx="3" fill="${shoes}"/><rect x="51" y="114" width="15" height="6" rx="3" fill="${shoes}"/><circle cx="50" cy="48" r="25" fill="${skin}"/><circle cx="50" cy="48" r="25" fill="url(#${uid}skin)"/>${hairShape}${hat}<circle cx="41" cy="47" r="3" fill="${eyes}"/><circle cx="59" cy="47" r="3" fill="${eyes}"/><path d="M42 59 Q50 67 58 59" fill="none" stroke="#5b3026" stroke-width="2.5" stroke-linecap="round"/>${acc}</svg></div>`;
+  const uid=`c${seed}${String(x.character||'velhinho').replace(/\W/g,'')}`;
+  return `<div class="chibi-3d-live char-3d-live code-character character-${escapeHtml(x.character||'velhinho')}" style="--avatar-hue:${hue}deg;--char-accent:${ch.accent}">${aura}<div class="chibi-ground"></div><svg viewBox="0 0 100 112" aria-label="${escapeHtml(name||ch.name)}" role="img"><defs><linearGradient id="${uid}" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${shirt}"/><stop offset=".55" stop-color="${ch.accent}"/><stop offset="1" stop-color="#101827"/></linearGradient><radialGradient id="${uid}skin"><stop stop-color="#fff6"/><stop offset="1" stop-color="#0000"/></radialGradient></defs><ellipse cx="50" cy="106" rx="25" ry="5" fill="#0008"/><g class="chibi-backpack">${backpack}</g><path class="chibi-arm arm-left" d="M31 70 Q20 74 20 87 Q20 94 26 95 Q32 95 34 88 L38 78Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.3"/><path class="chibi-arm arm-right" d="M69 70 Q80 74 80 87 Q80 94 74 95 Q68 95 66 88 L62 78Z" fill="url(#${uid})" stroke="#fff3" stroke-width="1.3"/><path class="chibi-body" d="M31 67 Q50 61 69 67 L67 92 Q50 100 33 92Z" fill="url(#${uid})" stroke="#fff4" stroke-width="1.5"/><path d="M39 70 Q50 76 61 70" fill="none" stroke="#fff8" stroke-width="2"/><path d="M37 91 L47 91 L46 104 L34 104Z" fill="${pants}"/><path d="M53 91 L63 91 L66 104 L54 104Z" fill="${pants}"/><path d="M32 101 Q39 99 47 103 L47 108 Q37 109 30 106Z" fill="${shoes}"/><path d="M53 103 Q61 99 69 103 L71 106 Q62 110 52 108Z" fill="${shoes}"/><circle class="chibi-head" cx="50" cy="45" r="25" fill="${skin}"/><circle cx="50" cy="45" r="25" fill="url(#${uid}skin)"/>${hairShape}${cap}${crown}<circle cx="41" cy="45" r="3.1" fill="${eyes}"/><circle cx="59" cy="45" r="3.1" fill="${eyes}"/><path d="M41 57 Q50 65 59 57" fill="none" stroke="#5b3026" stroke-width="2.7" stroke-linecap="round"/>${glassesMarkup}<circle cx="32" cy="51" r="2" fill="#e89b87" opacity=".45"/><circle cx="68" cy="51" r="2" fill="#e89b87" opacity=".45"/></svg></div>`;
 }
 const ORIGINAL_CHARACTERS={
   velhinho:{name:'Velhinho',icon:'🧓',power:'Compra sortuda',req:'Inicial',unlock:true},

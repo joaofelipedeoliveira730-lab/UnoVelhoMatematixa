@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b66ff">
-<meta name="description" content="UnoVelho Matematixa — UNO com matemática, personagens e multiplayer.">
+<meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
 <link rel="stylesheet" href="style.css?v=20260816-opt9">
 </head>
@@ -28,13 +28,13 @@
 
 <div id="orientationGuard" class="orientation-guard hidden"><div class="rotate-phone">↻</div><h2>Virando a mesa...</h2><p>O jogo está ajustando a partida para a tela deitada.</p><button id="btnForceLandscape" class="btn btn-primary" type="button">📱 AJUSTAR TELA</button></div>
 
-<div id="bootScreen" class="boot-screen hidden"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a dimensão Matematixa...</p></div>
+<div id="bootScreen" class="boot-screen hidden"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a mesa dos idosos...</p></div>
 
 <main id="authScreen" class="screen auth-screen">
   <div class="floating-cards" aria-hidden="true"><span class="float-card f1">7</span><span class="float-card f2">+2</span><span class="float-card f3">🌈</span><span class="float-card f4">3</span><span class="float-card f5">🔄</span><span class="float-card f6">9</span><span class="float-card f7">+4</span><span class="float-card f8">5</span></div>
   <section class="auth-shell glass">
     <div class="auth-brand"><div class="logo-mark">U</div><div><div class="brand-title">UNO VELHO</div><div class="brand-sub">MATEMATIXA</div></div></div>
-    <div class="auth-copy"><span class="pill">🧠 CARTAS + MATEMÁTICA</span><h1>Entre na mesa.</h1><p>Jogue sozinho, desafie jogadores e construa seu personagem.</p></div>
+    <div class="auth-copy"><span class="pill">🃏 UNO + PERSONAGENS</span><h1>Entre na mesa.</h1><p>Jogue sozinho, desafie jogadores e construa seu personagem.</p></div>
     <div class="auth-tabs"><button class="auth-tab active" data-auth="login">ENTRAR</button><button class="auth-tab" data-auth="register">CRIAR CONTA</button></div>
     <div class="auth-grid">
       <form id="formLogin" class="auth-form glass-inner">
@@ -111,7 +111,7 @@
 </section>
 
 <section id="playView" class="view hidden modes-view">
-  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>JOGAR UNO</h2><small class="subnav-subtitle">Escolha como quer jogar o UNO Velho Matematixa.</small></div></div>
+  <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>JOGAR UNO</h2><small class="subnav-subtitle">Escolha como quer jogar o UNO dos Idosos.</small></div></div>
   <div class="mode-hub-actions uno-only-play">
     <button id="btnSolo" class="mode-hub-btn solo" type="button"><span>🤖</span><b>SOLO</b><small>Jogue contra o bot</small></button>
     <button id="btnOnline" class="mode-hub-btn online" type="button"><span>🌎</span><b>ONLINE</b><small>Crie ou entre em uma sala</small></button>
@@ -121,7 +121,7 @@
   </div>
 </section>
 <section id="onlineModeView" class="view hidden">
-  <div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><div><h2>UNO ONLINE</h2><small class="subnav-subtitle">Salas exclusivas de UNO Velho Matematixa.</small></div></div>
+  <div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><div><h2>UNO ONLINE</h2><small class="subnav-subtitle">Salas exclusivas de UNO dos Idosos.</small></div></div>
   <div class="online-mode-grid uno-only-grid">
     <button class="online-mode-card mode-uno" data-online-mode="uno" type="button"><span>🃏</span><b>UNO</b><small>Cartas + UNO!!!</small><em>SALAS</em></button>
   </div>
@@ -147,7 +147,7 @@
     </aside>
     <button id="btnGameGlobalChat" class="game-global-chat-toggle" type="button" aria-label="Abrir chat global">💬</button>
 
-    <div id="arenaShell" class="arena-shell arena-3d first-person-arena" data-map-theme="saloon">
+    <div id="arenaShell" class="arena-shell arena-3d first-person-arena" data-map-theme="velho-bar"><div class="camera-guide">👀 ARRASTE A MESA • VISÃO 360° • VOCÊ CONTINUA SENTADO</div>
       <header class="arena-top">
         <div class="game-stat"><span>PARTIDA</span><b id="roundText">1 / 1</b></div>
         <div id="turnStatus" class="turn-badge">SUA VEZ!</div>
@@ -157,7 +157,7 @@
       <div id="mapScene" class="saloon-map map-saloon first-person-map">
         <div class="map-ceiling-lights"><i></i><i></i><i></i></div>
         <div id="mapDecor" class="map-decor" aria-hidden="true"></div>
-        <div class="far-wall"><span class="map-sign">UNO DO VELHO</span></div>
+        <div class="far-wall"><span class="map-sign">UNO DOS IDOSOS</span></div>
         <div class="table-shadow"></div>
         <div class="wood-table first-person-table">
           <div class="table-rim"></div>
