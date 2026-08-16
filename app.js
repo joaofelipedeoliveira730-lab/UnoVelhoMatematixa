@@ -53,97 +53,30 @@ function show(id){const el=typeof id==='string'?$(id):id;if(el)el.classList.remo
 function hide(id){const el=typeof id==='string'?$(id):id;if(el)el.classList.add('hidden');}
 function on(id,event,fn){const el=$(id);if(el)el.addEventListener(event,fn);}
 function authHeaders(extra={}){return {...extra,...(state.token?{Authorization:`Bearer ${state.token}`}:{})};}
-async function api(url,options={}){
-  const opts={credentials:'include',...options,headers:authHeaders({'Content-Type':'application/json',...(options.headers||{})})};
-  const res=await fetch(API+url,opts);let data={};try{data=await res.json();}catch{}
-  if(!res.ok)throw Object.assign(new Error(data.message||`Erro ${res.status} de comunicação com o servidor.`),{status:res.status,data});
-  return data;
-}
-async function get(url){return api(url,{method:'GET'});}
-async function post(url,body){return api(url,{method:'POST',body:body===undefined?undefined:JSON.stringify(body)});}
-async function put(url,body){return api(url,{method:'PUT',body:JSON.stringify(body)});}
-
+async function api(url,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),9000);try{const opts={credentials:'include',signal:controller.signal,...options,headers:authHeaders({'Content-Type':'application/json',...(options.headers||{})})};const res=await fetch(API+url,opts);let data={};try{data=await res.json()}catch{}if(!res.ok)throw Object.assign(new Error(data.message||`Erro ${res.status} de comunicação com o servidor.`),{status:res.status,data});return data}catch(e){if(e.name==='AbortError')throw new Error('O servidor demorou demais. Tente novamente.');throw e}finally{clearTimeout(timeout)}}
 function defaults(){return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));}
 function normalizeProfile(profile){const p=profile||{};p.avatar={...DEFAULT_AVATAR,...(p.avatar||{})};p.settings={...defaults(),...(p.settings||{})};p.bio=p.bio||'';return p;}
 function itemName(id){const item=state.items.find(x=>x.id===id);if(item?.name)return item.name;return ({title_beginner:'Iniciante',title_calculator:'Calculista',title_master:'Mestre Matematixa',title_ceo:'CEO'}[id]||id||'Iniciante');}
 
-async function registerLightServiceWorker(){
-  try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js',{updateViaCache:'none'});}catch(e){console.debug('SW opcional:',e);}
-}
-
-function kb(n){return n<1024?`${n} B`:`${(n/1024).toFixed(n<10240?1:0)} KB`;}
-async function refreshLoadStats(){
-  let transferred=0; try{performance.getEntriesByType('resource').forEach(r=>{transferred+=Number(r.transferSize||r.encodedBodySize||0)||0;});}catch{}
-  let storage='indisponível'; try{const e=await navigator.storage?.estimate?.(); if(e?.usage!=null) storage=`${(e.usage/1048576).toFixed(1)} MB`; }catch{}
-  const st=$('#loadStats'); if(st)st.textContent=`${kb(transferred)} carregados • armazenamento: ${storage}`;
-}
-function setLoadingProgress(v,status){const n=Math.max(0,Math.min(100,v));const bar=$('#loadProgress'),pct=$('#loadPercent'),txt=$('#loadStatus');if(bar)bar.style.width=n+'%';if(pct)pct.textContent=Math.round(n)+'%';if(txt)txt.textContent=status||'Carregando...';}
-function safeStorageGet(key, fallback=null){try{return localStorage.getItem(key) ?? fallback;}catch{return fallback;}}
-function safeStorageSet(key,value){try{localStorage.setItem(key,value);return true;}catch{return false;}}
-
-async function runPreAuthSequence(){
-  const accepted=safeStorageGet('uv_terms_v1')==='accepted';
-  hide('#authScreen');hide('#appScreen');hide('#platformScreen');hide('#termsScreen');hide('#bootScreen');
-  const splash=$('#studioSplash');
-  if(!splash){ if(!accepted) show('#termsScreen'); else await startLoadingScreen(); return; }
-  show(splash);
-  const bar=$('#studioProgress');
-  const status=$('#studioStatus');
-  let p=0, finished=false;
-  const finish=async()=>{
-    if(finished)return; finished=true;
-    hide(splash);
-    if(!accepted) show('#termsScreen');
-    else await startLoadingScreen();
-  };
-  const t=setInterval(()=>{
-    p=Math.min(100,p+8+Math.random()*12);
-    if(bar)bar.style.width=p+'%';
-    if(status)status.textContent=p<35?'Acendendo as luzes da VelhoStudios...':p<70?'Embaralhando as cartas...':'Abrindo a mesa dos idosos...';
-    if(p>=100){clearInterval(t);setTimeout(finish,220);}
-  },90);
-  // Nunca deixe a vinheta bloquear o jogo por erro de timer/renderização.
-  setTimeout(()=>{clearInterval(t);finish();},3500);
-}
-
-async function startLoadingScreen(){
-  show('#bootScreen');setLoadingProgress(5,'Preparando a mesa...');
-  const steps=[
-    ['Carregando cartas e sons...',25],
-    ['Montando personagens...',45],
-    ['Preparando a mesa...',65],
-    ['Otimizando a interface...',82],
-    ['Quase pronto...',95]
-  ];
-  for(const [label,target] of steps){
-    await new Promise(r=>setTimeout(r,120));
-    setLoadingProgress(target,label);
-    // Estatísticas são opcionais; nunca podem travar a entrada.
-    refreshLoadStats().catch(()=>{});
-  }
-  setLoadingProgress(100,'Tudo pronto!');
-  setTimeout(()=>hide('#bootScreen'),180);
-  applyPlatform(state.platform);
-  if(!state.platform){show('#platformScreen');return;}
-  await continueAfterPlatform();
+async function clearOldClientCache(){
+  try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}}catch{}
+  try{if('caches' in window){const keys=await caches.keys();for(const k of keys)if(k.toLowerCase().includes('unovelho'))await caches.delete(k);}}catch{}
 }
 
 async function init(){
-  try{document.documentElement.style.setProperty('--motion',safeStorageGet('uv_reduced_motion')==='1'?'0':'1');}catch{}
-  try{bindEvents();}catch(err){console.error('Falha ao ligar interface:',err);}
-  try{await runPreAuthSequence();}
-  catch(err){
-    console.error('Falha na inicialização:',err);
-    hide('#studioSplash');hide('#termsScreen');hide('#bootScreen');hide('#platformScreen');
-    show('#authScreen');switchAuth('login');
-  }
+  document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
+  setTimeout(()=>hide('#bootScreen'),250);
+  bindEvents();
+  applyPlatform(state.platform);
+  if(!state.platform){hide('#authScreen');hide('#appScreen');show('#platformScreen');return;}
+  await continueAfterPlatform();
 }
 
 async function continueAfterPlatform(){
   hide('#platformScreen');
   try{
     const me=await get('/me');
-    state.user=me.user;state.profile=normalizeProfile(me.profile);state.token=localStorage.getItem('uv_token')||null;
+    state.user=me.user;state.profile=normalizeProfile(me.profile);state.token=localStorage.getItem('uv_token')||null;updateCEOButton();
     await enterApp(false);
   }catch{
     hide('#appScreen');show('#authScreen');switchAuth('login');
@@ -178,8 +111,6 @@ function bindEvents(){
   // Auth
   $$('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuth(b.dataset.auth)));
   on('#formLogin','submit',login);on('#formRegister','submit',register);
-  on('#termsAccept','change',()=>{const b=$('#btnAcceptTerms');if(b)b.disabled=!$('#termsAccept')?.checked;});
-  on('#btnAcceptTerms','click',()=>{if(!$('#termsAccept')?.checked)return;localStorage.setItem('uv_terms_v1','accepted');hide('#termsScreen');startLoadingScreen();});
   on('#btnPlatformMobile','click',()=>choosePlatform('mobile'));
   on('#btnPlatformComputer','click',()=>choosePlatform('computer'));
   on('#orientationGuard','click',()=>choosePlatform('mobile'));
@@ -491,8 +422,13 @@ function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'custom
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
+function updateCEOButton(){const b=document.querySelector('#btnCEO');if(!b)return;b.style.display=String(state.user?.username||'').toLowerCase()==='ceovelho'?'flex':'none'}
+async function openCEOPanel(){const el=document.querySelector('#ceoPanel');if(!el)return;el.classList.remove('hidden');loadCEOUsers()}
+async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
+async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}))}catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
 function openCustomize(){
   if(!state.profile)return toast('Perfil ainda não carregado.','error');
+  const b=document.querySelector('#btnCustomize'); if(b){b.disabled=true;setTimeout(()=>b.disabled=false,160)}
   state.previousView=state.currentView||'lobby';
   navigate('customize');
   renderCharacter('#customCharacterPage',state.profile.avatar);

@@ -4,7 +4,7 @@
   window.VELHO_CONFIG = {
     API_URL: "",
     SOCKET_URL: "",
-    APP_NAME: "Uno dos Idosos",
+    APP_NAME: "UnoVelho",
     DEFAULT_AVATAR: "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Velho"
   };
 })();

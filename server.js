@@ -224,6 +224,7 @@ async function repairLegacySchema() {
   // Perfis novos não dependem de uma linha pré-existente. O registro/login
   // cria o perfil automaticamente.
   console.log('🛠️ Compatibilidade do PostgreSQL verificada/corrigida.');
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP; CREATE TABLE IF NOT EXISTS login_logs (id BIGSERIAL PRIMARY KEY,user_id INTEGER,username VARCHAR(50),ip VARCHAR(120),created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP); CREATE INDEX IF NOT EXISTS idx_login_logs_created ON login_logs(created_at DESC);`);
 }
 
 async function ensureCeo() {
@@ -755,3 +756,10 @@ server.listen(PORT,'0.0.0.0',()=>{
   })();
 });
 process.on('SIGTERM',async()=>{try{await pool?.end()}finally{process.exit(0)}});
+const CEO_NAME='ceovelho';function requireCEO(req,res,next){if(String(req.user?.username||'').toLowerCase()!==CEO_NAME||req.user?.role!=='CEO')return res.status(403).json({success:false,message:'Acesso exclusivo do CEO.'});next()}
+app.get('/api/ceo/users',auth,requireCEO,async(req,res)=>{try{const r=await pool.query('SELECT id,username,role,level,xp,coins,last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 200');res.json({success:true,users:r.rows})}catch(e){res.status(500).json({success:false,message:'Não foi possível carregar jogadores.'})}});
+app.post('/api/ceo/reset-xp',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId);await pool.query("UPDATE users SET xp=0,level=1 WHERE id=$1 AND LOWER(username)<>$2",[id,CEO_NAME]);res.json({success:true,message:'XP zerado.'})}catch(e){res.status(500).json({message:'Erro ao zerar XP.'})}});
+app.post('/api/ceo/chat-block',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId),mins=Math.max(1,Math.min(10080,Number(req.body.minutes)||60));await pool.query("UPDATE users SET chat_blocked_until=NOW()+($2||' minutes')::interval WHERE id=$1 AND LOWER(username)<>$3",[id,mins,CEO_NAME]);res.json({success:true,message:'Chat bloqueado.'})}catch(e){res.status(500).json({message:'Erro ao bloquear chat.'})}});
+app.post('/api/ceo/reset-podium',auth,requireCEO,async(req,res)=>{try{await pool.query('UPDATE users SET wins=0,losses=0,games_played=0 WHERE LOWER(username)<>$1',[CEO_NAME]);res.json({success:true,message:'Pódio resetado.'})}catch(e){res.status(500).json({message:'Erro ao resetar pódio.'})}});
+app.post('/api/ceo/clear-logins',auth,requireCEO,async(req,res)=>{try{await pool.query('DELETE FROM login_logs');res.json({success:true,message:'Histórico de logins limpo.'})}catch(e){res.status(500).json({message:'Erro ao limpar logins.'})}});
+
