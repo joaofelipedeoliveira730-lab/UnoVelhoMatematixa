@@ -446,7 +446,7 @@ body.in-game{overflow:hidden}.game-view{position:fixed!important;inset:0;z-index
 }
 
 /* Partida: nunca deixa o tabuleiro desaparecer quando o navegador nega orientação. */
-body.game-portrait-fallback #gameView{min-height:100dvh;overflow:auto}
+body.game-portrait-fallback #gameView{min-height:100dvh;overflow:auto;width:100vw!important;max-width:none!important;min-width:100vw!important}
 body.game-portrait-fallback .game-stage-3d,
 body.game-portrait-fallback .first-person-stage{min-height:100dvh!important;height:auto!important;grid-template-columns:1fr!important;padding:8px!important}
 body.game-portrait-fallback .game-chat-left{position:absolute;left:6px;top:6px;width:38vw!important;max-height:180px;z-index:300}
@@ -457,3 +457,48 @@ body.game-portrait-fallback .hand-fan-3d{height:130px!important}
 body.game-portrait-fallback .first-person-player-zone .hand-fan-3d .hand-card{width:54px!important;height:80px!important;margin-left:-18px!important}
 body.game-portrait-fallback .orientation-guard{background:rgba(2,8,23,.88);backdrop-filter:blur(6px);align-content:end;padding-bottom:18px;pointer-events:none}
 body.game-portrait-fallback .orientation-guard .btn{pointer-events:auto}
+
+
+/* ===== PATCH 20260816-5 — GAME MOBILE FULLSCREEN / DESKTOP LANDSCAPE ===== */
+html,body{width:100%;min-width:0;}
+body.in-game{width:100vw!important;min-width:100vw!important;max-width:none!important;overflow:hidden!important;}
+body.in-game #appScreen{width:100vw!important;min-width:100vw!important;max-width:none!important;padding:0!important;}
+body.in-game #gameView{position:fixed!important;inset:0!important;width:100vw!important;min-width:100vw!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;margin:0!important;padding:0!important;border:0!important;}
+body.in-game .game-stage-3d,
+body.in-game .first-person-stage{width:100vw!important;min-width:100vw!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;margin:0!important;box-sizing:border-box!important;}
+body.in-game .first-person-arena{width:100%!important;min-width:0!important;max-width:none!important;height:100%!important;min-height:0!important;}
+body.in-game .first-person-stage{grid-template-columns:0 minmax(0,1fr)!important;padding:0!important;gap:0!important;}
+body.in-game .game-chat-left{left:8px!important;top:8px!important;}
+body.in-game .game-global-chat-toggle{left:8px!important;top:8px!important;}
+
+/* Celular: retrato e tela inteira. A partida nunca fica espremida em uma faixa lateral. */
+@media (max-width:700px){
+  body.in-game .first-person-stage{grid-template-columns:1fr!important;}
+  body.in-game .first-person-arena{border-radius:0!important;}
+  body.in-game .first-person-map{inset:0!important;}
+  body.in-game .arena-top{padding:8px 10px!important;}
+  body.in-game .first-person-opponents{inset:0!important;min-height:0!important;}
+  body.in-game .first-person-center{left:50%!important;top:49%!important;transform:translate(-50%,-50%)!important;width:100%!important;}
+  body.in-game .first-person-player-zone{left:0!important;right:0!important;bottom:0!important;width:100%!important;height:185px!important;min-height:185px!important;}
+  body.in-game .first-person-player-zone #playerHand{width:96vw!important;max-width:96vw!important;}
+  body.in-game .first-person-player-zone #playerHand .hand-card{width:clamp(48px,14vw,68px)!important;height:clamp(72px,20vw,102px)!important;margin-left:clamp(-22px,-4vw,-12px)!important;}
+  body.in-game .table-status{top:61%!important;max-width:80vw;left:50%!important;transform:translateX(-50%);} 
+  body.in-game .uno-call{width:58px!important;height:58px!important;}
+  body.in-game .game-chat-left{width:min(260px,78vw)!important;height:min(300px,42vh)!important;}
+}
+
+/* Desktop/notebook: mesa horizontal e ocupando todo o viewport. */
+@media (min-width:701px){
+  body.in-game .first-person-stage{grid-template-columns:0 minmax(0,1fr)!important;}
+  body.in-game .first-person-arena{border-radius:0!important;}
+}
+
+/* Passe: sempre uma tela válida e alinhada, inclusive em celular. */
+#battlePassView{width:100%;max-width:1450px;margin:0 auto;min-height:100dvh;padding-bottom:40px;}
+#battlePassView .subnav{position:sticky;top:0;z-index:20;padding:10px 0;background:linear-gradient(180deg,#061b42 65%,transparent);}
+@media(max-width:650px){#battlePassView{padding:0 10px 30px}#battlePassView .subnav{align-items:center}#battlePassView .subnav h2{font-size:20px}#battlePassView #btnClaimAllPass{width:100%;order:5}.pass-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;}}
+
+/* CEO: botão e modal sempre clicáveis acima das demais camadas. */
+#btnCEO:not([hidden]),#btnCEOFloat:not([hidden]){pointer-events:auto!important;opacity:1!important;}
+#ceoPanel{z-index:30000!important;}
+#ceoPanel .modal{pointer-events:auto!important;}

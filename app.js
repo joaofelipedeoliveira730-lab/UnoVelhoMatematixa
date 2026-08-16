@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '20260816-4';
+const VERSION = '20260816-5';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -116,7 +116,8 @@ async function choosePlatform(platform){
   localStorage.setItem('uv_platform',platform);localStorage.setItem('uv_platform_version',VERSION);
   applyPlatform(platform);
   Sound.init();
-  if(platform==='mobile') await requestLandscape();
+  // No celular, mantenha a partida em tela cheia na orientação atual.
+  // O navegador nem sempre permite lock/fullscreen programático antes de um gesto.
   await continueAfterPlatform();
 }
 
@@ -127,16 +128,26 @@ async function requestLandscape(){
 }
 async function forceLandscape(){
   if(state.platform!=='mobile')return;
-  await requestLandscape();
+  try{if(document.documentElement.requestFullscreen&&!document.fullscreenElement)await document.documentElement.requestFullscreen({navigationUI:'hide'});}catch{}
+  enterGameViewport();
+}
+
+function enterGameViewport(){
+  document.body.classList.add('in-game');
+  document.body.classList.remove('game-portrait-fallback');
+  const gv=$('#gameView');
+  if(gv){gv.style.width='100vw';gv.style.height='100dvh';gv.style.maxWidth='none';gv.style.minWidth='100vw';}
+  const stage=$('.first-person-stage',gv||document);
+  if(stage){stage.style.width='100vw';stage.style.minWidth='100vw';stage.style.maxWidth='none';stage.style.height='100dvh';}
+  // O celular usa o viewport inteiro; PC continua naturalmente em paisagem.
+  if(state.platform==='mobile') document.documentElement.style.setProperty('--game-vw','100vw');
 }
 
 function updateOrientationGuard(){
-  const gameActive=state.currentView==='game'&&!$('#gameView')?.classList.contains('hidden');
-  const portrait=window.matchMedia?.('(orientation: portrait)').matches;
-  const mobile=state.platform==='mobile';
-  // O navegador pode negar o lock. Nesse caso o jogo continua em portrait com layout adaptado.
-  if(gameActive&&mobile&&portrait){document.body.classList.add('game-portrait-fallback');show('#orientationGuard');}
-  else{document.body.classList.remove('game-portrait-fallback');hide('#orientationGuard');}
+  // No celular a partida agora ocupa o viewport inteiro na orientação atual.
+  // Não exibimos uma camada obrigando rotação: isso era o que deixava a mesa espremida.
+  document.body.classList.remove('game-portrait-fallback');
+  hide('#orientationGuard');
 }
 
 function bindEvents(){
@@ -234,6 +245,8 @@ async function register(e){
 
 async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
+  // O login normal também precisa habilitar imediatamente o painel da conta CeoVelho.
+  updateCEOButton();
   // Abre o lobby primeiro. Loja, inventário e ranking são carregados em segundo plano.
   updateUserUI();applySettings();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
   renderMapPreview();renderAchievementsPreview();void connectSocket();navigate('lobby');
@@ -258,7 +271,7 @@ function navigate(view){
   const target=$(`#${view}View`);if(!target){toast(`Tela "${view}" não encontrada.`,'error');return;}
   $$('.view').forEach(v=>v.classList.add('hidden'));target.classList.remove('hidden');state.previousView=state.currentView;state.currentView=view;
   document.body.classList.toggle('in-game',view==='game');
-  if((view==='game'||view==='draw')&&state.platform==='mobile'){void requestLandscape();}
+  if(view==='game'){ enterGameViewport(); } else { document.body.classList.remove('game-portrait-fallback'); }
   updateOrientationGuard();
   window.scrollTo({top:0,behavior:'smooth'});
   if(view==='lobby'){renderCharacter('#heroCharacter',state.profile.avatar);loadMiniRank();}
@@ -489,11 +502,19 @@ function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'custom
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
 function updateCEOButton(){
-  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho';
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho' || String(state.user?.role||'').trim().toUpperCase()==='CEO';
   document.querySelectorAll('#btnCEO').forEach(b=>{b.hidden=!isCEO;b.style.display=isCEO?'grid':'none';b.disabled=!isCEO;});
   const f=document.querySelector('#btnCEOFloat'); if(f){f.hidden=!isCEO;f.style.display=isCEO?'flex':'none';}
 }
-async function openCEOPanel(){const el=document.querySelector('#ceoPanel');if(!el)return;el.classList.remove('hidden');loadCEOUsers()}
+async function openCEOPanel(){
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho' || String(state.user?.role||'').trim().toUpperCase()==='CEO';
+  if(!isCEO){toast('Este painel é exclusivo da conta CeoVelho.','error');return;}
+  const el=document.querySelector('#ceoPanel');
+  if(!el){toast('Painel CEO não encontrado nesta versão.','error');return;}
+  el.classList.remove('hidden');
+  el.setAttribute('aria-hidden','false');
+  void loadCEOUsers();
+}
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
 async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button><button data-unchat="${u.id}" type="button">DESBLOQUEAR</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}));
     box.querySelectorAll('[data-unchat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-unblock',{userId:Number(b.dataset.unchat)}));
@@ -620,7 +641,12 @@ async function renderPass(){
     }).join('');
   }catch(e){grid.innerHTML=`<div class="empty-state">⚠️ ${escapeHtml(e.message)}</div>`;}
 }
-async function openBattlePass(){navigate('pass');await renderPass();}
+async function openBattlePass(){
+  const target=$('#battlePassView');
+  if(!target){toast('Passe de nível não encontrado.','error');return;}
+  navigate('battlePass');
+  await renderPass();
+}
 
 function openCustomize(){
   if(!state.profile)return toast('Perfil ainda não carregado.','error');
