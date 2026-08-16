@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="UnoVelho Matematixa — UNO com matemática, personagens e multiplayer.">
-<title>UnoVelho Matematixa</title>
+<title>Uno dos Idosos</title>
 <link rel="stylesheet" href="style.css?v=20260815-opt8">
 </head>
 <body>
 
-<main id="platformScreen" class="screen platform-screen hidden">
+<main id="platformScreen" class="screen platform-screen">
   <section class="platform-card glass">
     <div class="platform-logo"><span>U</span><div>UNO VELHO<small>MATEMATIXA</small></div></div>
     <div class="platform-kicker">ANTES DE ENTRAR NA MESA</div>
@@ -103,7 +103,7 @@
   </div>
 
   <button id="btnGlobalChatOpen" class="global-chat-v2 glass global-chat-button" type="button"><span class="global-dot">🌎</span><span><b>CHAT GLOBAL</b><small id="globalChatPreview">Sem novas mensagens</small></span><i>💬</i></button>
-  <div class="menu-status-v2"><span>🟢 SERVIDORES ONLINE</span><span>•</span><span>🎮 JOGADORES CONECTADOS</span></div>
+  <div class="menu-status-v2"><span>🟢 SERVIDORES ONLINE</span><span>•</span><span>🎮 JOGADORES CONECTADOS</span></div><button id="btnCEOFloat" class="ceo-floating glass" type="button" hidden>👑 PAINEL CEO</button>
 </section>
 
 <section id="playView" class="view hidden modes-view">
@@ -214,7 +214,7 @@
     </section>
   </div>
 </section>
-<section id="battlePassView" class="view hidden">
+<section id="passView" class="view hidden">
   <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>🎟️ PASSE DE NÍVEL</h2><small class="subnav-subtitle">Chegue ao nível 100. Quanto mais alto, mais difícil.</small></div><button id="btnClaimAllPass" class="btn btn-primary" type="button">🎁 COLETAR TUDO</button></div>
   <div class="pass-hero glass"><div><span class="pill">UNO VELHO MATEMATIXA</span><h3>O caminho até o 100</h3><p>Começa fácil. Depois o XP sobe de verdade. Só os teimosos chegam ao 100.</p></div><div class="pass-level-big"><small>NÍVEL</small><b id="passCurrentLevel">1</b><span>/100</span></div></div>
   <div class="pass-progress glass"><div class="pass-progress-head"><b id="passXpText">0 XP</b><span id="passNextText">Próximo nível</span></div><div class="pass-progress-track"><i id="passXpBar"></i></div></div>

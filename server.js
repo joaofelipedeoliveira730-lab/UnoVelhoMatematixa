@@ -239,68 +239,23 @@ async function repairLegacySchema() {
 
 async function ensureCeo() {
   if (!pool) return;
-  const password = String(process.env.CEO_INITIAL_PASSWORD || '').trim();
-  const resetMarker = 'ceo_account_reset_v1';
-
-  // O primeiro bootstrap, quando CEO_INITIAL_PASSWORD estiver definido no Render,
-  // limpa contas antigas uma única vez e deixa somente o CEO de teste solicitado.
-  const marker = await pool.query('SELECT key FROM app_bootstrap WHERE key=$1 LIMIT 1', [resetMarker]);
-  if (!marker.rows.length) {
-    if (!password) {
-      const existingNoPassword = await pool.query("SELECT id,role FROM users WHERE LOWER(username)=LOWER('CeoVelho') LIMIT 1");
-      if(existingNoPassword.rows.length){
-        if(existingNoPassword.rows[0].role!=='CEO') await pool.query("UPDATE users SET role='CEO' WHERE id=$1",[existingNoPassword.rows[0].id]);
-        console.log('👑 CeoVelho encontrado; sem reset de senha.');
-        return;
-      }
-      console.warn('⚠️ CeoVelho não existe. Configure CEO_INITIAL_PASSWORD se quiser criá-lo.');
-      return;
+  try {
+    const existing = await pool.query("SELECT id,role FROM users WHERE LOWER(username)=LOWER('CeoVelho') LIMIT 1");
+    if (existing.rows.length && existing.rows[0].role !== 'CEO') {
+      await pool.query("UPDATE users SET role='CEO' WHERE id=$1",[existing.rows[0].id]);
     }
-
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM users WHERE LOWER(username) <> LOWER($1)', ['CeoVelho']);
-
-      const hash = await bcrypt.hash(password, 12);
-      const existing = await client.query("SELECT id FROM users WHERE LOWER(username)=LOWER('CeoVelho') LIMIT 1");
-      if (existing.rows.length) {
-        await client.query(
-          "UPDATE users SET username='CeoVelho', password_hash=$1, role='CEO', coins=999999999, xp=9999999, level=100 WHERE id=$2",
-          [hash, existing.rows[0].id]
-        );
+    if (!existing.rows.length) {
+      const password=String(process.env.CEO_INITIAL_PASSWORD||'').trim();
+      if(password){
+        const hash=await bcrypt.hash(password,12);
+        await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100) ON CONFLICT (username) DO UPDATE SET role='CEO'",[hash]);
+        console.log('👑 Conta CEO CeoVelho garantida.');
       } else {
-        await client.query(
-          "INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)",
-          [hash]
-        );
+        console.warn('⚠️ CeoVelho não existe. Configure CEO_INITIAL_PASSWORD no Render para criá-lo.');
       }
-      await client.query('INSERT INTO app_bootstrap(key) VALUES($1)', [resetMarker]);
-      await client.query('COMMIT');
-      console.log('👑 Bootstrap concluído: somente CeoVelho foi mantido/criado.');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
     }
-    return;
-  }
-
-  // Em deploys seguintes não apaga contas nem altera dados do jogo.
-  const found = await pool.query("SELECT id, username, role FROM users WHERE LOWER(username)='ceovelho' LIMIT 1");
-  if (!found.rows.length) {
-    if (!password) { console.warn('⚠️ CeoVelho não existe; servidor continuará disponível.'); return; }
-    const hash = await bcrypt.hash(password, 12);
-    await pool.query("INSERT INTO users(username,password_hash,role,coins,xp,level) VALUES('CeoVelho',$1,'CEO',999999999,9999999,100)", [hash]);
-    console.log('👑 Conta CeoVelho recriada.');
-  } else {
-    if (password) {
-      const hash = await bcrypt.hash(password, 12);
-      await pool.query("UPDATE users SET username='CeoVelho',password_hash=$1,role='CEO' WHERE id=$2", [hash, found.rows[0].id]);
-    } else if (found.rows[0].role !== 'CEO') {
-      await pool.query("UPDATE users SET role='CEO' WHERE id=$1", [found.rows[0].id]);
-    }
+  } catch(e) {
+    console.error('ensureCeo:',e.message);
   }
 }
 function parseCookies(req) {
@@ -529,7 +484,18 @@ app.post('/api/game/solo-finish',auth,async(req,res)=>{
   } catch(e){console.error(e);res.status(500).json({success:false,message:'Não foi possível salvar a recompensa.'});}
 });
 app.get('/api/inventory',auth,async(req,res)=>res.json({success:true,items:await getInventory(req.user.id)}));
-app.post('/api/chat/global',auth,async(req,res)=>{const text=cleanText(req.body.body,500);if(!text)return res.status(400).json({success:false,message:'Mensagem vazia.'});try{const mod=await activeModeration(req.user.id);if(mod?.action==='mute')return res.status(403).json({success:false,message:'Você está silenciado.'});if(usePostgres)await pool.query('INSERT INTO chat_messages(channel,sender_id,sender_name,body) VALUES($1,$2,$3,$4)',['world',req.user.id,req.user.username,text]);const msg={channel:'world',senderId:req.user.id,senderName:req.user.username,body:text,createdAt:new Date().toISOString()};io.emit('chat:message',msg);res.json({success:true,message:msg});}catch(e){res.status(500).json({success:false,message:'Não foi possível enviar a mensagem.'})}});
+app.post('/api/chat/global',auth,async(req,res)=>{
+      const text=cleanText(req.body.body,500); if(!text)return res.status(400).json({success:false,message:'Mensagem vazia.'});
+      const mod=await activeModeration(req.user.id); if(mod?.action==='mute')return res.status(403).json({success:false,message:'Você está silenciado.'});
+      if(usePostgres){
+        const r=await pool.query("INSERT INTO chat_messages(channel,sender_id,sender_name,body) VALUES('world',$1,$2,$3) RETURNING id,sender_id AS \"senderId\",sender_name AS \"senderName\",body,created_at AS \"createdAt\"",[req.user.id,req.user.username,text]);
+        const m={...r.rows[0],senderId:Number(r.rows[0].senderId),channel:'world'};
+        io.emit('chat:message',m);
+        return res.json({success:true,message:m});
+      }
+      const m={channel:'world',senderId:req.user.id,senderName:req.user.username,body:text,createdAt:new Date().toISOString()};
+      io.emit('chat:message',m); res.json({success:true,message:m});
+    });
 app.get('/api/chat/global',auth,async(req,res)=>{
   if(!usePostgres)return res.json({success:true,messages:[]});
   try{const r=await pool.query("SELECT id,sender_id AS \"senderId\",sender_name AS \"senderName\",body,created_at AS \"createdAt\" FROM chat_messages WHERE channel='world' ORDER BY id DESC LIMIT 50");res.json({success:true,messages:r.rows.reverse().map(x=>({...x,senderId:Number(x.senderId)}))});}catch(e){res.status(500).json({success:false,message:'Não foi possível carregar o chat global.'});}
@@ -778,14 +744,33 @@ server.listen(PORT,'0.0.0.0',()=>{
   })();
 });
 process.on('SIGTERM',async()=>{try{await pool?.end()}finally{process.exit(0)}});
-
 const CEO_NAME='ceovelho';function requireCEO(req,res,next){if(String(req.user?.username||'').trim().toLowerCase()!==CEO_NAME)return res.status(403).json({success:false,message:'Acesso exclusivo da conta CeoVelho.'});next()}
-app.post('/api/ceo/freeze',auth,requireCEO,async(req,res)=>{try{const message=cleanText(req.body.message||'Jogo temporariamente paralisado pelo CEO.',500);globalState={paused:true,message};if(usePostgres)await pool.query('UPDATE global_game_state SET paused=true,message=$1,updated_by=$2,updated_at=CURRENT_TIMESTAMP WHERE id=1',[message,req.user.id]);io.emit('global:pause',globalState);res.json({success:true,message:'Jogo paralisado.'});}catch(e){res.status(500).json({success:false,message:'Não foi possível paralisar o jogo.'})}});
-app.post('/api/ceo/unfreeze',auth,requireCEO,async(req,res)=>{try{globalState={paused:false,message:''};if(usePostgres)await pool.query("UPDATE global_game_state SET paused=false,message='',updated_by=$1,updated_at=CURRENT_TIMESTAMP WHERE id=1",[req.user.id]);io.emit('global:resume');res.json({success:true,message:'Jogo descongelado.'});}catch(e){res.status(500).json({success:false,message:'Não foi possível descongelar o jogo.'})}});
-app.post('/api/ceo/message',auth,requireCEO,async(req,res)=>{try{const message=cleanText(req.body.message,500);if(!message)return res.status(400).json({success:false,message:'Mensagem vazia.'});if(usePostgres)await pool.query('INSERT INTO chat_messages(channel,sender_id,sender_name,body) VALUES($1,$2,$3,$4)',['world',req.user.id,req.user.username,message]);io.emit('admin:announcement',{message,by:req.user.username});io.emit('chat:message',{channel:'world',senderId:req.user.id,senderName:req.user.username,body:message,createdAt:new Date().toISOString()});res.json({success:true,message:'Mensagem enviada para todos.'});}catch(e){res.status(500).json({success:false,message:'Não foi possível enviar a mensagem.'})}});
-
+app.post('/api/ceo/freeze',auth,requireCEO,async(req,res)=>{
+  const message=cleanText(req.body.message||'Jogo temporariamente paralisado pelo CEO.',500);
+  globalState.paused=true; globalState.message=message;
+  if(usePostgres) await pool.query("UPDATE global_game_state SET paused=true,message=$1,updated_by=$2,updated_at=CURRENT_TIMESTAMP WHERE id=1",[message,req.user.id]);
+  io.emit('game:paused',{paused:true,message});
+  res.json({success:true,message:'Jogo paralisado.'});
+});
+app.post('/api/ceo/unfreeze',auth,requireCEO,async(req,res)=>{
+  globalState.paused=false; globalState.message='';
+  if(usePostgres) await pool.query("UPDATE global_game_state SET paused=false,message='',updated_by=$1,updated_at=CURRENT_TIMESTAMP WHERE id=1",[req.user.id]);
+  io.emit('game:paused',{paused:false,message:''});
+  res.json({success:true,message:'Jogo descongelado.'});
+});
+app.post('/api/ceo/message',auth,requireCEO,async(req,res)=>{
+  const message=cleanText(req.body.message,500); if(!message)return res.status(400).json({success:false,message:'Mensagem vazia.'});
+  io.emit('chat:message',{channel:'world',senderId:req.user.id,senderName:'👑 CEO',body:message,createdAt:new Date().toISOString()});
+  if(usePostgres) await pool.query("INSERT INTO chat_messages(channel,sender_id,sender_name,body) VALUES('world',$1,$2,$3)",[req.user.id,'👑 CEO',message]);
+  res.json({success:true,message:'Mensagem enviada para todos.'});
+});
 app.get('/api/ceo/users',auth,requireCEO,async(req,res)=>{try{const r=await pool.query('SELECT id,username,role,level,xp,coins,last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 200');res.json({success:true,users:r.rows})}catch(e){res.status(500).json({success:false,message:'Não foi possível carregar jogadores.'})}});
 app.post('/api/ceo/reset-xp',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId);await pool.query("UPDATE users SET xp=0,level=1 WHERE id=$1 AND LOWER(username)<>$2",[id,CEO_NAME]);res.json({success:true,message:'XP zerado.'})}catch(e){res.status(500).json({message:'Erro ao zerar XP.'})}});
+app.post('/api/ceo/chat-unblock',auth,requireCEO,async(req,res)=>{
+  const id=Number(req.body.userId); if(!id)return res.status(400).json({success:false,message:'ID inválido.'});
+  await pool.query("UPDATE users SET chat_blocked_until=NULL WHERE id=$1 AND LOWER(username)<>$2",[id,CEO_NAME]);
+  res.json({success:true,message:'Chat desbloqueado.'});
+});
 app.post('/api/ceo/chat-block',auth,requireCEO,async(req,res)=>{try{const id=Number(req.body.userId),mins=Math.max(1,Math.min(10080,Number(req.body.minutes)||60));await pool.query("UPDATE users SET chat_blocked_until=NOW()+($2||' minutes')::interval WHERE id=$1 AND LOWER(username)<>$3",[id,mins,CEO_NAME]);res.json({success:true,message:'Chat bloqueado.'})}catch(e){res.status(500).json({message:'Erro ao bloquear chat.'})}});
 app.post('/api/ceo/reset-podium',auth,requireCEO,async(req,res)=>{try{await pool.query('UPDATE users SET wins=0,losses=0,games_played=0 WHERE LOWER(username)<>$1',[CEO_NAME]);res.json({success:true,message:'Pódio resetado.'})}catch(e){res.status(500).json({message:'Erro ao resetar pódio.'})}});
 app.post('/api/ceo/clear-logins',auth,requireCEO,async(req,res)=>{try{await pool.query('DELETE FROM login_logs');res.json({success:true,message:'Histórico de logins limpo.'})}catch(e){res.status(500).json({message:'Erro ao limpar logins.'})}});

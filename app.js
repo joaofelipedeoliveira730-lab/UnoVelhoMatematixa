@@ -29,7 +29,7 @@ const COLOR_NAME = {red:'VERMELHO',yellow:'AMARELO',green:'VERDE',blue:'AZUL'};
 const DEFAULT_AVATAR = {skinColor:'#d59b76',eyes:'#1d2433',hair:'hair_basic',hairColor:'#171717',top:'shirt_basic',bottom:'pants_basic',shoes:'shoes_basic',accessory:'',effect:'',emote:'emote_wave',title:'title_beginner'};
 const DEFAULT_SETTINGS = {music:false,musicVolume:.35,sfx:true,sfxVolume:.7,animations:true,reducedMotion:false,chatWorld:true,chatRoom:true,chatPrivate:true};
 
-const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')==='20260815-4' ? localStorage.getItem('uv_platform') : null;
+const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? localStorage.getItem('uv_platform') : localStorage.getItem('uv_platform') || null;
 const state = {
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
   currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
@@ -72,42 +72,38 @@ async function clearOldClientCache(){
 }
 
 async function init(){
-  // A abertura NUNCA espera cache, banco, Socket.IO ou seleção de plataforma.
-  // O login precisa aparecer imediatamente mesmo se o PostgreSQL estiver iniciando.
   window.__UV_APP_READY__=true;
   document.documentElement.style.setProperty('--motion',localStorage.getItem('uv_reduced_motion')==='1'?'0':'1');
   bindEvents();
-  hide('#bootScreen');
-  hide('#platformScreen');
-  hide('#appScreen');
-  show('#authScreen');
-  applyPlatform(state.platform || (window.matchMedia('(pointer:coarse)').matches?'mobile':'desktop'));
-
+  hide('#bootScreen'); hide('#appScreen'); hide('#authScreen');
+  // Sempre mostra a escolha de plataforma ANTES do login.
+  applyPlatform(state.platform || (window.matchMedia('(pointer:coarse)').matches?'mobile':'computer'));
+  show('#platformScreen');
   const savedToken=localStorage.getItem('uv_token');
-  if(!savedToken)return;
-  state.token=savedToken;
-  try{
-    const me=await get('/me');
-    state.user=me.user;
-    state.profile=normalizeProfile(me.profile);
-    updateCEOButton();
-    await enterApp(false);
-  }catch(err){
-    localStorage.removeItem('uv_token');
-    state.token=null;
-    state.user=null;
-    state.profile=null;
-    hide('#appScreen');show('#authScreen');switchAuth('login');
+  if(savedToken){
+    // Não entra automaticamente: primeiro confirma plataforma.
+    state.token=savedToken;
   }
 }
 
 async function continueAfterPlatform(){
-  // Mantido para compatibilidade com versões antigas; nunca bloqueia a tela inicial.
-  const token=localStorage.getItem('uv_token');
-  if(!token){hide('#appScreen');show('#authScreen');return;}
-  state.token=token;
-  try{const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);updateCEOButton();await enterApp(false);}
-  catch{localStorage.removeItem('uv_token');state.token=null;state.user=null;state.profile=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
+  hide('#platformScreen');
+  const savedToken=localStorage.getItem('uv_token');
+  if(savedToken){
+    state.token=savedToken;
+    try{
+      const me=await get('/me');
+      state.user=me.user;
+      state.profile=normalizeProfile(me.profile);
+      updateCEOButton();
+      await enterApp(false);
+      return;
+    }catch{
+      localStorage.removeItem('uv_token');
+      state.token=null; state.user=null; state.profile=null;
+    }
+  }
+  hide('#appScreen'); show('#authScreen'); switchAuth('login');
 }
 
 function applyPlatform(platform){
@@ -122,7 +118,6 @@ async function choosePlatform(platform){
   Sound.init();
   if(platform==='mobile'){
     try{ if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); }catch{}
-    try{ if(screen.orientation?.lock) await screen.orientation.lock('landscape'); }catch{}
   }
   await continueAfterPlatform();
 }
@@ -133,60 +128,6 @@ function updateOrientationGuard(){
   const mobile=state.platform==='mobile';
   if(gameActive&&mobile&&portrait)show('#orientationGuard');else hide('#orientationGuard');
 }
-
-
-// ====== FUNÇÕES DE INTERFACE QUE PRECISAM EXISTIR ANTES DOS EVENTOS ======
-function openShop(mode='official'){
-  state.shopMode=mode||'official';
-  navigate('shop');
-  const grid=$('#shopGrid'); if(!grid)return;
-  grid.innerHTML='<div class="empty-state glass"><span>🛒</span><b>Carregando catálogo...</b></div>';
-  get('/items').then(d=>{
-    state.items=d.items||[]; updateUserUI();
-    grid.innerHTML=state.items.map(item=>{
-      const owned=state.inventory.some(x=>x.id===item.id);
-      const locked=Number(state.user?.xp||0)<Number(item.xp_required||0);
-      const ceoOnly=item.asset?.ceoOnly && String(state.user?.username||'').toLowerCase()!=='ceovelho';
-      return `<article class="item-card glass"><div class="item-art">🎁</div><div><span class="pill">${escapeHtml(item.category||'COSMÉTICO')}</span><h3>${escapeHtml(item.name||item.id)}</h3><small>${escapeHtml(item.description||'Item cosmético do jogo.')}</small></div><div class="item-card-footer"><b>🪙 ${fmt(item.price||0)}</b><button class="btn btn-primary" type="button" data-buy-item="${escapeHtml(item.id)}" ${owned||locked||ceoOnly?'disabled':''}>${owned?'ADQUIRIDO':ceoOnly?'CEO':locked?'BLOQUEADO':'COMPRAR'}</button></div></article>`;
-    }).join('')||'<div class="empty-state glass"><span>🛒</span><b>Catálogo vazio.</b></div>';
-  }).catch(e=>{grid.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível abrir a loja.</b><small>${escapeHtml(e.message)}</small></div>`;});
-}
-function openInventory(mode='items'){
-  state.inventoryMode=mode||'items'; navigate('inventory');
-  renderCharacter('#profileCharacterLarge',state.profile?.avatar||DEFAULT_AVATAR); updateUserUI();
-  const box=$('#inventoryContent'); if(!box)return;
-  box.innerHTML='<div class="empty-state"><span>🎒</span><b>Carregando inventário...</b></div>';
-  get('/inventory').then(d=>{state.inventory=d.items||[];populateCustomizer();renderInventoryContent();}).catch(e=>{box.innerHTML=`<div class="empty-state"><span>⚠️</span><b>Erro ao carregar inventário.</b><small>${escapeHtml(e.message)}</small></div>`;});
-}
-function renderInventoryContent(){
-  const box=$('#inventoryContent'); if(!box)return;
-  if(state.inventoryMode==='achievements'){
-    box.innerHTML='<div class="achievement-grid">'+[['🏆','Primeira vitória'],['🧠','Mente matemática'],['🌎','Primeiro online'],['🎒','Colecionador']].map(x=>`<div class="achievement-chip glass"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('')+'</div>';return;
-  }
-  box.innerHTML=state.inventory.length?state.inventory.map(i=>`<div class="inventory-row glass"><div class="item-art small">🎁</div><div><b>${escapeHtml(i.name||i.id)}</b><small>${escapeHtml(i.category||'cosmético')} • quantidade ${i.quantity||1}</small></div></div>`).join(''):'<div class="empty-state"><span>🎒</span><b>Seu inventário está vazio.</b></div>';
-}
-function openBattlePass(){
-  navigate('battlePassView'.endsWith('View')?'battlePass':'battlePass');
-  const grid=$('#passGrid'); if(!grid)return;
-  grid.innerHTML='<div class="empty-state"><span>🎟️</span><b>Carregando passe...</b></div>';
-  get('/pass').then(d=>{
-    state.passData=d; $('#passCurrentLevel')&&($('#passCurrentLevel').textContent=d.level||1);$('#passXpText')&&($('#passXpText').textContent=fmt(d.xp||0)+' XP');
-    grid.innerHTML=(d.levels||[]).map(r=>`<button type="button" class="pass-level ${r.level<=d.level?'unlocked':''}" data-pass-level="${r.level}"><b>${r.level}</b><span>🪙 ${fmt(r.coins)}</span>${r.itemId?`<small>🎁 ${escapeHtml(r.itemId)}</small>`:''}${(d.claimed||[]).includes(r.level)?'<em>✓ COLETADO</em>':''}</button>`).join('');
-  }).catch(e=>{grid.innerHTML=`<div class="empty-state"><span>⚠️</span><b>${escapeHtml(e.message)}</b></div>`;});
-}
-async function claimPass(all=false,level=null){
-  try{
-    const levels=all?(state.passData?.levels||[]).filter(x=>x.level<=(state.passData?.level||0)).map(x=>x.level):[Number(level)];
-    const d=await post('/pass/claim',all?{levels}:{level:Number(level)}); if(d.user){state.user=d.user;updateUserUI();} toast(d.message||'Recompensa coletada.','success'); openBattlePass();
-  }catch(e){toast(e.message,'error');}
-}
-async function buyItem(itemId){
-  try{const d=await post('/shop/buy',{itemId});toast(d.message||'Item comprado!','success');const inv=await get('/inventory');state.inventory=inv.items||[];const me=await get('/me');state.user=me.user;state.profile=normalizeProfile(me.profile);updateUserUI();renderInventoryContent();populateCustomizer();}catch(e){toast(e.message,'error');}
-}
-function toggleMute(){state.muted=!state.muted;Sound.enabled=!state.muted;const b=$('#btnSound');if(b)b.textContent=state.muted?'🔇':'🔊';Sound.click();}
-function drawGameCard(){if(state.solo){soloDraw();return;}if(state.socket?.connected)state.socket.emit('game:draw');else toast('Multiplayer ainda está conectando.','error');}
-function callUno(){if(state.solo){const g=state.solo;if(g.player?.length===1){g.unoDeadline=Date.now()+3200;Sound.uno();toast('📣 UNO!!!','success',1600);renderSolo();}return;}if(state.socket?.connected){Sound.uno();state.socket.emit('game:uno');}else toast('Multiplayer ainda está conectando.','error');}
-function exitGame(){if(state.socket?.connected&&state.currentRoom)state.socket.emit('room:leave');state.currentRoom=null;state._onlineGame=null;state.solo=null;clearUnoTimer();navigate('lobby');}
 
 function bindEvents(){
   // Auth
@@ -225,7 +166,7 @@ function bindEvents(){
   on('#btnMapsPreview','click',openCreateRoom);
   on('#btnConfirmCreateRoom','click',createRoom);
   on('#btnConfirmJoinRoom','click',joinSelectedRoom);
-  on('#btnStartRoom','click',startCurrentRoom);
+  on('#btnStartRoom','click',()=>state.socket?.emit('room:start'));
   on('#btnLeaveRoom','click',leaveRoom);
   on('#btnSaveCharacter','click',saveCharacter);on('#btnSaveCharacterTop','click',saveCharacter);on('#btnSaveCharacterModal','click',saveCharacter);
   on('#drawStack','click',drawGameCard);
@@ -256,6 +197,11 @@ function bindEvents(){
     const buy=e.target.closest('[data-buy-item]');if(buy){buyItem(buy.dataset.buyItem);return;}
     const market=e.target.closest('[data-buy-market]');if(market){buyMarket(market.dataset.buyMarket);return;}
     const custom=e.target.closest('[data-custom-item]');if(custom){equipCustomItem(custom.dataset.customItem,custom.dataset.customSlot);return;}
+    const invEquip=e.target.closest('[data-inventory-equip]');if(invEquip){
+      const item=state.items.find(x=>x.id===invEquip.dataset.inventoryEquip)||state.inventory.find(x=>x.id===invEquip.dataset.inventoryEquip);
+      const slot=item?.category==='hair'?'hair':item?.category==='clothing'?'top':item?.category==='shoes'?'shoes':item?.category==='accessory'?'accessory':item?.category==='effect'?'effect':item?.category==='emote'?'emote':item?.category==='title'?'title':null;
+      if(slot) equipCustomItem(invEquip.dataset.inventoryEquip,slot); else toast('Este item não é equipável no personagem.','info'); return;
+    }
     const cat=e.target.closest('[data-custom-cat]');if(cat){$$('.custom-cat').forEach(b=>b.classList.toggle('active',b===cat));renderCustomCatalog(cat.dataset.customCat);return;}
     const sell=e.target.closest('[data-sell]');if(sell){sellItem(sell.dataset.sell);return;}const pass=e.target.closest('[data-pass-level]');if(pass){claimPass(false,pass.dataset.passLevel);return;}
     const hand=e.target.closest('#playerHand .hand-card');if(hand){playHandCard(Number(hand.dataset.index));return;}
@@ -366,8 +312,8 @@ async function openRooms(){state.selectedGameMode=state.selectedGameMode||'uno';
 async function loadRooms(){const el=$('#roomsList');if(!el)return;try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const rooms=d.rooms||[];const mode=GAME_MODES[state.selectedGameMode]||GAME_MODES.uno;el.innerHTML=rooms.length?rooms.map(r=>`<article class="room-card glass"><div class="room-cover map-${mapTheme(r.options?.mapId)}">${r.locked?'🔒':mode.icon}</div><div class="room-card-body"><div><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.ownerName)} • ${r.players.length}/${r.options.maxPlayers}</small></div><div class="room-tags"><span>${escapeHtml(mode.label)}</span><span>${r.locked?'COM SENHA':'ABERTA'}</span><span>${r.options.turnSeconds}s</span></div><button class="btn btn-primary btn-wide" data-join-room="${r.code}" type="button">${r.locked?'🔒 ENTRAR':'ENTRAR'}</button></div></article>`).join(''):`<div class="empty-state glass"><span>${mode.icon}</span><b>Nenhuma sala de ${escapeHtml(mode.label)} aberta.</b><small>Crie a primeira mesa desse modo.</small></div>`;}catch(e){el.innerHTML=`<div class="empty-state glass"><span>⚠️</span><b>Não foi possível carregar as salas.</b><small>${escapeHtml(e.message)}</small></div>`;}}
 function mapTheme(id){return MAPS.find(m=>m.id===id)?.theme||'classroom';}
 async function selectRoom(code){try{const d=await get('/rooms?mode='+encodeURIComponent(state.selectedGameMode||'uno'));const room=(d.rooms||[]).find(r=>r.code===code);if(!room)return toast('Sala não encontrada.','error');state.roomToJoin=room;$('#joinRoomInfo')&&($('#joinRoomInfo').innerHTML=`<b>${escapeHtml(room.name)}</b><br>${escapeHtml(room.ownerName)} • ${room.players.length}/${room.options.maxPlayers} • ${room.locked?'🔒 Com senha':'🌎 Aberta'}`);if($('#joinRoomPassword'))$('#joinRoomPassword').value='';show('#joinRoomModal');}catch(e){toast(e.message,'error');}}
-async function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;const password=$('#joinRoomPassword')?.value||'';try{if(state.socket?.connected){state.socket.emit('room:join',{code:r.code,password});}else{const d=await post(`/rooms/${encodeURIComponent(r.code)}/join`,{password});state.currentRoom=d.room;renderRoom(d.room);navigate('room');connectSocket();}hide('#joinRoomModal');}catch(e){toast(e.message,'error');}}
-async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:state.selectedGameMode||'uno',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};const d=await post('/rooms',body);hide('#createRoomModal');if(state.socket?.connected){state.socket.emit('room:join',{code:d.roomCode,password:body.password});}else{const joined=await post(`/rooms/${encodeURIComponent(d.roomCode)}/join`,{password:body.password});state.currentRoom=joined.room;renderRoom(joined.room);navigate('room');connectSocket();}}catch(e){toast(e.message,'error');}}
+function joinSelectedRoom(){const r=state.roomToJoin;if(!r)return;if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:r.code,password:$('#joinRoomPassword')?.value||''});hide('#joinRoomModal');}
+async function createRoom(){try{const body={name:$('#roomName')?.value||`Mesa de ${state.user.username}`,password:$('#roomPassword')?.value||'',gameMode:'uno',maxPlayers:Number($('#roomMax')?.value||4),turnSeconds:Number($('#roomTime')?.value||45),difficulty:$('#roomDifficulty')?.value||'medium',botFill:Number($('#roomBots')?.value||4),mapId:$('#roomMap')?.value||'map_saloon',startingCards:Number($('#roomCards')?.value||7),allowBots:$('#roomAllowBots')?.checked!==false,specials:$('#roomSpecials')?.checked!==false,stackDraw:$('#roomStack')?.checked===true,chat:$('#roomChat')?.checked!==false};if(body.gameMode==='draw')body.turnSeconds=Math.max(30,Number(body.turnSeconds)||45);state.selectedGameMode=body.gameMode;const d=await post('/rooms',body);hide('#createRoomModal');if(!state.socket)connectSocket();state.socket?.emit('room:join',{code:d.roomCode,password:body.password});}catch(e){toast(e.message,'error');}}
 function leaveDrawingGame(){
   if(state.socket&&state.currentRoom)state.socket.emit('room:leave');
   state.currentRoom=null;state._drawingGame=null;stopDrawingTimer();if(drawSnapshotTimer)clearInterval(drawSnapshotTimer);drawSnapshotTimer=null;clearDrawingCanvas();navigate('lobby');
@@ -377,8 +323,7 @@ function renderRoom(room){
   const list=$('#roomPlayers');if(list)list.innerHTML=room.players.map(p=>`<div class="room-player ${String(p.userId)===String(room.ownerId)?'host':''}"><div class="player-avatar">${p.isBot?'🤖':'🙂'}</div><div><b>${escapeHtml(p.username)}</b><small>${String(p.userId)===String(room.ownerId)?'👑 Criador':'Jogador'}</small></div><span>${p.connected?'●':'○'}</span></div>`).join('');
   const banner=$('#roomMapBanner');if(banner){banner.className=`room-map-banner map-${mapTheme(room.options.mapId)}`;banner.innerHTML=`<div><span>🗺️ MAPA</span><b>${escapeHtml(MAPS.find(m=>m.id===room.options.mapId)?.name||room.options.mapId)}</b></div>`;}
 }
-async function startCurrentRoom(){if(!state.currentRoom)return;try{if(state.socket?.connected){state.socket.emit('room:start');return;}const d=await post(`/rooms/${encodeURIComponent(state.currentRoom.code)}/start`,{});state.currentRoom=d.room;renderRoom(d.room);if(d.room.started&&d.room.options?.gameMode==='uno'){toast('Partida iniciada! Conectando à mesa...','success');connectSocket();}}catch(e){toast(e.message,'error');}}
-async function leaveRoom(){try{if(state.currentRoom)await post(`/rooms/${encodeURIComponent(state.currentRoom.code)}/leave`,{});}catch{}try{state.socket?.emit('room:leave');}catch{}state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
+function leaveRoom(){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');renderRoomsHeader();loadRooms();}
 
 // ---------------- SOLO ----------------
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
@@ -523,16 +468,153 @@ function characterMarkup(a,name=''){
   const mask=x.accessory==='mask_math'?`<path d="M34 56 Q50 64 66 56 L63 68 Q50 75 37 68Z" fill="#0f172a" stroke="#22d3ee" stroke-width="2"/>`:'';
   const backpack=x.accessory?.startsWith('backpack_')?`<rect x="20" y="70" width="10" height="28" rx="5" fill="${x.accessory==='backpack_space'?'#64748b':'#2563eb'}"/>`:'';
   const aura=x.effect?`<div class="char-aura ${escapeHtml(x.effect)}"></div>`:'';
-  return `<div class="char-3d-live code-character" style="--avatar-hue:${hue}deg">${aura}<svg viewBox="0 0 100 120" aria-label="${escapeHtml(name||'Personagem')}"><defs><linearGradient id="${uid}" x1="0" x2="1"><stop stop-color="${shirt}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><ellipse cx="50" cy="114" rx="32" ry="5" fill="#0008"/>${backpack}<rect x="29" y="68" width="42" height="38" rx="12" fill="url(#${uid})"/>${shirtExtra}<rect x="37" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="53" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="35" y="111" width="14" height="5" rx="3" fill="${shoes}"/><rect x="51" y="111" width="14" height="5" rx="3" fill="${shoes}"/><circle cx="50" cy="48" r="25" fill="${skin}"/>${hairShape}${hat}<circle cx="41" cy="47" r="3" fill="${eyes}"/><circle cx="59" cy="47" r="3" fill="${eyes}"/><path d="M43 60 Q50 65 57 60" fill="none" stroke="#5b3026" stroke-width="2" stroke-linecap="round"/>${acc}${mask}</svg></div>`;
+  return `<div class="char-3d-live code-character" style="--avatar-hue:${hue}deg">${aura}<svg viewBox="0 0 100 120" aria-label="${escapeHtml(name||'Personagem')}"><defs><linearGradient id="${uid}" x1="0" x2="1"><stop stop-color="${shirt}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><ellipse cx="50" cy="114" rx="32" ry="5" fill="#0008"/>${backpack}<path d="M29 76 Q30 67 39 66 H61 Q70 67 71 76 L68 105 H32Z" fill="url(#${uid})"/>
+<path d="M35 73 Q28 75 25 84 L20 101 Q19 105 24 107 Q29 108 31 103 L38 88" fill="${shirt}"/>
+<path d="M65 73 Q72 75 75 84 L80 101 Q81 105 76 107 Q71 108 69 103 L62 88" fill="${shirt}"/>
+<path d="M38 73 Q50 80 62 73" fill="none" stroke="#ffffff55" stroke-width="2"/>
+${shirtExtra}<rect x="37" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="53" y="99" width="10" height="15" rx="4" fill="${pants}"/><rect x="35" y="111" width="14" height="5" rx="3" fill="${shoes}"/><rect x="51" y="111" width="14" height="5" rx="3" fill="${shoes}"/><circle cx="50" cy="48" r="25" fill="${skin}"/>${hairShape}${hat}<circle cx="41" cy="47" r="3" fill="${eyes}"/><circle cx="59" cy="47" r="3" fill="${eyes}"/><path d="M43 60 Q50 65 57 60" fill="none" stroke="#5b3026" stroke-width="2" stroke-linecap="round"/>${acc}${mask}</svg></div>`;
 }
 function populateCustomizer(){for(const [cat,id] of Object.entries({hair:'customHair',top:'customTop',bottom:'customBottom',shoes:'customShoes',accessory:'customAccessory',effect:'customEffect',emote:'customEmote',title:'customTitle'})){const el=$('#'+id);if(!el)continue;const owned=new Set(state.inventory.map(i=>i.id));const ids=(COSMETICS[cat]||[]).filter(x=>owned.has(x)||state.user?.role==='CEO');if(!ids.length)ids.push(COSMETICS[cat]?.[0]);el.innerHTML=ids.filter(Boolean).map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(itemName(x))}</option>`).join('');el.value=state.profile.avatar[cat]||ids[0]||'';el.onchange=()=>{state.profile.avatar[cat]=el.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customEyes')){$('#customEyes').value=state.profile.avatar.eyes||DEFAULT_AVATAR.eyes;$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
   if($('#customHairColor')){$('#customHairColor').value=state.profile.avatar.hairColor||DEFAULT_AVATAR.hairColor;$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar);};}
 }
-function updateCEOButton(){const b=document.querySelector('#btnCEO');if(!b)return;b.style.display=String(state.user?.username||'').toLowerCase()==='ceovelho'?'flex':'none'}
+function updateCEOButton(){
+  const b=document.querySelector('#btnCEO');if(!b)return;
+  const isCEO=String(state.user?.username||'').trim().toLowerCase()==='ceovelho'||String(state.user?.role||'').toUpperCase()==='CEO';
+  b.style.display=isCEO?'flex':'none';
+  b.hidden=!isCEO;
+  b.disabled=!isCEO;
+  const f=document.querySelector('#btnCEOFloat'); if(f){f.hidden=!isCEO; f.style.display=isCEO?'flex':'none';}
+}
 async function openCEOPanel(){const el=document.querySelector('#ceoPanel');if(!el)return;el.classList.remove('hidden');loadCEOUsers()}
 async function ceoAction(path,body){try{const d=await post(path,body||{});toast(d.message||'Comando executado.','success');loadCEOUsers()}catch(e){toast(e.message,'error')}}
-async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}))}catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
+async function loadCEOUsers(){const box=document.querySelector('#ceoUsers');if(!box)return;box.innerHTML='<div class="loading">Carregando...</div>';try{const d=await get('/ceo/users');box.innerHTML=(d.users||[]).map(u=>`<div class="ceo-user-row"><div><b>${escapeHtml(u.username)}</b><small>ID ${u.id} • Nível ${u.level} • ${u.xp} XP</small></div><div class="ceo-user-actions"><button data-xp="${u.id}" type="button">ZERAR XP</button><button data-chat="${u.id}" type="button">BLOQUEAR CHAT</button><button data-unchat="${u.id}" type="button">DESBLOQUEAR</button></div></div>`).join('')||'<div>Nenhum jogador.</div>';box.querySelectorAll('[data-xp]').forEach(b=>b.onclick=()=>ceoAction('/ceo/reset-xp',{userId:Number(b.dataset.xp)}));box.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-block',{userId:Number(b.dataset.chat),minutes:60}));
+    box.querySelectorAll('[data-unchat]').forEach(b=>b.onclick=()=>ceoAction('/ceo/chat-unblock',{userId:Number(b.dataset.unchat)}));
+  }catch(e){box.innerHTML='<div class="error">'+escapeHtml(e.message)+'</div>'}}
+
+function itemVisualIcon(item){
+  const cat=String(item?.category||'').toLowerCase();
+  const id=String(item?.id||'').toLowerCase();
+  if(cat==='hair') return '💇';
+  if(cat==='clothing'||cat==='top') return '👕';
+  if(cat==='shoes') return '👟';
+  if(cat==='accessory') return id.includes('glasses')?'🕶️':id.includes('hat')?'🎩':id.includes('backpack')?'🎒':'✨';
+  if(cat==='effect') return '🌈';
+  if(cat==='emote') return '😎';
+  if(cat==='title') return '🏷️';
+  if(cat==='map') return '🗺️';
+  if(cat==='deck') return '🃏';
+  if(cat==='table') return '🎲';
+  return '🎁';
+}
+
+async function openShop(mode='official'){
+  state.shopMode=mode;
+  navigate('shop');
+  const grid=$('#shopGrid');
+  if(!grid)return;
+  grid.innerHTML='<div class="loading glass">🛒 Carregando catálogo...</div>';
+  try{
+    const [itemsRes,invRes]=await Promise.all([get('/items'),get('/inventory')]);
+    state.items=itemsRes.items||[];
+    state.inventory=invRes.items||[];
+    const owned=new Set(state.inventory.map(x=>x.id));
+    const list=state.items.filter(x=>x.is_active!==false && !['map','deck','table'].includes(String(x.category||'')));
+    grid.innerHTML=list.map(item=>{
+      const ownedNow=owned.has(item.id);
+      const ceoOnly=item.asset?.ceoOnly===true;
+      const locked=ceoOnly && String(state.user?.username||'').toLowerCase()!=='ceovelho';
+      const canBuy=!ownedNow&&!locked;
+      return `<article class="item-card glass rarity-${escapeHtml(item.rarity||'common')}">
+        <div class="item-visual"><span class="item-generated-icon">${itemVisualIcon(item)}</span><span class="item-rarity">${escapeHtml(String(item.rarity||'common').toUpperCase())}</span></div>
+        <div class="item-info"><span class="item-category">${escapeHtml(item.category||'COSMÉTICO')}</span><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.description||'Item cosmético leve.')}</small>
+        <div class="item-buy"><span>🪙 ${fmt(item.price)}${Number(item.xp_required)>0?` • ${fmt(item.xp_required)} XP`:''}</span>
+        <button class="btn ${ownedNow?'btn-secondary':'btn-primary'} item-buy-btn" data-buy-item="${escapeHtml(item.id)}" type="button" ${canBuy?'':'disabled'}>${ownedNow?'✓ POSSUI':locked?'🔒 CEO':'COMPRAR'}</button></div></div>
+      </article>`;
+    }).join('') || '<div class="empty-state glass">Nenhum item disponível.</div>';
+  }catch(e){grid.innerHTML=`<div class="empty-state glass">⚠️ ${escapeHtml(e.message)}</div>`;}
+}
+
+async function buyItem(id){
+  const item=state.items.find(x=>x.id===id);
+  if(!item)return toast('Item não encontrado no catálogo.','error');
+  const btn=document.querySelector(`[data-buy-item="${CSS.escape(id)}"]`);
+  if(btn)btn.disabled=true;
+  try{
+    const d=await post('/shop/buy',{itemId:id});
+    toast(d.message||'Item comprado!','success');
+    const [itemsRes,invRes,meRes]=await Promise.all([get('/items'),get('/inventory'),get('/me')]);
+    state.items=itemsRes.items||state.items; state.inventory=invRes.items||state.inventory;
+    if(meRes.user)state.user=meRes.user;
+    if(meRes.profile)state.profile=normalizeProfile(meRes.profile);
+    updateUserUI(); renderCharacter('#heroCharacter',state.profile.avatar); renderCharacter('#profileCharacterLarge',state.profile.avatar); renderCustomPage();
+    await openShop(state.shopMode);
+  }catch(e){toast(e.message||'Não foi possível comprar.','error');if(btn)btn.disabled=false;}
+}
+
+function renderInventoryItems(){
+  const el=$('#inventoryContent');if(!el)return;
+  if(state.inventoryMode==='achievements'){
+    el.innerHTML='<div class="empty-state">🏆 Conquistas serão mostradas conforme você vence partidas.</div>';return;
+  }
+  if(!state.inventory.length){el.innerHTML='<div class="empty-state">🎒 Seu inventário está vazio. Visite a loja!</div>';return;}
+  el.innerHTML=`<div class="inventory-grid">${state.inventory.map(i=>`<article class="inventory-item glass">
+    <div class="inventory-item-icon">${itemVisualIcon(i)}</div><b>${escapeHtml(i.name||i.id)}</b><small>${escapeHtml(i.category||'cosmético')} • x${i.quantity||1}</small>
+    <button class="btn btn-secondary" type="button" data-inventory-equip="${escapeHtml(i.id)}">EQUIPAR</button>
+  </article>`).join('')}</div>`;
+}
+
+async function openInventory(mode='items'){
+  state.inventoryMode=mode;
+  navigate('inventory');
+  const el=$('#inventoryContent');if(el)el.innerHTML='<div class="loading">🎒 Carregando inventário...</div>';
+  try{
+    const [invRes,itemsRes]=await Promise.all([get('/inventory'),get('/items')]);
+    state.inventory=invRes.items||[];
+    state.items=itemsRes.items||state.items;
+    renderInventoryItems();
+    updateUserUI();
+    renderCharacter('#profileCharacterLarge',state.profile.avatar);
+  }catch(e){if(el)el.innerHTML=`<div class="empty-state">⚠️ ${escapeHtml(e.message)}</div>`;}
+}
+
+async function claimPass(all=false,level=null){
+  const levels=all ? Array.from(document.querySelectorAll('[data-pass-level]')).map(x=>Number(x.dataset.passLevel)).filter(Boolean) : [Number(level)];
+  try{
+    const d=await post('/pass/claim', all?{levels}:{level:Number(level)});
+    if(d.user)state.user=d.user;
+    updateUserUI();
+    toast(d.message||'Recompensa coletada!','success');
+    await renderPass();
+  }catch(e){toast(e.message||'Não foi possível coletar a recompensa.','error');}
+}
+
+async function renderPass(){
+  const grid=$('#passGrid');if(!grid)return;
+  try{
+    const d=await get('/pass');
+    state.passData=d;
+    const level=Math.max(1,Number(d.level)||1), xp=Number(d.xp)||0;
+    $('#passCurrentLevel')&&( $('#passCurrentLevel').textContent=level );
+    $('#passXpText')&&( $('#passXpText').textContent=`${fmt(xp)} XP` );
+    const base=xpLevel(level),next=xpLevel(Math.min(100,level+1));
+    $('#passNextText')&&( $('#passNextText').textContent=level>=100?'NÍVEL MÁXIMO':'Próximo nível: '+fmt(Math.max(0,next-xp))+' XP' );
+    $('#passXpBar')&&( $('#passXpBar').style.width=(level>=100?100:Math.max(0,Math.min(100,((xp-base)/Math.max(1,next-base))*100)))+'%' );
+    const claimed=new Set((d.claimed||[]).map(Number));
+    grid.innerHTML=(d.levels||[]).map(r=>{
+      const unlocked=Number(r.level)<=level, done=claimed.has(Number(r.level));
+      const reward=r.itemId||r.title;
+      return `<article class="pass-card glass ${unlocked?'unlocked':'locked'} ${done?'claimed':''}">
+        <div class="pass-level">NÍVEL ${r.level}</div><div class="pass-reward-icon">${r.itemId?'🎁':r.title?'🏷️':'🪙'}</div>
+        <b>${r.itemId?escapeHtml(itemName(r.itemId)):r.title?escapeHtml(itemName(r.title)):'Moedas'}</b>
+        <small>🪙 +${fmt(r.coins)}</small>
+        <button class="btn ${done?'btn-secondary':'btn-primary'}" data-pass-level="${r.level}" type="button" ${unlocked&&!done?'':'disabled'}>${done?'✓ COLETADO':unlocked?'COLETAR':'🔒'}</button>
+      </article>`;
+    }).join('');
+  }catch(e){grid.innerHTML=`<div class="empty-state">⚠️ ${escapeHtml(e.message)}</div>`;}
+}
+async function openBattlePass(){navigate('pass');await renderPass();}
+
 function openCustomize(){
   if(!state.profile)return toast('Perfil ainda não carregado.','error');
   const b=document.querySelector('#btnCustomize'); if(b){b.disabled=true;setTimeout(()=>b.disabled=false,160)}
@@ -616,7 +698,7 @@ function renderChatMessage(m){
   if(m.channel==='room'&&state.currentRoom?.code===m.roomCode){const box=$('#roomChatMessages');if(box){const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);box.scrollTop=box.scrollHeight;}}
 }
 async function loadGlobalChatHistory(){try{const d=await get('/chat/global');const boxes=[$('#gameChatMessages'),$('#globalChatMessagesLobby')];boxes.forEach(box=>{if(!box)return;box.innerHTML='';(d.messages||[]).forEach(m=>{const line=document.createElement('div');line.className=`chat-line ${Number(m.senderId)===Number(state.user?.id)?'mine':''}`;line.innerHTML=`<b>${escapeHtml(m.senderName)}</b><span>${escapeHtml(m.body)}</span>`;box.appendChild(line);});box.scrollTop=box.scrollHeight;});const last=d.messages?.at(-1);if(last&&$('#globalChatPreview'))$('#globalChatPreview').textContent=`${last.senderName}: ${last.body}`;}catch{}}
-async function openGlobalChat(){state.globalChatOpen=true;if(state.currentView==='game'){show('#gameGlobalChat');$('#gameChatInput')?.focus();}else{show('#globalChatPanel');$('#globalChatInputLobby')?.focus();}$('#btnGameGlobalChat')?.classList.remove('has-message');void loadGlobalChatHistory();}
+async function openGlobalChat(){state.globalChatOpen=true;await loadGlobalChatHistory();if(state.currentView==='game'){show('#gameGlobalChat');$('#gameChatInput')?.focus();}else{show('#globalChatPanel');$('#globalChatInputLobby')?.focus();}$('#btnGameGlobalChat')?.classList.remove('has-message');}
 function closeGlobalChat(){state.globalChatOpen=false;hide('#gameGlobalChat');hide('#globalChatPanel');}
 async function logout(){try{await post('/logout');}catch{}try{state.socket?.disconnect();}catch{}localStorage.removeItem('uv_token');state.user=null;state.profile=null;state.token=null;state.currentRoom=null;hide('#appScreen');show('#authScreen');switchAuth('login');}
 
