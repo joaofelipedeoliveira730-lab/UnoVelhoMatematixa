@@ -5,7 +5,7 @@
 'use strict';
 
 const API = '/api';
-const VERSION = '5.0.0';
+const VERSION = '5.4.0';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
@@ -42,7 +42,7 @@ const SAVED_PLATFORM = localStorage.getItem('uv_platform_version')===VERSION ? l
 const state = {
   user:null, profile:null, token:null, items:[], inventory:[], socket:null, currentView:'lobby', previousView:'lobby',
   currentRoom:null, roomToJoin:null, selectedGameMode:'uno', selectedFormat:'quad', selectedPrivateUser:null, currentChat:'world', shopMode:'official', inventoryMode:'items',
-  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null, friends:[], invites:[]
+  solo:null, pendingChallenge:null, pendingSoloCard:null, pendingCard:null, unoTimer:null, muted:false, platform:SAVED_PLATFORM, currentMapTheme:'saloon', cameraYaw:0, cameraPitch:0, cameraDragging:false, cameraPointerId:null, actionTimers:new Map(), typingTimer:null, musicTimer:null, globalChatOpen:false, passData:null, friends:[], invites:[], soloIsTraining:false, aiTimer:null, turnGuardTimer:null, bootTimer:null
 };
 
 const Sound = {
@@ -79,6 +79,9 @@ async function clearOldClientCache(){
   try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}}catch{}
   try{if('caches' in window){const keys=await caches.keys();for(const k of keys)if(k.toLowerCase().includes('unovelho'))await caches.delete(k);}}catch{}
 }
+
+function showUniverseLoading(){const el=$('#bootScreen');if(!el)return;const worlds=[...document.querySelectorAll('#bootScreen .universe-shot')];worlds.forEach((x,i)=>x.style.setProperty('--delay',`${i*1.25}s`));el.classList.remove('hidden');clearTimeout(state.bootTimer);}
+function hideUniverseLoading(){clearTimeout(state.bootTimer);hide('#bootScreen');}
 
 async function init(){
   window.__UV_APP_READY__=true;
@@ -195,9 +198,17 @@ function bindEvents(){
   on('#btnOpenSettings','click',()=>navigate('settings'));on('#btnOpenSettingsRail','click',()=>navigate('settings'));
   on('#btnRankSmall','click',openRank);
   on('#btnClassic','click',()=>navigate('classic'));
-  $$('.classic-mode-card').forEach(b=>b.addEventListener('click',()=>{const format=b.dataset.classicFormat;if(format==='solo'){state.soloDifficulty=state.soloDifficulty||'medium';navigate('solo');$$('.difficulty').forEach(x=>x.classList.toggle('active',x.dataset.difficulty===state.soloDifficulty));}else{selectOnlineMode('uno',format);}}));
+  on('#btnTraining','click',()=>navigate('training'));
+  $$('.classic-mode-card').forEach(b=>b.addEventListener('click',()=>{
+    const format=b.dataset.classicFormat;
+    if(format==='solo'){
+      const difficulty=xpDifficulty(Number(state.user?.xp)||0);
+      state.soloDifficulty=difficulty;state.soloIsTraining=false;
+      startSolo(difficulty);
+    } else selectOnlineMode('uno',format);
+  }));
   $$('.solo-mode-card').forEach(b=>b.addEventListener('click',()=>startSoloMode(b.dataset.soloMode,state.soloDifficulty||'medium')));
-  $$('.difficulty').forEach(b=>b.addEventListener('click',()=>{state.soloDifficulty=b.dataset.difficulty;$$('.difficulty').forEach(x=>x.classList.toggle('active',x===b));}));
+  $$('.difficulty').forEach(b=>b.addEventListener('click',()=>{state.soloDifficulty=b.dataset.difficulty;$$('.difficulty').forEach(x=>x.classList.toggle('active',x===b));if(state.currentView==='training'){state.soloIsTraining=true;startSolo(state.soloDifficulty);}}));
   on('#soloView','click',e=>{const invite=e.target.closest('[data-invite-friend]');if(invite)inviteFriend(invite.dataset.inviteFriend);});
   on('#btnBackModeGame','click',exitModeGame);
   on('#btnOnline','click',()=>{state.selectedGameMode='uno';openOnlineModes();});
@@ -235,7 +246,8 @@ function bindEvents(){
   ['setMusic','setMusicVol','setSfx','setSfxVol','setAnimations','setReducedMotion','setWorldChat','setRoomChat','setPrivateChat'].forEach(id=>on('#'+id,'change',saveSettings));
   on('#setMusicVol','input',saveSettings);on('#setSfxVol','input',saveSettings);
   on('#roomChatForm','submit',e=>{e.preventDefault();sendChat($('#roomChatInput')?.value,'room');if($('#roomChatInput'))$('#roomChatInput').value='';});
-  on('#gameChatForm','submit',e=>{e.preventDefault();const input=$('#gameChatInput');sendChat(input?.value,'world');if(input){input.value='';state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}});
+  on('#gameChatForm','submit',e=>{e.preventDefault();e.stopPropagation();const input=$('#gameChatInput');sendChat(input?.value,'world');if(input){input.value='';state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false});}});
+  ['#gameGlobalChat','#gameChatInput','#gameChatForm','#gameChatMessages'].forEach(sel=>{const el=$(sel);if(el){['pointerdown','mousedown','touchstart','click'].forEach(ev=>el.addEventListener(ev,e=>e.stopPropagation(),{passive:ev==='touchstart'}));}});
   $$('#emoteTray [data-emote]').forEach(b=>b.addEventListener('click',()=>sendEmote(b.dataset.emote)));
   on('#gameChatInput','input',()=>{state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:true});clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}),900);});
   on('#gameChatInput','blur',()=>state.socket?.emit('chat:typing',{roomCode:state.currentRoom?.code,typing:false}));
@@ -281,6 +293,7 @@ async function register(e){
 
 async function enterApp(forceCustomize=false){
   hide('#authScreen');show('#appScreen');state.profile=normalizeProfile(state.profile);
+  showUniverseLoading();
   // O login normal também precisa habilitar imediatamente o painel da conta CeoVelho.
   updateCEOButton();
   // Abre o lobby primeiro. Loja, inventário e ranking são carregados em segundo plano.
@@ -292,7 +305,8 @@ async function enterApp(forceCustomize=false){
     updateUserUI();renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);populateCustomizer();
   });
   void loadMiniRank();
-  if(forceCustomize)setTimeout(openCustomize,0);
+  setTimeout(()=>hideUniverseLoading(),1100);
+  if(forceCustomize)setTimeout(openCustomize,1150);
 }
 function updateUserUI(){
   const u=state.user;if(!u)return;const a=state.profile.avatar||DEFAULT_AVATAR;const title=itemName(a.title);
@@ -304,7 +318,7 @@ function xpLevel(level){return Math.floor(100*Math.pow(Math.max(0,level-1),1.45)
 
 function navigateBack(explicitTarget){
   const fallback={
-    play:'lobby',classic:'play',onlineModeView:'play',solo:'classic',rooms:'onlineModeView',room:'rooms',
+    play:'lobby',classic:'play',training:'play',onlineModeView:'play',solo:'classic',rooms:'onlineModeView',room:'rooms',
     characters:'lobby',customize:'characters',battlePass:'lobby',shop:'lobby',inventory:'lobby',
     rank:'play',settings:'lobby',modeGameView:'solo',draw:'rooms',game:'solo'
   };
@@ -438,7 +452,7 @@ function speakMatchFound(){try{if('speechSynthesis' in window){window.speechSynt
 function showSoloMatchmaking(onFound){
   const overlay=$('#gameStartOverlay');if(!overlay){onFound?.();return;}
   if(soloMatchTimer)clearTimeout(soloMatchTimer);
-  const limit=8000+Math.floor(Math.random()*22001);
+  const limit=700+Math.floor(Math.random()*900);
   const started=Date.now();
   overlay.classList.remove('hidden');overlay.innerHTML=`<div class="game-start-card matchmaking-card"><div class="game-start-kicker">🎯 BUSCANDO MESA</div><div class="matchmaking-spinner">🃏</div><div class="matchmaking-title">Procurando uma mesa...</div><div id="matchmakingSeconds" class="matchmaking-seconds">${Math.ceil(limit/1000)}s</div><div class="matchmaking-bar"><i></i></div></div>`;
   const tick=setInterval(()=>{const left=Math.max(0,limit-(Date.now()-started));const el=$('#matchmakingSeconds');if(el)el.textContent=`${Math.ceil(left/1000)}s`;if(left<=0)clearInterval(tick);},120);
@@ -449,13 +463,14 @@ function startSoloIntroAndGame(g,difficulty){
   const pick=IMMERSIVE_MAPS[Math.floor(Math.random()*IMMERSIVE_MAPS.length)];
   state.currentMapTheme=pick.theme;
   applyMapScene(pick.id);
-  showSoloMatchmaking(()=>{state.solo=g;renderSolo();Sound.card();toast(`Modo ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} • ${pick.name}`,'success');});
+  showSoloMatchmaking(()=>{state.solo=g;renderSolo();Sound.card();toast(`${state.soloIsTraining?`Treinamento • ${difficulty==='easy'?'Fácil':difficulty==='medium'?'Médio':'Difícil'} • `:''}${pick.name}`,'success');});
 }
 
 // ---------------- SOLO ----------------
 function makeDeck(){const d=[];for(const color of COLORS){for(let n=0;n<=9;n++)d.push({id:crypto.randomUUID(),color,value:String(n),type:'number'});d.push({id:crypto.randomUUID(),color,value:'🚫',type:'skip'});d.push({id:crypto.randomUUID(),color,value:'🔄',type:'reverse'});d.push({id:crypto.randomUUID(),color,value:'+2',type:'draw2'});}for(let i=0;i<4;i++){d.push({id:crypto.randomUUID(),color:'black',value:'🌈',type:'wild'});d.push({id:crypto.randomUUID(),color:'black',value:'+4',type:'draw4'});}for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
 function playable(card,top,color){return !!card&&(card.color==='black'||card.color===color||card.value===top?.value);}
 let soloMode='uno';
+function xpDifficulty(xp=0){const n=Math.max(0,Number(xp)||0);if(n>=5000)return 'hard';if(n>=1500)return 'medium';return 'easy';}
 function startSoloMode(mode,difficulty='medium'){
   state.soloDifficulty=difficulty;
   if(mode==='uno'){ startSolo(difficulty); return; }
@@ -519,7 +534,7 @@ function cardHtml(c,i,n=7){const center=(n-1)/2;const delta=i-center;const rot=(
 function bindRenderedHand(){const hand=$('#playerHand');if(!hand)return;hand.querySelectorAll('.hand-card').forEach((el)=>{el.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();const index=Number(el.dataset.index);if(Number.isInteger(index))playHandCard(index);};});}
 function playHandCard(index){if(state.solo)return playSoloCardAt(index);if(state.currentRoom)return playOnlineCardAt(index);}
 function playSoloCardAt(index){const g=state.solo;if(!g||g.turn!=='player')return;Sound.click();const card=g.player[index];if(!playable(card,g.discard,g.color))return toast('Essa carta não combina com a mesa.','error');if(card.color==='black'){state.pendingSoloCard={card};show('#colorModal');return;}applySoloCard(card);}
-function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.oponente,2);if(card.type==='draw4')drawSolo(g.oponente,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));return;}g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));}
+function applySoloCard(card,chosenColor){const g=state.solo;const i=g.player.findIndex(x=>x.id===card.id);if(i<0)return;g.player.splice(i,1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?(COLORS.includes(chosenColor)?chosenColor:COLORS[Math.floor(Math.random()*4)]):card.color;Sound.card();if(card.type==='draw2')drawSolo(g.oponente,2);if(card.type==='draw4')drawSolo(g.oponente,4);Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();if(g.player.length===0)return finishSolo(true);if(g.player.length===1){g.unoDeadline=Date.now()+3200;}if(card.type==='skip'||card.type==='reverse'){g.turn='oponente';renderSolo();scheduleSoloOpponent(g);return;}g.turn='oponente';renderSolo();scheduleSoloOpponent(g);}
 function drawSolo(hand,n){const g=state.solo;for(let i=0;i<n;i++){if(!g.deck.length){if(g.pile.length){g.deck=g.pile.splice(0);for(let j=g.deck.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[g.deck[j],g.deck[k]]=[g.deck[k],g.deck[j]];}}}if(g.deck.length)hand.push(g.deck.pop());}}
 function drawGameCard(){
   if(state.solo){soloDraw();return;}
@@ -531,7 +546,7 @@ async function reportCurrentOpponent(){
   const game=state._onlineGame;
   const opponents=Array.isArray(game?.players)?game.players.filter(p=>String(p.userId)!==String(state.user?.id)):[];
   const target=opponents[0];
-  if(!target?.userId){
+  if(!target?.userId || !Number.isFinite(Number(target.userId))){
     return toast('A denúncia fica disponível quando houver outro jogador identificado na mesa.','info',2600);
   }
   const reason=window.prompt(`Por que você quer denunciar ${target.username||'este jogador'}?`, 'Comportamento inadequado na partida');
@@ -548,30 +563,35 @@ async function reportCurrentOpponent(){
 
 function exitGame(){
   if(soloMatchTimer){clearTimeout(soloMatchTimer);soloMatchTimer=null;}
+  clearTimeout(state.aiTimer);clearTimeout(state.turnGuardTimer);
   if(gameIntroBusy){gameIntroBusy=false;hide('#gameStartOverlay');}
-  state.solo=null;state._onlineGame=null;state._pendingOnlineGame=null;
+  state.solo=null;state.soloIsTraining=false;state._onlineGame=null;state._pendingOnlineGame=null;
   if(state.currentRoom){state.socket?.emit('room:leave');state.currentRoom=null;navigate('rooms');return;}
   navigate('solo');
 }
-function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();const drawn=g.player[g.player.length-1];if(count===1&&drawn&&playable(drawn,g.discard,g.color)){g.message='Você comprou uma carta jogável. Escolha se quer jogar.';renderSolo();return;}g.turn='oponente';renderSolo();setTimeout(housePlayerTurn,opponentDelay(g.difficulty));}
-function opponentDelay(difficulty='medium'){const ranges={easy:[140,240],medium:[170,300],hard:[210,360]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
+function soloDraw(){const g=state.solo;if(!g||g.turn!=='player')return;const count=g.pendingDraw||1;drawSolo(g.player,count);g.pendingDraw=0;Sound.cardDraw();g.message=count>1?`Você comprou ${count} cartas e passou a vez.`:'Você comprou 1 carta e passou a vez.';g.turn='oponente';renderSolo();scheduleSoloOpponent(g);}
+function opponentDelay(difficulty='medium'){const ranges={easy:[700,1200],medium:[850,1450],hard:[1000,1800]};const [min,max]=ranges[difficulty]||ranges.medium;return min+Math.floor(Math.random()*(max-min+1));}
+function scheduleSoloOpponent(g){clearTimeout(state.aiTimer);state.aiTimer=setTimeout(()=>housePlayerTurn(),Math.min(9500,opponentDelay(g.difficulty)));}
+
 function housePlayerTurn(){
   const g=state.solo;if(!g||g.turn!=='oponente')return;
-  const delay=opponentDelay(g.difficulty);
-  toast(`🧠 Oponente jogando...`,'info',Math.min(2200,Math.max(700,delay-200)));
+  clearTimeout(state.aiTimer);
+  const started=Date.now();
+  const delay=Math.min(9500,opponentDelay(g.difficulty));
   setTimeout(()=>{
     if(!state.solo||state.solo!==g||g.turn!=='oponente')return;
-    let cards=g.oponente.filter(c=>playable(c,g.discard,g.color));if(g.pendingDraw>0)cards=[];let card=null;
+    let cards=g.oponente.filter(c=>playable(c,g.discard,g.color));
+    if(g.pendingDraw>0)cards=[];
+    let card=null;
     if(g.difficulty==='easy')card=cards[Math.floor(Math.random()*cards.length)]||null;
     else if(g.difficulty==='hard')card=cards.sort((a,b)=>opponentScore(g,b)-opponentScore(g,a))[0]||null;
     else card=cards.sort((a,b)=>cardScore(b)-cardScore(a))[0]||null;
-    if(!card){drawSolo(g.oponente,g.pendingDraw||1);g.pendingDraw=0;g.turn='player';Sound.cardDraw();renderSolo();return;}
+    if(!card){drawSolo(g.oponente,g.pendingDraw||1);g.pendingDraw=0;g.turn='player';Sound.cardDraw();g.message='Oponente comprou e passou a vez.';renderSolo();return;}
     g.oponente.splice(g.oponente.indexOf(card),1);g.pile.push(g.discard);g.discard=card;g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;g.color=card.color==='black'?chooseOpponentColor(g.oponente):card.color;
-    g.pendingDraw=card.type==='draw2'?2:card.type==='draw4'?4:0;
     if(card.type==='draw2')drawSolo(g.player,2);if(card.type==='draw4')drawSolo(g.player,4);
     Sound.play();if(['draw2','draw4','wild','skip','reverse'].includes(card.type))Sound.special();
     if(g.oponente.length===0)return finishSolo(false);if(g.oponente.length===1){toast(`📣 ${g.opponentName} gritou UNO!`,'success',1800);Sound.uno();}
-    g.turn='player';renderSolo();
+    g.turn='player';g.message=`${g.opponentName} jogou ${card.value}. Sua vez.`;renderSolo();
   },delay);
 }
 function cardScore(c){return c.type==='draw4'?100:c.type==='draw2'?80:c.type==='wild'?70:c.type==='skip'?50:c.type==='reverse'?40:Number(c.value)||0;}
@@ -628,6 +648,8 @@ function renderDrawingGuess(g){
 // ---------------- ONLINE ----------------
 function playOnlineCardAt(index){const game=state._onlineGame;if(!game)return;const mine=String(game.currentPlayerId)===String(state.user.id);if(!mine)return toast('Aguarde sua vez.');const card=game.hand?.[index];if(!card)return;if(!playable(card,game.top,game.currentColor))return toast('Essa carta não pode ser jogada.','error');const chosenColor=card.color==='black'?chooseOpponentColor(game.hand):undefined;const source=$(`#playerHand .hand-card[data-index=\"${index}\"]`);source?.classList.add('card-selected-to-play');setTimeout(()=>source?.classList.remove('card-selected-to-play'),450);state.socket?.emit('game:play',{cardId:card.id,chosenColor});}
 
+function renderTypingIndicator(m={}){const el=$('#gameChatTyping');if(!el)return;el.textContent=m.typing?`${escapeHtml(m.username||'Jogador')} está digitando...`:'';el.classList.toggle('hidden',!m.typing);}
+function handleChatAction(m={}){ /* evento visual de chat; nunca altera turno ou navegação */ }
 function handleGameAction(action={}){
   if(action.type==='play'){Sound.play();toast(`🃏 ${escapeHtml(action.username||'Jogador')} jogou uma carta.`,'info',1200);}
   else if(action.type==='draw'){Sound.cardDraw();}

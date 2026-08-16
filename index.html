@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b66ff">
 <meta name="description" content="Uno dos Idosos — UNO, personagens e multiplayer.">
 <title>Uno dos Idosos</title>
-<link rel="stylesheet" href="style.css?v=20260816-5.3.0">
+<link rel="stylesheet" href="style.css?v=20260816-5.4.0">
 </head>
 <body>
 
@@ -28,7 +28,10 @@
 
 <div id="orientationGuard" class="orientation-guard hidden"><div class="rotate-phone">↻</div><h2>Virando a mesa...</h2><p>O jogo está ajustando a partida para a tela deitada.</p><button id="btnForceLandscape" class="btn btn-primary" type="button">📱 AJUSTAR TELA</button></div>
 
-<div id="bootScreen" class="boot-screen hidden"><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><p>Carregando a mesa dos idosos...</p></div>
+<div id="bootScreen" class="boot-screen hidden">
+  <div class="universe-gallery" aria-hidden="true"><div class="universe-shot shot-a"></div><div class="universe-shot shot-b"></div><div class="universe-shot shot-c"></div><div class="universe-shot shot-d"></div></div>
+  <div class="boot-vignette"></div><div class="loader-logo">UNO<span>VELHO</span></div><div class="loader-ring"></div><div class="loader-status"><b>CARREGANDO O UNIVERSO MATEMATIXA</b><span>Preparando personagens • mesa • cartas • universo</span></div>
+</div>
 
 <main id="authScreen" class="screen auth-screen">
   <div class="floating-cards" aria-hidden="true"><span class="float-card f1">7</span><span class="float-card f2">+2</span><span class="float-card f3">🌈</span><span class="float-card f4">3</span><span class="float-card f5">🔄</span><span class="float-card f6">9</span><span class="float-card f7">+4</span><span class="float-card f8">5</span></div>
@@ -113,7 +116,7 @@
 <section id="playView" class="view hidden modes-view">
   <div class="subnav"><button class="back-btn" data-back="lobby" type="button">← Voltar</button><div><h2>JOGAR UNO</h2><small class="subnav-subtitle">Escolha um modo de jogo.</small></div></div>
   <div class="mode-hub-actions uno-only-play">
-    <button id="btnClassic" class="mode-hub-btn classic" type="button"><span>🃏</span><b>MODO CLÁSSICO</b><small>Solo • Duo • Trio</small></button>
+    <button id="btnClassic" class="mode-hub-btn classic" type="button"><span>🃏</span><b>MODO CLÁSSICO</b><small>Solo • Duo • Trio</small></button><button id="btnTraining" class="mode-hub-btn training" type="button"><span>🎯</span><b>TREINAMENTO</b><small>Escolha a dificuldade</small></button>
     <button id="btnOnline" class="mode-hub-btn online" type="button"><span>🌎</span><b>ONLINE</b><small>Crie ou entre em uma sala</small></button>
   </div>
   <div class="mode-showcase compact uno-only-showcase">
@@ -128,6 +131,14 @@
     <button class="classic-mode-card" data-classic-format="trio" type="button"><span>💠</span><b>TRIO</b><small>3 lugares na mesa</small><em>3 JOGADORES</em></button>
   </div>
 </section>
+<section id="trainingView" class="view hidden training-view">
+  <div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><div><h2>TREINAMENTO</h2><small class="subnav-subtitle">Escolha a dificuldade para treinar.</small></div></div>
+  <div class="training-grid">
+    <button class="difficulty training-card" data-difficulty="easy" type="button"><span>🟢</span><b>FÁCIL</b><small>Para aprender a mesa.</small></button>
+    <button class="difficulty training-card" data-difficulty="medium" type="button"><span>🟡</span><b>MÉDIO</b><small>Mais estratégico.</small></button>
+    <button class="difficulty training-card" data-difficulty="hard" type="button"><span>🔴</span><b>DIFÍCIL</b><small>Oponente mais esperto.</small></button>
+  </div>
+</section>
 <section id="onlineModeView" class="view hidden">
   <div class="subnav"><button class="back-btn" data-back="play" type="button">← Voltar</button><div><h2>UNO ONLINE</h2><small class="subnav-subtitle">Salas exclusivas de UNO dos Idosos.</small></div></div>
   <div class="online-mode-grid uno-online-formats">
@@ -137,7 +148,7 @@
   </div>
 </section>
 <section id="soloView" class="view hidden">
-  <div class="subnav"><button class="back-btn" data-back="play" type="button">← VOLTAR</button><div><h2>SOLO CLÁSSICO</h2><small class="subnav-subtitle">Escolha a dificuldade e entre na mesa.</small></div><span class="version-chip">1.3.0</span></div>
+  <div class="subnav"><button class="back-btn" data-back="play" type="button">← VOLTAR</button><div><h2>SOLO CLÁSSICO</h2><small class="subnav-subtitle">Treinamento com dificuldade escolhida.</small></div><span class="version-chip">1.3.0</span></div>
   <div class="solo-page-grid">
     <div class="solo-main-panel">
       <div class="solo-match-card glass"><span class="pill">🎯 MATCHMAKING</span><h3>Partida solo</h3><p>Um tempo aleatório de até <b>30s</b> encontra sua mesa. Ao encontrar, o celular vibra, uma voz anuncia <b>“Partida encontrada!”</b> e começa a contagem de 5 segundos.</p></div>
